@@ -3,29 +3,31 @@
 # Released under the MIT license (see COPYING.MIT for the terms)
 
 inherit kernel
+inherit pythonnative
 
 DESCRIPTION = "Linux Kernel for Qualcomm MDM9607-MTP"
 LICENSE = "GPLv2"
+LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 
 # Set compatible machines for this kernel
 COMPATIBLE_MACHINE = "(mdm9607|apq8009|apq8096|apq8053|msm8909w)"
 # Dependencies: skales-native (provides mkbootimg,dtbtool), gcc
-DEPENDS += "skales-native libgcc"
+DEPENDS += "skales-native libgcc python-native dtc-native"
 
 
 # Base paths
-SRC_DIR   =  "/kernel/msm-3.18"
-S         =  "${WORKDIR}/kernel/msm-3.18"
+SRC_URI   =  "file://linux-4.9"
+S         =  "${WORKDIR}/linux-4.9"
 GITVER    =  "${@base_get_metadata_git_revision('${SRC_DIR}',d)}"
 PV = "git"
-PR = "r5-${DISTRO}"
+PR = "${DISTRO}"
 
 KERNEL_IMAGETYPE ?= "zImage"
 KERNEL_DEFCONFIG_mdm9607 ?= "${S}/arch/arm/configs/mdm9607-perf_defconfig"
+KERNEL_DEVICETREE = "qcom/mdm9607-mtp.dtb"
 
 QCOM_BOOTIMG_ROOTFS ?= "undefined"
 SD_QCOM_BOOTIMG_ROOTFS ?= "undefined"
-
 # set output file names
 BOOT_IMAGE_BASE_NAME = "boot-${KERNEL_IMAGE_NAME}"
 BOOT_IMAGE_SYMLINK_NAME = "boot-${KERNEL_IMAGE_LINK_NAME}"
@@ -63,53 +65,26 @@ do_configure_prepend() {
 		printf "%s%s" +g $head > ${B}/.scmversion
 	fi
 
-    # Check for kernel config fragments.  The assumption is that the config
-    # fragment will be specified with the absolute path.  For example:
-    #   * ${WORKDIR}/config1.cfg
-    #   * ${S}/config2.cfg
-    # Iterate through the list of configs and make sure that you can find
-    # each one.  If not then error out.
-    # NOTE: If you want to override a configuration that is kept in the kernel
-    #       with one from the OE meta data then you should make sure that the
-    #       OE meta data version (i.e. ${WORKDIR}/config1.cfg) is listed
-    #       after the in kernel configuration fragment.
-    # Check if any config fragments are specified.
-    if [ ! -z "${KERNEL_CONFIG_FRAGMENTS}" ]
-    then
-        for f in ${KERNEL_CONFIG_FRAGMENTS}
-        do
-            # Check if the config fragment was copied into the WORKDIR from
-            # the OE meta data
-            if [ ! -e "$f" ]
-            then
-                echo "Could not find kernel config fragment $f"
-                exit 1
-            fi
-        done
-
-        # Now that all the fragments are located merge them.
-        ( cd ${WORKDIR} && ${S}/scripts/kconfig/merge_config.sh -m -r -O ${B} ${B}/.config ${KERNEL_CONFIG_FRAGMENTS} 1>&2 )
-    fi
-
 	yes '' | oe_runmake -C ${S} O=${B} oldconfig
         oe_runmake -C ${S} O=${B} savedefconfig && cp ${B}/defconfig ${WORKDIR}/defconfig.saved
 }
 
 # append DTB
 do_compile_append() {
-    if ! [ -e ${B}/arch/${ARCH}/boot/dts/${KERNEL_DEVICETREE} ] ; then
-        oe_runmake ${KERNEL_DEVICETREE}
-    fi
-    cp arch/${ARCH}/boot/${KERNEL_IMAGETYPE} arch/${ARCH}/boot/${KERNEL_IMAGETYPE}.backup
-    cat arch/${ARCH}/boot/${KERNEL_IMAGETYPE}.backup arch/${ARCH}/boot/dts/${KERNEL_DEVICETREE} > arch/${ARCH}/boot/${KERNEL_IMAGETYPE}
-    rm -f arch/${ARCH}/boot/${KERNEL_IMAGETYPE}.backup
+  #  if ! [ -e ${B}/arch/arm/boot/dts/qcom/${KERNEL_DEVICETREE} ] ; then
+  #      oe_runmake ${KERNEL_DEVICETREE}
+   # fi
+    cp arch/arm/boot/${KERNEL_IMAGETYPE} arch/arm/boot/${KERNEL_IMAGETYPE}.backup
+    ${STAGING_BINDIR_NATIVE}/skales/dtbTool ${B}/arch/arm/boot/dts/qcom/ -s 2048 -o ${B}/arch/arm/boot/dts/qcom/masterDTB -p scripts/dtc/ -v
+    cat arch/arm/boot/${KERNEL_IMAGETYPE}.backup arch/arm/boot/dts/qcom/masterDTB > arch/arm/boot/${KERNEL_IMAGETYPE}
+    rm -f arch/arm/boot/${KERNEL_IMAGETYPE}.backup
 }
 
 
 # param ${1} partition where rootfs is located
 # param ${2} output boot image file name
 priv_make_image() {
-    ${STAGING_BINDIR_NATIVE}/skales/mkbootimg --kernel ${B}/arch/${ARCH}/boot/${KERNEL_IMAGETYPE} \
+    ${STAGING_BINDIR_NATIVE}/skales/mkbootimg --kernel ${B}/arch/arm/boot/${KERNEL_IMAGETYPE} \
               --ramdisk ${B}/initrd.img \
               --output ${DEPLOYDIR}/${2}.img \
               --pagesize ${QCOM_BOOTIMG_PAGE_SIZE} \
@@ -134,7 +109,3 @@ do_deploy_append() {
     priv_make_image ${QCOM_BOOTIMG_ROOTFS} ${BOOT_IMAGE_BASE_NAME}
     ln -sf ${BOOT_IMAGE_BASE_NAME}.img ${DEPLOYDIR}/${BOOT_IMAGE_SYMLINK_NAME}.img
 }
-
-
-
-
