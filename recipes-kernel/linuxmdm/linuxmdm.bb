@@ -16,10 +16,10 @@ DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
 #DEPENDS += "skalescu-native"
 
 # Base paths
-SRC_URI   =  "file://linux-3.18"
-S         =  "${WORKDIR}/linux-3.18"
-GITVER    =  "${@base_get_metadata_git_revision('${SRC_DIR}',d)}"
-PV = "git"
+SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git"
+SRCREV = "master"
+S = "${WORKDIR}/git"
+
 PR = "${DISTRO}"
 
 KERNEL_IMAGETYPE ?= "zImage"
@@ -76,7 +76,7 @@ do_compile_append() {
 #        oe_runmake ${KERNEL_DEVICETREE}
 #    fi
    # cp arch/arm/boot/${KERNEL_IMAGETYPE} arch/arm/boot/${KERNEL_IMAGETYPE}.backup
-    ${STAGING_BINDIR_NATIVE}/dtbTool ${B}/arch/arm/boot/dts/qcom/ -s 2048 -o ${B}/arch/arm/boot/dts/qcom/dtb.img -p scripts/dtc/ -v 
+    ${STAGING_BINDIR_NATIVE}/dtbTool ${B}/arch/arm/boot/dts/qcom/ -s 2048 -o ${B}/arch/arm/boot/dts/qcom/dtb.img -p scripts/dtc/ -v
    # cat arch/arm/boot/${KERNEL_IMAGETYPE}.backup arch/arm/boot/dts/qcom/masterDTB > arch/arm/boot/${KERNEL_IMAGETYPE}
   #  rm -f arch/arm/boot/${KERNEL_IMAGETYPE}.backup
 }
