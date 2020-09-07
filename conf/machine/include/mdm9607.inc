@@ -30,8 +30,6 @@ MACHINE_EXTRA_RRECOMMENDS += " \
 "
 
 IMAGE_FSTYPES ?= "ubifs.gz tar.gz"
-SERIAL_CONSOLE ?= "115200 ttyHSL0"
-
 
 # Max supported inodes
 EXTRA_IMAGECMD ?= "-N 2048"
