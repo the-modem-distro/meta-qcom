@@ -13,6 +13,9 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 COMPATIBLE_MACHINE = "(mdm9607|apq8009|apq8096|apq8053|msm8909w)"
 # Dependencies: skales-native (provides mkbootimg,dtbtool), gcc
 DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
+
+#not yet.
+#DEPENDS += "proprietaryoverlay-native"
 #DEPENDS += "skalescu-native"
 
 # Base paths
@@ -96,10 +99,6 @@ priv_make_image() {
 }
 
 do_deploy_append() {
-    tmp="ttyHSL0"
-    baudrate="115200n8"
-    ttydev="ttyHSL0"
-
     # mkbootimg requires an initrd file, make fake one that will be ignored
     # during boot
     echo "" > ${B}/initrd.img

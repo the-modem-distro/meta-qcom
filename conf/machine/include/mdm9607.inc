@@ -29,15 +29,26 @@ MACHINE_EXTRA_RRECOMMENDS += " \
     fastrpc \
 "
 
-IMAGE_FSTYPES ?= "ubifs.gz tar.gz"
+# Image Generation
+# Create the image in tar.gz to easily extract it and
+# in ubifs for the target.
+
+IMAGE_FSTYPES ?= "ubi multiubi tar.gz"
+
+# Set the volume name inside the ubi image
+UBI_VOLNAME = "rootfs"
+ROOT_FLASH_SIZE = "63"
+SYSTEM_VOLUME_SIZE ?= "63MiB"
+CACHE_VOLUME_SIZE ?= "55MiB"
 
 # Max supported inodes
 EXTRA_IMAGECMD ?= "-N 2048"
 
 #UBINIZE Args
-UBINIZE_ARGS ?= "-m 4096 -p 256KiB -s 4096"
+# UBINIZE_ARGS = "-m 2048 -p 256KiB -s 4096"
 #MKUBIFS Arg
-MKUBIFS_ARGS ?= "-m 4096 -e 253952 -c 2146 -F"
+# MKUBIFS_ARGS = "-m 2048 -e 253952 -c 2146 -F"
 #Volume sizes
-SYSTEM_VOLUME_SIZE ?= "63MiB"
-CACHE_VOLUME_SIZE ?= "55MiB"
+
+MKUBIFS_ARGS="-m 2048 -e 126976 -c 4292 -F"
+UBINIZE_ARGS="-m 2048 -p 128KiB -s 2048"
