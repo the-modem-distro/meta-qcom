@@ -1,0 +1,248 @@
+#!/bin/sh
+#
+# Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Starts the USB Android Gadget.
+
+export KERNEL=`uname -r`
+export SOFTAP_W_DUN="Y"
+echo ":: USB Script begin" > /dev/ttyHSL0
+echo ":: USB Script begin" > /dev/ttyHSL0
+# find / > /dev/ttyHS0
+case "$1" in
+  start)
+    QUEC_USB_PID=0125
+	QUEC_USB_VID=2C7C
+	QUEC_ENABLE_USB=0
+	QUEC_USB_NET_TYPE="rmnet"
+	QUEC_USB_TTYGS1=0	#juson.zhang-2018/10/18:add usb channel if QUEC_USB_TTYGS1=1,default value is 0
+	QUEC_MANUFCTURE="Quectel, Incorporated"
+    QUEC_PRODUCTINFO="LTE Module"
+	usb_dir="/data/usb"
+  	echo ":: USB Script has started" > /dev/ttyHSL0
+	if [ -d /sys/class/android_usb/android0/f_ffs ]
+	then
+		echo adb > /sys/class/android_usb/android0/f_ffs/aliases
+	fi
+
+	# get soc platform to update product related information
+	if [ -f /sys/devices/soc0/hw_platform ]; then
+		socplatform=`cat /sys/devices/soc0/machine` 2> /dev/null
+		soc_hwplatform=`cat /sys/devices/soc0/hw_platform`
+	else
+		socplatform=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
+	fi
+	echo "soc:" $socplatform > /dev/ttyHSL0
+
+	# find serialno from cmdline
+	cmdline=`cat /proc/cmdline` 2> /dev/null
+	strsearch="androidboot.serialno="
+	if echo "$cmdline" | grep -q "$strsearch"; then
+		startsearch=${cmdline#*$strsearch}
+		pos=$(( ${#cmdline} - ${#startsearch}))
+		serialno=${cmdline:$pos:8}
+	else
+		echo "serialno not found with cmdline, use default"
+		serialno="12345678"
+	fi
+	echo "serialno:" $serialno
+
+	msm_serial=`cat /sys/devices/soc0/serial_number`
+	msm_serial_hex=`printf %08X $msm_serial`
+	product_string="$socplatform-$soc_hwplatform _SN:$msm_serial_hex"
+
+	# try to mount configfs, and create instance of USB functions if it goes through
+	mount -t configfs none /sys/kernel/config
+	if [ -d /sys/kernel/config/usb_gadget ]; then
+		echo "Configuring the USB gadget using ConfigFS..."
+		cd /sys/kernel/config/usb_gadget
+		mkdir g1
+		cd g1
+		mkdir strings/0x409
+		mkdir configs/b.1
+		mkdir configs/b.1/strings/0x409
+		mkdir functions/mass_storage.0
+		mkdir functions/ffs.adb
+		mkdir functions/diag.diag
+		mkdir functions/cser.dun.0
+		mkdir functions/cser.nmea.1
+		mkdir functions/rmnet_bam.rmnet
+		mkdir functions/ncm.0
+		echo "$serialno" > strings/0x409/serialnumber
+		echo "QCOM" > strings/0x409/manufacturer
+		echo "$socplatform" > strings/0x409/product
+		echo "$product_string" > /config/usb_gadget/g1/strings/0x409/product
+		setprop sys.usb.configfs 1
+	fi
+
+	if [ -d /sys/class/android_usb/android0 ]
+	then
+		echo "$product_string" > /sys/class/android_usb/android0/iProduct
+	fi
+
+	# mount functionfs
+	mkdir -p /dev/usb-ffs/adb
+	mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+	mount -o remount,gid=5,mode=620 /dev/pts
+    # Force SOFTAP
+    SOFTAP_W_DUN=y
+	# boot hsic composition:
+	if [ -d /sys/class/android_usb/android1 ]
+	then
+		/data/usb/boot_hsic_composition y
+		# let hsic compostion script run before starting hsusb
+		sleep 1
+	fi
+
+
+    echo "Switching to composition number 0x9025" > /dev/kmsg
+    num="0"
+    from_adb="y"
+
+	if [ -f $usb_dir/usb_net_type ]
+	then 
+		echo "[Max][USB_NET_TYPE_CHECK] usb_net_type exists! data dir has been created!" > /dev/kmsg
+	        QUEC_USB_NET_TYPE=`cat $usb_dir/usb_net_type`
+	else
+		echo "[Max][USB_NET_TYPE_CHECK] usb_net_type NOT exists!Create it" > /dev/kmsg
+		echo rmnet > $usb_dir/usb_net_type
+		chmod 777 $usb_dir/usb_net_type
+		sync
+	fi
+
+	if [ -f $usb_dir/quec_usb_pid ]
+	then 
+		QUEC_USB_PID=`cat $usb_dir/quec_usb_pid`
+	else
+                echo $QUEC_USB_PID > $usb_dir/quec_usb_pid
+                chmod 777 $usb_dir/quec_usb_pid
+		sync
+	fi
+	
+        if [ -f $usb_dir/quec_usb_vid ]
+	then 
+		QUEC_USB_VID=`cat $usb_dir/quec_usb_vid`
+	else
+                echo $QUEC_USB_VID > $usb_dir/quec_usb_vid
+                chmod 777 $usb_dir/quec_usb_vid
+		sync
+	fi
+
+	echo "[Max][USB_DEF_ID_CHECK] USB ID in fs: pid is $QUEC_USB_PID && vid is $QUEC_USB_VID" > /dev/kmsg
+
+	if [ -f $usb_dir/quec_enable_usb ]
+	then
+		QUEC_ENABLE_USB=`cat $usb_dir/quec_enable_usb`
+	fi
+
+	SERIAL_FUNC="tty,smd,smd"
+	USB_FUNC="diag,serial,rmnet,adb"
+	if [ -f $usb_dir/quec_serial_func ]
+	then
+		SERIAL_FUNC=`cat $usb_dir/quec_serial_func`
+		sync
+	fi
+
+	if [ -f $usb_dir/quec_usb_func ]                                     
+	then                                                                     
+		USB_FUNC=`cat $usb_dir/quec_usb_func`                     
+		sync
+	fi 
+	
+	if [ $QUEC_USB_NET_TYPE == "rndis" ]
+	then
+		USB_FUNC=${USB_FUNC//,rmnet/""}
+		if [ "$USB_FUNC" != "" ]
+		then
+			USB_FUNC="rndis,$USB_FUNC"
+		else
+			USB_FUNC="rndis"
+		fi
+	else
+		USB_FUNC=${USB_FUNC//rmnet/$QUEC_USB_NET_TYPE}
+	fi
+	
+	echo "[Max][USB_FUNC_CHECK] QUEC_USB_NET_TYPE=$QUEC_USB_NET_TYPE, USB_FUNC=$USB_FUNC, USB_ENABLE=$QUEC_ENABLE_USB" > /dev/kmsg
+	echo 0 > /sys/class/android_usb/android$num/enable
+	echo $QUEC_USB_PID > /sys/class/android_usb/android$num/idProduct
+	echo $QUEC_USB_VID > /sys/class/android_usb/android$num/idVendor
+	echo diag > /sys/class/android_usb/android0/f_diag/clients
+	echo 239 > /sys/class/android_usb/android$num/bDeviceClass
+	echo 2 > /sys/class/android_usb/android$num/bDeviceSubClass
+	echo 1 > /sys/class/android_usb/android$num/bDeviceProtocol
+	#juson.zhang-2018/10/16:add usb tty 
+	if [ $QUEC_USB_TTYGS1 -eq 0 ];then
+	echo $SERIAL_FUNC > /sys/class/android_usb/android0/f_serial/transports
+	else
+		echo $SERIAL_FUNC,tty > /sys/class/android_usb/android0/f_serial/transports
+	fi
+	echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
+	echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
+	echo $USB_FUNC,ffs > /sys/class/android_usb/android$num/functions
+	echo 1 > /sys/class/android_usb/android$num/remote_wakeup
+	echo 1 > /sys/class/android_usb/android$num/f_rndis/wceis
+	sleep 1
+	#echo 1 > /sys/class/android_usb/android$num/enable
+
+    echo $QUEC_MANUFCTURE > /sys/class/android_usb/android$num/iManufacturer
+	echo $QUEC_PRODUCTINFO > /sys/class/android_usb/android$num/iProduct
+	
+	if [ "$USB_FUNC" != "" ]
+	then
+		found_mbim=`echo "$USB_FUNC" | grep "mbim"`
+		if [ "$found_mbim" != "" ]
+		then
+		{
+			echo "usb net is mbim! create mbim_ready_state and echo 0" > /dev/kmsg
+			echo 0 > $usb_dir/mbim_ready_state
+			chmod 777 $usb_dir/mbim_ready_state
+		}
+		else
+		{
+			echo "usb net is NOT mbim! del mbim_ready_state" > /dev/kmsg
+			rm -rf $usb_dir/mbim_ready_state
+		}
+		fi
+	fi
+	echo 1 > /sys/class/android_usb/android$num/enable
+    /etc/init.d/adbd start
+   	echo 1  > /sys/devices/virtual/android_usb/android0/f_serial/dun_w_softap_enable
+
+	;;
+
+  stop)
+        echo "Stopping USB Android Gadget"
+        ;;
+
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage usb { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
