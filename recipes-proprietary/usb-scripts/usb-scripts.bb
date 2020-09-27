@@ -19,41 +19,27 @@ S = "${WORKDIR}/"
 do_install() {
       install -d ${D}/etc/default
       install -d ${D}/etc/init.d
-      install -d ${D}/etc/rc0.d
-      install -d ${D}/etc/rc1.d
-      install -d ${D}/etc/rc2.d
-      install -d ${D}/etc/rc3.d
-      install -d ${D}/etc/rc4.d
-      install -d ${D}/etc/rc5.d
+      install -d ${D}/etc/rcS.d
+      # Modem partition sits in firmware, but is linked in /lib/firmware/image
+      # Since we cant expect the partition to be in place while building,
+      # Just recreate the directory and link it
+      install -d ${D}/firmware/image
+      install -d ${D}/lib/firmware
+
+      # Make a directory to mount the recovery image too, now that we're at it
+      install -d ${D}/recovery
+
       cp  ${S}/usb ${D}/etc/init.d/
       cp  ${S}/adbd ${D}/etc/init.d/
       cp  ${S}/find_partitions.sh ${D}/etc/init.d/
       chmod +x ${D}/etc/init.d/usb
       chmod +x ${D}/etc/init.d/adbd
       chmod +x ${D}/etc/init.d/find_partitions.sh
-      cd ${D}/etc/init.d/
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc0.d/S80usb
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc1.d/S80usb
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc2.d/S80usb
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc3.d/S80usb
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc4.d/S80usb
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rc5.d/S80usb
 
-
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc0.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc1.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc2.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc3.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc4.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc5.d/S99adbd
-
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc0.d/S81find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc1.d/S81find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc2.d/S81find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc3.d/S81find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc4.d/S81find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rc5.d/S81find_partitions.sh
-
+      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S99usb
+      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S99adbd
+      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S80find_partitions.sh
+      ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
       touch ${D}/etc/default/usb
       touch ${D}/etc/default/adbd
       touch ${D}/etc/default/find_partitions.sh

@@ -14,13 +14,11 @@ COMPATIBLE_MACHINE = "(mdm9607|apq8009|apq8096|apq8053|msm8909w)"
 # Dependencies: skales-native (provides mkbootimg,dtbtool), gcc
 DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
 
-#not yet.
-#DEPENDS += "proprietaryoverlay-native"
-#DEPENDS += "skalescu-native"
-
 # Base paths
 SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git;branch=linux-3.18.140"
 SRCREV = "linux-3.18.140"
+# SRC_URI   =  "git://github.com/Biktorgj/Linux-4.14.180-CAF.git;branch=master"
+# SRCREV = "master"
 S = "${WORKDIR}/git"
 
 PR = "${DISTRO}"
@@ -36,7 +34,7 @@ BOOT_IMAGE_BASE_NAME = "boot-${KERNEL_IMAGE_NAME}"
 BOOT_IMAGE_SYMLINK_NAME = "boot-${KERNEL_IMAGE_LINK_NAME}"
 # CMDLine params
 QCOM_BOOTIMG_PAGE_SIZE = "2048"
-KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1 earlycon=msm_hsl_uart,0x78b3000 verbose"
+KERNEL_CMDLINE = "noinitrd ro console=ttyHS0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1 verbose"
 QCOM_BOOTIMG_KERNEL_BASE = "0x80000000"
 KERNEL_TAGS_ADDR = "0x81E00000"
 kernel_conf_variable() {
