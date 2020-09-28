@@ -26,114 +26,28 @@
 
 # Start Modem's USB Gadget
 # get soc platform to update product related information
-if [ -f /sys/devices/soc0/hw_platform ]; then
-    socplatform=`cat /sys/devices/soc0/machine` 2> /dev/null
-else
-    socplatform=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
-fi
+num="0"
+mode="hsusb"
 
-# find serialno from cmdline
-cmdline=`cat /proc/cmdline` 2> /dev/null
-strsearch="androidboot.serialno="
-if echo "$cmdline" | grep -q "$strsearch"; then
-    startsearch=${cmdline#*$strsearch}
-    pos=$(( ${#cmdline} - ${#startsearch}))
-    serialno=${cmdline:$pos:8}
-else
-    echo "serialno not found with cmdline, use default"
-    serialno="12345678"
-fi
-echo "Platform: " $socplatform
-echo "Device: " $serialno
-msm_serial=`cat /sys/devices/soc0/serial_number`
-msm_serial_hex=`printf %08X $msm_serial`
-product_string="$socplatform-$soc_hwplatform _SN:$msm_serial_hex"
-SERIAL_FUNC="tty,smd,smd"
-USB_FUNC="diag,serial,rmnet"
-QUEC_USB_PID=0125
-QUEC_USB_VID=2C7C
-QUEC_ENABLE_USB=0
-QUEC_USB_NET_TYPE="rmnet"
-QUEC_USB_TTYGS1=0
-QUEC_MANUFCTURE="Quectel, Incorporated"
-QUEC_PRODUCTINFO="LTE Module"
+pkill adbd
 
-case "$1" in
-  start)
-  	# Try to star via configfs
-	mount -t configfs none /sys/kernel/config
-	if [ -d /sys/kernel/config/usb_gadget ]; then
-		echo "Configuring the USB gadget using ConfigFS..."
-		cd /sys/kernel/config/usb_gadget
-		mkdir g1
-		cd g1
-		mkdir strings/0x409
-		mkdir configs/b.1
-		mkdir configs/b.1/strings/0x409
-		mkdir functions/mass_storage.0
-		mkdir functions/ffs.adb
-		mkdir functions/diag.diag
-		mkdir functions/cser.dun.0
-		mkdir functions/cser.nmea.1
-		mkdir functions/rmnet_bam.rmnet
-		mkdir functions/ncm.0
-		echo "$serialno" > strings/0x409/serialnumber
-		echo "QCOM" > strings/0x409/manufacturer
-		echo "$socplatform" > strings/0x409/product
-		echo "$product_string" > /config/usb_gadget/g1/strings/0x409/product
-		setprop sys.usb.configfs 1
-	fi
-    # Start android usb gadget
-    echo "Starting USB Android Gadget"
-    if [ -d /sys/class/android_usb/android0/f_ffs ]
-	then
-   		echo "$product_string" > /sys/class/android_usb/android0/iProduct
-		echo adb > /sys/class/android_usb/android0/f_ffs/aliases
-	fi
-    # mount functionfs
-	mkdir -p /dev/usb-ffs/adb
-	mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
-	mount -o remount,gid=5,mode=620 /dev/pts
-    # Set HSIC host and enable softap
-	echo msm_hsic_host > /sys/bus/platform/drivers/msm_hsic_host/unbind
-    # Start composition...
-    echo 0 > /sys/class/android_usb/android0/enable
-	echo $QUEC_USB_PID > /sys/class/android_usb/android0/idProduct
-	echo $QUEC_USB_VID > /sys/class/android_usb/android0/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo 239 > /sys/class/android_usb/android0/bDeviceClass
-	echo 2 > /sys/class/android_usb/android0/bDeviceSubClass
-	echo 1 > /sys/class/android_usb/android0/bDeviceProtocol
-    if [ $QUEC_USB_TTYGS1 -eq 0 ];then
-	echo $SERIAL_FUNC > /sys/class/android_usb/android0/f_serial/transports
-	else
-		echo $SERIAL_FUNC,tty > /sys/class/android_usb/android0/f_serial/transports
-	fi
-	echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
-	echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
-	echo $USB_FUNC,ffs > /sys/class/android_usb/android0/functions
-	echo 1 > /sys/class/android_usb/android0/remote_wakeup
-	echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
-    sleep 1
-    echo $QUEC_MANUFCTURE > /sys/class/android_usb/android0/iManufacturer
-	echo $QUEC_PRODUCTINFO > /sys/class/android_usb/android0/iProduct
-    # Now start usb and enable softap
-	echo 1 > /sys/class/android_usb/android0/enable
-	echo 1  > /sys/devices/virtual/android_usb/android0/f_serial/dun_w_softap_enable
-    # Force start adb
-    /etc/init.d/adbd restart
-	;;
+mkdir -p /dev/usb-ffs/adb
+mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+mount -o remount,gid=5,mode=620 /dev/pts
+echo hsusb > /sys/bus/platform/devices/usb_bam/enable
+echo 0 > /sys/class/android_usb/android$num/enable
+echo 0125 > /sys/class/android_usb/android$num/idProduct
+echo 27C7 > /sys/class/android_usb/android$num/idVendor
+echo diag > /sys/class/android_usb/android0/f_diag/clients
+echo tty,smd,smd> /sys/class/android_usb/android0/f_serial/transports
+echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
+echo diag,serial,rmnet > /sys/class/android_usb/android$num/functions
+echo adb > /sys/class/android_usb/android0/f_ffs/aliases
+echo 1 > /sys/class/android_usb/android$num/remote_wakeup
 
-  stop)
-        echo "Stopping USB Android Gadget"
-        ;;
-
-  restart)
-        $0 stop
-        $0 start
-        ;;
-  *)
-        echo "Usage usb { start | stop | restart}" >&2
-        exit 1
-        ;;
-esac
+echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
+echo "Pine64" > /sys/class/android_usb/android0/iManufacturer
+echo "Pinephone Modem" > /sys/class/android_usb/android0/iProduct
+sleep 2
+echo 1 > /sys/class/android_usb/android$num/enable
+/etc/init.d/adbd start

@@ -28,6 +28,8 @@ do_install() {
 
       # Make a directory to mount the recovery image too, now that we're at it
       install -d ${D}/recovery
+      # We might as well make the data directory
+      install -d ${D}/data
 
       cp  ${S}/usb ${D}/etc/init.d/
       cp  ${S}/adbd ${D}/etc/init.d/
