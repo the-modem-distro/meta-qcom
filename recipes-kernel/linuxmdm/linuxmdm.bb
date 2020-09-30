@@ -16,7 +16,8 @@ DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
 
 # Base paths
 SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git;branch=linux-3.18.140"
-SRCREV = "linux-3.18.140"
+SRCREV = "${AUTOREV}"
+#SRCREV = "linux-3.18.140"
 # SRC_URI   =  "git://github.com/Biktorgj/Linux-4.14.180-CAF.git;branch=master"
 # SRCREV = "master"
 S = "${WORKDIR}/git"
