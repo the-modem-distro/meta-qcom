@@ -35,19 +35,19 @@ mkdir -p /dev/usb-ffs/adb
 mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
 mount -o remount,gid=5,mode=620 /dev/pts
 echo hsusb > /sys/bus/platform/devices/usb_bam/enable
-echo 0 > /sys/class/android_usb/android$num/enable
-echo 0125 > /sys/class/android_usb/android$num/idProduct
-echo 27C7 > /sys/class/android_usb/android$num/idVendor
+echo 0 > /sys/class/android_usb/android0/enable
+echo 0125 > /sys/class/android_usb/android0/idProduct
+echo 27C7 > /sys/class/android_usb/android0/idVendor
 echo diag > /sys/class/android_usb/android0/f_diag/clients
 echo tty,smd,smd> /sys/class/android_usb/android0/f_serial/transports
 echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
-echo diag,serial,rmnet > /sys/class/android_usb/android$num/functions
+echo diag,serial,rmnet > /sys/class/android_usb/android0/functions
 echo adb > /sys/class/android_usb/android0/f_ffs/aliases
-echo 1 > /sys/class/android_usb/android$num/remote_wakeup
+echo 1 > /sys/class/android_usb/android0/remote_wakeup
 
 echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
 echo "Pine64" > /sys/class/android_usb/android0/iManufacturer
-echo "Pinephone Modem" > /sys/class/android_usb/android0/iProduct
+echo "LTE Modem" > /sys/class/android_usb/android0/iProduct
 sleep 2
-echo 1 > /sys/class/android_usb/android$num/enable
+echo 1 > /sys/class/android_usb/android0/enable
 /etc/init.d/adbd start

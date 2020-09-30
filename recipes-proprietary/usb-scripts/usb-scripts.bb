@@ -29,7 +29,9 @@ do_install() {
       # Make a directory to mount the recovery image too, now that we're at it
       install -d ${D}/recovery
       # We might as well make the data directory
+      install -d ${D}/data_swap
       install -d ${D}/data
+      install -d ${D}/cache
 
       cp  ${S}/usb ${D}/etc/init.d/
       cp  ${S}/adbd ${D}/etc/init.d/
@@ -40,7 +42,7 @@ do_install() {
 
       ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S99usb
       ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S99adbd
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S80find_partitions.sh
+      ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S30find_partitions.sh
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
       touch ${D}/etc/default/usb
       touch ${D}/etc/default/adbd

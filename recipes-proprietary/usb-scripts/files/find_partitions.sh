@@ -214,7 +214,7 @@ fstype="UBI"
 #Ramos.zhang20180718,2+2 have no usrfs volume 
 #eval FindAndMountVolume${fstype} usrfs /data   
 
-#eval FindAndMount${fstype} modem /firmware
+eval FindAndMount${fstype} modem /firmware
 
 #Ramos.zhang20180718 mount usr_data to /cache, and mount bind /data to cache
 eval FindAndMountUsrdataUBI usr_data /cache  2
