@@ -1,0 +1,27 @@
+#! /bin/sh
+
+set -e
+
+case "$1" in
+start)
+	# add by quectel 2016.06.26  end	
+    echo -n "Starting atreset: "
+    start-stop-daemon -S -b -a /usr/bin/atfwd_daemon
+    echo "done"
+    ;;
+  stop)
+    echo -n "Stopping atreset: "
+    start-stop-daemon -K -n atfwd_daemon
+    echo "done"
+    ;;
+  restart)
+    $0 stop
+    $0 start
+    ;;
+  *)
+    echo "Usage atfwd_daemon{ start | stop | restart }" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

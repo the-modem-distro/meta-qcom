@@ -1,0 +1,26 @@
+#! /bin/sh
+
+set -e
+
+case "$1" in
+  start)
+    echo -n "Starting diagrebootapp: "
+    start-stop-daemon -S -b -a /usr/bin/diagrebootapp
+    echo "done"
+    ;;
+  stop)
+    echo -n "Stopping diagrebootapp: "
+    start-stop-daemon -K -n diagrebootapp
+    echo "done"
+    ;;
+  restart)
+    $0 stop
+    $0 start
+    ;;
+  *)
+    echo "Usage rebootdiag { start | stop | restart }" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

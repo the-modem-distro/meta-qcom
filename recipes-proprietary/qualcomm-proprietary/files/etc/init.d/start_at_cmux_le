@@ -1,0 +1,39 @@
+#! /bin/sh
+#=============================================================================
+#Copyright (c) 2011-2013, 2017 Qualcomm Technologies, Inc.
+#All Rights Reserved.
+#Confidential and Proprietary - Qualcomm Technologies, Inc.
+#============================================================================
+#
+# DS_MUX   init.d script to start the Data Software's DS_MUX daemon
+
+DAEMON_OPT1_UART="1"
+DAEMON_OPT2_UART="/dev/ttyHS1"
+
+DAEMON_OPT1_USB="2"
+
+set -e
+
+case "$1" in
+  start)
+        echo -n  "Starting DS_MUX: " > /dev/kmsg
+        echo "DS_MUX:start" > /dev/kmsg
+        start-stop-daemon -S -b -a DS_MUX -- $DAEMON_OPT1_UART $DAEMON_OPT2_UART
+        echo "done" > /dev/kmsg
+        ;;
+  stop)
+        echo -n "Stopping DS_MUX: " > /dev/kmsg
+        start-stop-daemon -K -n DS_MUX
+        echo "done" > /dev/kmsg
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage DS_MUX { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
