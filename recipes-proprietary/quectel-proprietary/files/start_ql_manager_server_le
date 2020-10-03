@@ -1,0 +1,33 @@
+#! /bin/sh
+#
+# Copyright (c) 2010-2017 @ Quectel Wireless Solutions Co., Ltd.  All Rights Reserved.
+#
+# quectel_manager_server   init.d script to start the Data Software's quectel_manager_server daemon
+
+DAEMON=/usr/bin/ql_manager_server
+
+set -e
+
+case "$1" in
+  start)
+        echo -n "Starting ql_manager_server: "
+        echo "QMS:start" > /dev/kmsg
+        start-stop-daemon -S -b -x $DAEMON
+        echo "done"
+        ;;
+  stop)
+        echo -n "Stopping ql_manager_server: "
+        start-stop-daemon -K -x $DAEMON
+        echo "done"
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

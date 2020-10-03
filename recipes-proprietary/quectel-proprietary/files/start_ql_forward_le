@@ -1,0 +1,32 @@
+#! /bin/sh
+#
+# Copyright (c) 2010-2017 @ Quectel Wireless Solutions Co., Ltd.  All Rights Reserved.
+#
+# quectel_forward   init.d script to start the Data Software's ql_forward daemon
+
+DAEMON=/usr/bin/ql_forward
+
+set -e
+
+case "$1" in
+  start)
+        echo -n "Starting ql_forward "
+        start-stop-daemon -S -b -a $DAEMON
+        echo "done"
+        ;;
+  stop)
+        echo -n "Stopping ql_forward "
+        start-stop-daemon -K -x $DAEMON
+        echo "done"
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage start_ql_forward_le { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
