@@ -42,9 +42,9 @@ case "$1" in
         # Check first if the /data/adb_devid already has an id saved from earlier boot up.
         # If yes use it to retrieve adb devices else use the msm ID and save it to /data/adb_devid for subsequent boot ups.
 
-        if [ -e "/data/adb_devid" ]
+        if [ -e "/tmp/adb_devid" ]
         then
-                cat /data/adb_devid > /sys/class/android_usb/android0/iSerial
+                cat /tmp/adb_devid > /sys/class/android_usb/android0/iSerial
         else
                 ret_val=`cat /proc/cmdline | grep "androidboot.serialno" |wc -l`
                 if  [ $ret_val -eq 1 ]
@@ -54,7 +54,7 @@ case "$1" in
                 else
                     cat /proc/sys/kernel/random/boot_id | cut -d- -f5 > /sys/class/android_usb/android0/iSerial
                 fi
-                    cat /sys/class/android_usb/android0/iSerial > /data/adb_devid
+                    cat /sys/class/android_usb/android0/iSerial > /tmp/adb_devid
         fi
         echo "done" > /dev/kmsg
         ;;
