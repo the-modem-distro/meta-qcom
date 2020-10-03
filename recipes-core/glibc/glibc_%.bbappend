@@ -3,8 +3,10 @@
 # and doesn't make a symlink, so we do it ourselves 
 FILES_${PN} += "/lib/ld-linux-armhf.so.3"
 
+RPROVIDES_${PN} += "ld-linux.so.3"
 do_install_append() {
         install -d ${D}/lib
-        cd ${D}/lib
-        ln -s ld-linux-armhf.so.3 ld-linux.so.3
+        ln -sf -r  ${D}/lib/ld-linux-armhf.so.3 ${D}/lib/ld-linux.so.3
+    #    cd ${D}/lib
+    #    ln -s ld-linux-armhf.so.3 ld-linux.so.3
 }
