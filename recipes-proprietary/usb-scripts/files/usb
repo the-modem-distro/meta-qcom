@@ -46,8 +46,9 @@ echo adb > /sys/class/android_usb/android0/f_ffs/aliases
 echo 1 > /sys/class/android_usb/android0/remote_wakeup
 
 echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
-echo "Pine64" > /sys/class/android_usb/android0/iManufacturer
-echo "LTE Modem" > /sys/class/android_usb/android0/iProduct
+# Quectel Wireless Solutions Co., Ltd. EC25 LTE modem
+echo "Quectel Wireless Solutions Co., Ltd." > /sys/class/android_usb/android0/iManufacturer
+echo "EG25 LTE modem" > /sys/class/android_usb/android0/iProduct
 sleep 2
 echo 1 > /sys/class/android_usb/android0/enable
 /etc/init.d/adbd start
