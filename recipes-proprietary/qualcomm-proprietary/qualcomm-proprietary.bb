@@ -291,6 +291,56 @@ do_install() {
 
       # Library simlinks... tbd
       ln -sf -r  ${D}/usr/lib/liblog.so.0.0.0 ${D}/usr/lib/liblog.so.0
+      ln -sf -r  ${D}/usr/lib/libpugixml.so.1.0.0 ${D}/usr/lib/libpugixml.so.1
+      ln -sf -r  ${D}/usr/lib/libqcmaputils.so.1.0.0 ${D}/usr/lib/libqcmaputils.so.1
+      ln -sf -r  ${D}/usr/lib/libqcmap_client.so.1.0.0 ${D}/usr/lib/libqcmap_client.so.1
+      ln -sf -r  ${D}/usr/lib/libdiag.so.1.0.0 ${D}/usr/lib/libdiag.so.1
+      ln -sf -r  ${D}/usr/lib/libadiertac.so.1.0.0 ${D}/usr/lib/libadiertac.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_mcm_test_shim.so.1.0.0 ${D}/usr/lib/libloc_mcm_test_shim.so.1
+      ln -sf -r  ${D}/usr/lib/libqdi.so.0.0.0 ${D}/usr/lib/libqdi.so.0
+      ln -sf -r  ${D}/usr/lib/libconfigdb.so.0.0.0 ${D}/usr/lib/libconfigdb.so.0
+      ln -sf -r  ${D}/usr/lib/libqcmap_cm.so.1.0.0 ${D}/usr/lib/libqcmap_cm.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_net_iface.so.1.0.0 ${D}/usr/lib/libloc_net_iface.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_pla.so.1.0.0 ${D}/usr/lib/libloc_pla.so.1
+      ln -sf -r  ${D}/usr/lib/libtime_genoff.so.1.0.0 ${D}/usr/lib/libtime_genoff.so.1
+      ln -sf -r  ${D}/usr/lib/libpsm_client.so.0.0.0 ${D}/usr/lib/libpsm_client.so.0
+      ln -sf -r  ${D}/usr/lib/libloc_core.so.1.0.0 ${D}/usr/lib/libloc_core.so.1
+      ln -sf -r  ${D}/usr/lib/libqdp.so.0.0.0 ${D}/usr/lib/libqdp.so.0
+      ln -sf -r  ${D}/usr/lib/libqmi_ip.so.1.0.0 ${D}/usr/lib/libqmi_ip.so.1
+      ln -sf -r  ${D}/usr/lib/libacdbrtac.so.1.0.0 ${D}/usr/lib/libacdbrtac.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_sap.so.1.0.0 ${D}/usr/lib/libqmi_sap.so.1
+      ln -sf -r  ${D}/usr/lib/libaudcal.so.1.0.0 ${D}/usr/lib/libaudcal.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_common_so.so.1.0.0 ${D}/usr/lib/libqmi_common_so.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_stub.so.1.0.0 ${D}/usr/lib/libloc_stub.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_cci.so.1.0.0 ${D}/usr/lib/libqmi_cci.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_ds_api.so.1.0.0 ${D}/usr/lib/libloc_ds_api.so.1
+      ln -sf -r  ${D}/usr/lib/libgps_utils_so.so.1.0.0 ${D}/usr/lib/libgps_utils_so.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_encdec.so.1.0.0 ${D}/usr/lib/libqmi_encdec.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_csi.so.1.0.0 ${D}/usr/lib/libqmi_csi.so.1
+      ln -sf -r  ${D}/usr/lib/libacdbmapper.so.1.0.0 ${D}/usr/lib/libacdbmapper.so.1
+      ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.1
+      ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so
+      ln -sf -r  ${D}/usr/lib/libaudioalsa.so.1.0.0 ${D}/usr/lib/libaudioalsa.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_ext.so.1.0.0 ${D}/usr/lib/libloc_ext.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_client_helper.so.1.0.0 ${D}/usr/lib/libqmi_client_helper.so.1
+      #ln -sf -r  ${D}/usr/lib/llibdsutils.so.1.0.0 ${D}/usr/lib/libdsutils.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_mcm_type_conv.so.1.0.0 ${D}/usr/lib/libloc_mcm_type_conv.so.1
+      ln -sf -r  ${D}/usr/lib/libqmiservices.so.1.0.0 ${D}/usr/lib/libqmiservices.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi.so.1.0.0 ${D}/usr/lib/libqmi.so.1
+      ln -sf -r  ${D}/usr/lib/libqmiidl.so.1.0.0 ${D}/usr/lib/libqmiidl.so.1
+      ln -sf -r  ${D}/usr/lib/libdsi_netctrl.so.0.0.0 ${D}/usr/lib/libdsi_netctrl.so.0
+      ln -sf -r  ${D}/usr/lib/libloc_eng_so.so.1.0.0 ${D}/usr/lib/libloc_eng_so.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_hal_test_shim_extended.so.1.0.0 ${D}/usr/lib/libloc_hal_test_shim_extended.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_mcm_qmi_test_shim.so.1.0.0 ${D}/usr/lib/libloc_mcm_qmi_test_shim.so.1
+      ln -sf -r  ${D}/usr/lib/libqmi_client_qmux.so.1.0.0 ${D}/usr/lib/libqmi_client_qmux.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_mq_client.so.1.0.0 ${D}/usr/lib/libloc_mq_client.so.1
+      ln -sf -r  ${D}/usr/lib/libloc_hal_test_shim.so.1.0.0 ${D}/usr/lib/libloc_hal_test_shim.so.1
+      ln -sf -r  ${D}/usr/lib/libnetmgr.so.0.0.0 ${D}/usr/lib/libnetmgr.so.0
+      ln -sf -r  ${D}/usr/lib/libxml.so.0.0.0 ${D}/usr/lib/libxml.so.0
+      ln -sf -r  ${D}/usr/lib/libpsmutils.so.0.0.0 ${D}/usr/lib/libpsmutils.so.0
+      ln -sf -r  ${D}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/libcutils.so.0
+    # Let's not allow qmux to start so the modem doesnt kill itself before we got a chance to get the logs
+     ln -sf -r  ${D}/usr/lib/libdsutils.so.1.0.0 ${D}/usr/lib/libdsutils.so.1
 
       # scripts and init
       cp ${S}/bin/dnsmasq_script.sh ${D}/bin/

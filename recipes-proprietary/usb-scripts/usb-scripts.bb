@@ -40,7 +40,7 @@ do_install() {
       chmod +x ${D}/etc/init.d/adbd
       chmod +x ${D}/etc/init.d/find_partitions.sh
 
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S99usb
+      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S98usb
       ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S99adbd
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S30find_partitions.sh
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
