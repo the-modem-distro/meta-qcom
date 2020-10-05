@@ -98,7 +98,6 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/liblog.so.0.0.0 \
          file://usr/lib/libpugixml.so.1.0.0 \
          file://usr/lib/libqcmaputils.so.1.0.0 \
-         file://lib/libcrypt.so.1 \
          file://bin/dnsmasq_script.sh \
          file://etc/Headset_cal.acdb \
          file://etc/Hdmi_cal.acdb \
@@ -287,7 +286,6 @@ do_install() {
       cp ${S}/usr/lib/libxml.so.0.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libpsmutils.so.0.0.0 ${D}/usr/lib/
       cp ${S}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/
-      cp ${S}/lib/libcrypt.so.1 ${D}/lib/
 
       # Library simlinks... tbd
       ln -sf -r  ${D}/usr/lib/liblog.so.0.0.0 ${D}/usr/lib/liblog.so.0
