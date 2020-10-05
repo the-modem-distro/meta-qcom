@@ -39,16 +39,21 @@ echo 0 > /sys/class/android_usb/android0/enable
 echo 0125 > /sys/class/android_usb/android0/idProduct
 echo 27C7 > /sys/class/android_usb/android0/idVendor
 echo diag > /sys/class/android_usb/android0/f_diag/clients
+echo 239 > /sys/class/android_usb/android0/bDeviceClass
+echo 2 > /sys/class/android_usb/android0/bDeviceSubClass
+echo 1 > /sys/class/android_usb/android0/bDeviceProtocol
 echo tty,smd,smd> /sys/class/android_usb/android0/f_serial/transports
 echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
-echo diag,serial,rmnet > /sys/class/android_usb/android0/functions
+echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
+echo diag,serial,rmnet,ffs,audio > /sys/class/android_usb/android0/functions
 echo adb > /sys/class/android_usb/android0/f_ffs/aliases
 echo 1 > /sys/class/android_usb/android0/remote_wakeup
+echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
 
 echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
 # Quectel Wireless Solutions Co., Ltd. EC25 LTE modem
 echo "Quectel Wireless Solutions Co., Ltd." > /sys/class/android_usb/android0/iManufacturer
-echo "EG25 LTE modem" > /sys/class/android_usb/android0/iProduct
+echo "EC25 LTE modem" > /sys/class/android_usb/android0/iProduct
 sleep 2
 echo 1 > /sys/class/android_usb/android0/enable
 /etc/init.d/adbd start
