@@ -12,6 +12,8 @@ INHIBIT_PACKAGE_STRIP = "1"
 INHIBIT_SYSROOT_STRIP = "1"
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 INHIBIT_PACKAGE_STRIP = "1"
+SOLIBS = ".so"
+FILES_SOLIBSDEV = ""
 SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/atfwd_daemon \
          file://usr/bin/diag_dci_sample \
@@ -75,7 +77,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/libqmi_encdec.so.1.0.0 \
          file://usr/lib/libqmi_csi.so.1.0.0 \
          file://usr/lib/libacdbmapper.so.1.0.0 \
-         file://usr/lib/libacdbloader.so.1.0.0 \
+         file://usr/lib/libacdbloader.so \
          file://usr/lib/libaudioalsa.so.1.0.0 \
          file://usr/lib/libloc_ext.so.1.0.0 \
          file://usr/lib/libqmi_client_helper.so.1.0.0 \
@@ -155,85 +157,45 @@ do_install() {
       install -d ${D}/usr/persist
  
       # binaries
-      cp ${S}/usr/bin/atfwd_daemon ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_clnt_test_1000 ${D}/usr/bin
-      cp ${S}/usr/bin/diag_dci_sample ${D}/usr/bin
-      cp ${S}/usr/bin/qti_ppp ${D}/usr/bin
-      cp ${S}/usr/bin/DS_MUX ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_clnt_test_1001 ${D}/usr/bin
-      cp ${S}/usr/bin/netmgrd ${D}/usr/bin
-      cp ${S}/usr/bin/radish ${D}/usr/bin
-      cp ${S}/usr/bin/time_daemon ${D}/usr/bin
-      cp ${S}/usr/bin/psmd ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_clnt_test_0001 ${D}/usr/bin
-      cp ${S}/usr/bin/eMBMs_TunnelingModule ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_clnt_test_0000 ${D}/usr/bin
-      cp ${S}/usr/bin/thermal-engine ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_mt_client_init_instance ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_test ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_ip_multiclient ${D}/usr/bin
-      cp ${S}/usr/bin/QCMAP_CLI ${D}/usr/bin
-      cp ${S}/usr/bin/qmuxd ${D}/usr/bin
-      cp ${S}/usr/bin/diag_callback_sample ${D}/usr/bin
-      cp ${S}/usr/bin/diag_klog ${D}/usr/bin
-      cp ${S}/usr/bin/qti ${D}/usr/bin
-      cp ${S}/usr/bin/diag_uart_log ${D}/usr/bin
-      cp ${S}/usr/bin/diag_mdlog ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_shutdown_modem ${D}/usr/bin
-      cp ${S}/usr/bin/port_bridge ${D}/usr/bin
-      cp ${S}/usr/bin/test_diag ${D}/usr/bin
-      cp ${S}/usr/bin/sendcal ${D}/usr/bin
-      cp ${S}/usr/bin/diag_socket_log ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_simple_ril_test ${D}/usr/bin
-      cp ${S}/usr/bin/mbimd ${D}/usr/bin
-      cp ${S}/usr/bin/QCMAP_StaInterface ${D}/usr/bin
-      cp ${S}/usr/bin/diagrebootapp ${D}/usr/bin
-      cp ${S}/usr/bin/psm_test ${D}/usr/bin
-      cp ${S}/usr/bin/QCMAP_ConnectionManager ${D}/usr/bin
-      cp ${S}/usr/bin/qmi_test_service_clnt_test_2000 ${D}/usr/bin
-      cp ${S}/usr/bin/PktRspTest ${D}/usr/bin
-      cp ${S}/usr/bin/irsc_util ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/atfwd_daemon ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_1000 ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_dci_sample ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qti_ppp ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/DS_MUX ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_1001 ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/netmgrd ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/radish ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/time_daemon ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/psmd ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_0001 ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/eMBMs_TunnelingModule ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_0000 ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/thermal-engine ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_mt_client_init_instance ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_test ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_ip_multiclient ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/QCMAP_CLI ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmuxd ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_callback_sample ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_klog ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qti ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_uart_log ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_mdlog ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_shutdown_modem ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/port_bridge ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/test_diag ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/sendcal ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diag_socket_log ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_simple_ril_test ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/mbimd ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/QCMAP_StaInterface ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/diagrebootapp ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/psm_test ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/QCMAP_ConnectionManager ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_2000 ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/PktRspTest ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
       
-      # Set executable flags
-      chmod +x ${D}/usr/bin/qmi_test_service_clnt_test_1000
-      chmod +x ${D}/usr/bin/diag_dci_sample
-      chmod +x ${D}/usr/bin/qti_ppp
-      chmod +x ${D}/usr/bin/DS_MUX
-      chmod +x ${D}/usr/bin/qmi_test_service_clnt_test_1001
-      chmod +x ${D}/usr/bin/netmgrd
-      chmod +x ${D}/usr/bin/radish
-      chmod +x ${D}/usr/bin/time_daemon
-      chmod +x ${D}/usr/bin/psmd
-      chmod +x ${D}/usr/bin/qmi_test_service_clnt_test_0001
-      chmod +x ${D}/usr/bin/eMBMs_TunnelingModule
-      chmod +x ${D}/usr/bin/qmi_test_service_clnt_test_0000
-      chmod +x ${D}/usr/bin/thermal-engine
-      chmod +x ${D}/usr/bin/qmi_test_mt_client_init_instance
-      chmod +x ${D}/usr/bin/qmi_test_service_test
-      chmod +x ${D}/usr/bin/qmi_ip_multiclient
-      chmod +x ${D}/usr/bin/QCMAP_CLI
-      chmod +x ${D}/usr/bin/qmuxd
-      chmod +x ${D}/usr/bin/diag_callback_sample
-      chmod +x ${D}/usr/bin/diag_klog
-      chmod +x ${D}/usr/bin/qti
-      chmod +x ${D}/usr/bin/diag_uart_log
-      chmod +x ${D}/usr/bin/diag_mdlog
-      chmod +x ${D}/usr/bin/qmi_shutdown_modem
-      chmod +x ${D}/usr/bin/port_bridge
-      chmod +x ${D}/usr/bin/test_diag
-      chmod +x ${D}/usr/bin/sendcal
-      chmod +x ${D}/usr/bin/diag_socket_log
-      chmod +x ${D}/usr/bin/qmi_simple_ril_test
-      chmod +x ${D}/usr/bin/mbimd
-      chmod +x ${D}/usr/bin/QCMAP_StaInterface
-      chmod +x ${D}/usr/bin/diagrebootapp
-      chmod +x ${D}/usr/bin/psm_test
-      chmod +x ${D}/usr/bin/QCMAP_ConnectionManager
-      chmod +x ${D}/usr/bin/qmi_test_service_clnt_test_2000
-      chmod +x ${D}/usr/bin/PktRspTest
-      chmod +x ${D}/usr/bin/irsc_util
-      chmod +x ${D}/usr/bin/atfwd_daemon
-
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
       cp ${S}/usr/lib/libpugixml.so.1.0.0   ${D}/usr/lib/
@@ -265,7 +227,7 @@ do_install() {
       cp ${S}/usr/lib/libqmi_csi.so.1.0.0  ${D}/usr/lib/
     #  cp ${S}/usr/lib/libloc_net_iface.la  ${D}/usr/lib/
       cp ${S}/usr/lib/libacdbmapper.so.1.0.0  ${D}/usr/lib/
-      cp ${S}/usr/lib/libacdbloader.so.1.0.0  ${D}/usr/lib/
+      cp ${S}/usr/lib/libacdbloader.so  ${D}/usr/lib/
       cp ${S}/usr/lib/libaudioalsa.so.1.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libloc_ext.so.1.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libqmi_client_helper.so.1.0.0  ${D}/usr/lib/
@@ -287,6 +249,68 @@ do_install() {
       cp ${S}/usr/lib/libpsmutils.so.0.0.0 ${D}/usr/lib/
       cp ${S}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/
 
+      # scripts and init
+      install -m 0755 ${S}/bin/dnsmasq_script.sh ${D}/bin/
+
+      # Calibration data
+      cp ${S}/etc/Headset_cal.acdb ${D}/etc/
+      cp ${S}/etc/Hdmi_cal.acdb ${D}/etc/
+      cp ${S}/etc/General_cal.acdb ${D}/etc/
+      cp ${S}/etc/Bluetooth_cal.acdb ${D}/etc/
+      cp ${S}/etc/Speaker_cal.acdb ${D}/etc/
+      cp ${S}/etc/Global_cal.acdb ${D}/etc/
+      cp ${S}/etc/Handset_cal.acdb ${D}/etc/
+
+      # Daemon settings
+      cp ${S}/etc/udhcpc.d/udhcpc.script ${D}/etc/udhcpc.d/
+     # cp ${S}/etc/udhcpc.d/50default ${D}/etc/udhcpc.d/
+      cp ${S}/etc/qmi_ip_cfg.xml ${D}/etc/
+      cp ${S}/etc/thermal-engine.conf ${D}/etc/
+ 
+      cp ${S}/etc/data/qmi_config.xml ${D}/etc/data/
+      cp ${S}/etc/data/netmgr_config.xml ${D}/etc/data/
+      cp ${S}/etc/data/dsi_config.xml ${D}/etc/data/
+      cp ${S}/etc/gps.conf ${D}/etc/data/
+
+      # services
+      install -m 0755 ${S}/etc/init.d/data-init ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/netmgrd ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/psmd ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/thermal-engine ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_stop_qti_ppp_le ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_at_cmux_le ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/qmuxd ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/port_bridge ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/time_serviced ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_qti_le ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/diagrebootapp ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/irsc_util ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/start_atfwd_daemon ${D}/etc/init.d/
+
+      # link services on boot
+      ln -sf -r ${D}/etc/init.d/data-init ${D}/etc/rcS.d/S97data-init
+      ln -sf -r ${D}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/rcS.d/S39start_QCMAP_ConnectionManager_le
+      ln -sf -r ${D}/etc/init.d/netmgrd ${D}/etc/rcS.d/S45netmgrd
+      ln -sf -r ${D}/etc/init.d/psmd ${D}/etc/rcS.d/S36psmd
+      ln -sf -r ${D}/etc/init.d/thermal-engine ${D}/etc/rcS.d/S40thermal-engine
+      # ln -sf -r ${D}/etc/init.d/start_stop_qti_ppp_le ${D}/etc/rcS.d/S
+      ln -sf -r ${D}/etc/init.d/start_at_cmux_le ${D}/etc/rcS.d/S43start_at_cmux_le
+      # ln -sf -r ${D}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/rcS.d/S
+      ln -sf -r ${D}/etc/init.d/qmuxd ${D}/etc/rcS.d/S40qmuxd
+      ln -sf -r ${D}/etc/init.d/port_bridge ${D}/etc/rcS.d/S38port_bridge
+      ln -sf -r ${D}/etc/init.d/time_serviced ${D}/etc/rcS.d/S29time_serviced
+      ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
+      ln -sf -r ${D}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/rcS.d/S70start_eMBMs_TunnelingModule_le
+      # ln -sf -r ${D}/etc/init.d/diagrebootapp ${D}/etc/rcS.d/S
+      ln -sf -r ${D}/etc/init.d/irsc_util ${D}/etc/rcS.d/S29init_irsc_util
+      ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
+
+}
+
+do_install_append() {
       # Library simlinks... tbd
       ln -sf -r  ${D}/usr/lib/liblog.so.0.0.0 ${D}/usr/lib/liblog.so.0
       ln -sf -r  ${D}/usr/lib/libpugixml.so.1.0.0 ${D}/usr/lib/libpugixml.so.1
@@ -316,8 +340,6 @@ do_install() {
       ln -sf -r  ${D}/usr/lib/libqmi_encdec.so.1.0.0 ${D}/usr/lib/libqmi_encdec.so.1
       ln -sf -r  ${D}/usr/lib/libqmi_csi.so.1.0.0 ${D}/usr/lib/libqmi_csi.so.1
       ln -sf -r  ${D}/usr/lib/libacdbmapper.so.1.0.0 ${D}/usr/lib/libacdbmapper.so.1
-      ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.1
-      ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so
       ln -sf -r  ${D}/usr/lib/libaudioalsa.so.1.0.0 ${D}/usr/lib/libaudioalsa.so.1
       ln -sf -r  ${D}/usr/lib/libloc_ext.so.1.0.0 ${D}/usr/lib/libloc_ext.so.1
       ln -sf -r  ${D}/usr/lib/libqmi_client_helper.so.1.0.0 ${D}/usr/lib/libqmi_client_helper.so.1
@@ -339,82 +361,8 @@ do_install() {
       ln -sf -r  ${D}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/libcutils.so.0
     # Let's not allow qmux to start so the modem doesnt kill itself before we got a chance to get the logs
      ln -sf -r  ${D}/usr/lib/libdsutils.so.1.0.0 ${D}/usr/lib/libdsutils.so.1
-
-      # scripts and init
-      cp ${S}/bin/dnsmasq_script.sh ${D}/bin/
-
-      # Calibration data
-      cp ${S}/etc/Headset_cal.acdb ${D}/etc/
-      cp ${S}/etc/Hdmi_cal.acdb ${D}/etc/
-      cp ${S}/etc/General_cal.acdb ${D}/etc/
-      cp ${S}/etc/Bluetooth_cal.acdb ${D}/etc/
-      cp ${S}/etc/Speaker_cal.acdb ${D}/etc/
-      cp ${S}/etc/Global_cal.acdb ${D}/etc/
-      cp ${S}/etc/Handset_cal.acdb ${D}/etc/
-
-      # Daemon settings
-      cp ${S}/etc/udhcpc.d/udhcpc.script ${D}/etc/udhcpc.d/
-     # cp ${S}/etc/udhcpc.d/50default ${D}/etc/udhcpc.d/
-      cp ${S}/etc/qmi_ip_cfg.xml ${D}/etc/
-      cp ${S}/etc/thermal-engine.conf ${D}/etc/
- 
-      cp ${S}/etc/data/qmi_config.xml ${D}/etc/data/
-      cp ${S}/etc/data/netmgr_config.xml ${D}/etc/data/
-      cp ${S}/etc/data/dsi_config.xml ${D}/etc/data/
-      cp ${S}/etc/gps.conf ${D}/etc/data/
-
-      # services
-      cp ${S}/etc/init.d/data-init ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/init.d/
-      cp ${S}/etc/init.d/netmgrd ${D}/etc/init.d/
-      cp ${S}/etc/init.d/psmd ${D}/etc/init.d/
-      cp ${S}/etc/init.d/thermal-engine ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_stop_qti_ppp_le ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_at_cmux_le ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/init.d/
-      cp ${S}/etc/init.d/qmuxd ${D}/etc/init.d/
-      cp ${S}/etc/init.d/port_bridge ${D}/etc/init.d/
-      cp ${S}/etc/init.d/time_serviced ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_qti_le ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/init.d/
-      cp ${S}/etc/init.d/diagrebootapp ${D}/etc/init.d/
-      cp ${S}/etc/init.d/irsc_util ${D}/etc/init.d/
-      cp ${S}/etc/init.d/start_atfwd_daemon ${D}/etc/init.d/
-
-      # link services on boot
-      ln -sf -r ${D}/etc/init.d/data-init ${D}/etc/rcS.d/S97data-init
-      ln -sf -r ${D}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/rcS.d/S39start_QCMAP_ConnectionManager_le
-      ln -sf -r ${D}/etc/init.d/netmgrd ${D}/etc/rcS.d/S45netmgrd
-      ln -sf -r ${D}/etc/init.d/psmd ${D}/etc/rcS.d/S36psmd
-      ln -sf -r ${D}/etc/init.d/thermal-engine ${D}/etc/rcS.d/S40thermal-engine
-      # ln -sf -r ${D}/etc/init.d/start_stop_qti_ppp_le ${D}/etc/rcS.d/S
-      ln -sf -r ${D}/etc/init.d/start_at_cmux_le ${D}/etc/rcS.d/S43start_at_cmux_le
-      # ln -sf -r ${D}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/rcS.d/S
-      ln -sf -r ${D}/etc/init.d/qmuxd ${D}/etc/rcS.d/S40qmuxd
-      ln -sf -r ${D}/etc/init.d/port_bridge ${D}/etc/rcS.d/S38port_bridge
-      ln -sf -r ${D}/etc/init.d/time_serviced ${D}/etc/rcS.d/S29time_serviced
-      ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
-      ln -sf -r ${D}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/rcS.d/S70start_eMBMs_TunnelingModule_le
-      # ln -sf -r ${D}/etc/init.d/diagrebootapp ${D}/etc/rcS.d/S
-      ln -sf -r ${D}/etc/init.d/irsc_util ${D}/etc/rcS.d/S29init_irsc_util
-      ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
-
-      # Mark init script as executable
-      chmod +x ${D}/etc/init.d/data-init 
-      chmod +x ${D}/etc/init.d/start_QCMAP_ConnectionManager_le 
-      chmod +x ${D}/etc/init.d/netmgrd 
-      chmod +x ${D}/etc/init.d/psmd 
-      chmod +x ${D}/etc/init.d/thermal-engine 
-      chmod +x ${D}/etc/init.d/start_stop_qti_ppp_le 
-      chmod +x ${D}/etc/init.d/start_at_cmux_le 
-      chmod +x ${D}/etc/init.d/start_stop_qmi_ip_multiclient 
-      chmod +x ${D}/etc/init.d/qmuxd 
-      chmod +x ${D}/etc/init.d/port_bridge 
-      chmod +x ${D}/etc/init.d/time_serviced 
-      chmod +x ${D}/etc/init.d/start_qti_le 
-      chmod +x ${D}/etc/init.d/start_eMBMs_TunnelingModule_le 
-      chmod +x ${D}/etc/init.d/diagrebootapp 
-      chmod +x ${D}/etc/init.d/irsc_util 
-
+  #   ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.2
+  #   ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.1
+  #   mv ${D}/usr/lib/libacdbloader.so.2 ${D}/usr/lib/libacdbloader.so
 
 }
