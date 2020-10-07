@@ -1,0 +1,34 @@
+#  ---------------------------------------------------------------------------
+#   Copyright (c) 2012 Qualcomm Technologies, Inc.  All Rights Reserved.
+#   Qualcomm Technologies Proprietary and Confidential.
+#  ---------------------------------------------------------------------------
+#
+
+#! /bin/sh
+#
+# init.d script for qmi_shutdown_modem daemon
+
+set -e
+
+case "$1" in
+       start)
+                echo -n "Starting qmi_shutdown_modem: "
+                start-stop-daemon -S -b -n qmi_shutdown_modem -a /usr/bin/qmi_shutdown_modem
+                echo "done"
+                ;;
+       stop)
+                echo -n "Stopping qmi_shutdown_modem: "
+                start-stop-daemon -K -n qmi_shutdown_modem
+                echo "done"
+                ;;
+       restart)
+                $0 stop
+                $0 start
+                ;;
+       *)
+                echo "Usage: qmi_shutdown_modem { start | stop | restart }" >&2
+                exit 1
+                ;;
+esac
+
+exit 0

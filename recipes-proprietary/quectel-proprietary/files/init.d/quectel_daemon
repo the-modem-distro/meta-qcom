@@ -1,0 +1,34 @@
+#  ---------------------------------------------------------------------------
+#   Copyright (c) 2012 Qualcomm Technologies, Inc.  All Rights Reserved.
+#   Qualcomm Technologies Proprietary and Confidential.
+#  ---------------------------------------------------------------------------
+#
+
+#! /bin/sh
+#
+# init.d script for quectel daemon
+
+set -e
+
+case "$1" in
+       start)
+                echo -n "Starting quectel_daemon: "
+                start-stop-daemon -S -b -a /usr/bin/quectel_daemon
+                echo "done"
+                ;;
+       stop)
+                echo -n "Stopping quectel daemon: "
+                start-stop-daemon -K -n quectel_daemon
+                echo "done"
+                ;;
+       restart)
+                $0 stop
+                $0 start
+                ;;
+       *)
+                echo "Usage: quectel_daemon { start | stop | restart }" >&2
+                exit 1
+                ;;
+esac
+
+exit 0
