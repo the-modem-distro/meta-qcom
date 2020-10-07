@@ -53,6 +53,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/qmi_test_service_clnt_test_2000 \
          file://usr/bin/PktRspTest \
          file://usr/bin/irsc_util \
+         file://usr/bin/mbimd \
          file://usr/lib/libhardware.so.0.0.0  \
          file://usr/lib/libqcmap_client.so.1.0.0  \
          file://usr/lib/libdiag.so.1.0.0 \
@@ -171,6 +172,7 @@ do_install() {
       install -m 0755 ${S}/usr/bin/radish ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/time_daemon ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/psmd ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/mbimd ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_0001 ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/eMBMs_TunnelingModule ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_0000 ${D}/usr/bin
@@ -314,7 +316,7 @@ do_install() {
       # ln -sf -r ${D}/etc/init.d/diagrebootapp ${D}/etc/rcS.d/S
       ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S29init_irsc_util
       # If you need the console in the serial port disable this:
-      # ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
+      ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
       ln -sf -r ${D}/etc/init.d/csdserver ${D}/etc/rcS.d/S45csdserver
 }
 
