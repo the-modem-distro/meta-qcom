@@ -38,6 +38,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/qti \
          file://usr/bin/diag_uart_log \
          file://usr/bin/diag_mdlog \
+         file://usr/bin/csd_server \
          file://usr/bin/qmi_shutdown_modem \
          file://usr/bin/port_bridge \
          file://usr/bin/test_diag \
@@ -52,6 +53,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/qmi_test_service_clnt_test_2000 \
          file://usr/bin/PktRspTest \
          file://usr/bin/irsc_util \
+         file://usr/lib/libhardware.so.0.0.0  \
          file://usr/lib/libqcmap_client.so.1.0.0  \
          file://usr/lib/libdiag.so.1.0.0 \
          file://usr/lib/libadiertac.so.1.0.0 \
@@ -109,6 +111,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://etc/init.d/data-init \
          file://etc/init.d/start_QCMAP_ConnectionManager_le \
          file://etc/init.d/start_atfwd_daemon \
+         file://etc/init.d/csdserver \
          file://etc/init.d/netmgrd \
          file://etc/init.d/psmd \
          file://etc/init.d/thermal-engine \
@@ -118,10 +121,11 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://etc/init.d/qmuxd \
          file://etc/init.d/port_bridge \
          file://etc/init.d/time_serviced \
+         file://etc/init.d/mssboot \
          file://etc/init.d/start_qti_le \
          file://etc/init.d/start_eMBMs_TunnelingModule_le \
          file://etc/init.d/diagrebootapp \
-         file://etc/init.d/irsc_util \
+         file://etc/init.d/init_irsc_util \
          file://etc/udhcpc.d \
          file://etc/udhcpc.d/udhcpc.script \
          file://etc/qmi_ip_cfg.xml \
@@ -195,6 +199,7 @@ do_install() {
       install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_2000 ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/PktRspTest ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/csd_server ${D}/usr/bin
       
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
@@ -211,7 +216,7 @@ do_install() {
       cp ${S}/usr/lib/libloc_pla.so.1.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libtime_genoff.so.1.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libpsm_client.so.0.0.0  ${D}/usr/lib/
-    #  cp ${S}/usr/lib/libloc_ds_api.la  ${D}/usr/lib/
+      cp ${S}/usr/lib/libhardware.so.0.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libloc_core.so.1.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libqdp.so.0.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libqmi_ip.so.1.0.0  ${D}/usr/lib/
@@ -287,8 +292,9 @@ do_install() {
       install -m 0755 ${S}/etc/init.d/start_qti_le ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/diagrebootapp ${D}/etc/init.d/
-      install -m 0755 ${S}/etc/init.d/irsc_util ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/init_irsc_util ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_atfwd_daemon ${D}/etc/init.d/
+      install -m 0755 ${S}/etc/init.d/csdserver ${D}/etc/init.d/
 
       # link services on boot
       ln -sf -r ${D}/etc/init.d/data-init ${D}/etc/rcS.d/S97data-init
@@ -298,20 +304,21 @@ do_install() {
       ln -sf -r ${D}/etc/init.d/thermal-engine ${D}/etc/rcS.d/S40thermal-engine
       # ln -sf -r ${D}/etc/init.d/start_stop_qti_ppp_le ${D}/etc/rcS.d/S
       ln -sf -r ${D}/etc/init.d/start_at_cmux_le ${D}/etc/rcS.d/S43start_at_cmux_le
-      # ln -sf -r ${D}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/rcS.d/S
+      # ln -sf -r ${D}/etc/init.d/start_stop_qmi_ip_multiclient ${D}/etc/rcS.d/Sx
       ln -sf -r ${D}/etc/init.d/qmuxd ${D}/etc/rcS.d/S40qmuxd
       ln -sf -r ${D}/etc/init.d/port_bridge ${D}/etc/rcS.d/S38port_bridge
       ln -sf -r ${D}/etc/init.d/time_serviced ${D}/etc/rcS.d/S29time_serviced
+      ln -sf -r ${D}/etc/init.d/mssboot ${D}/etc/rcS.d/S30mssboot
       ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
       ln -sf -r ${D}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/rcS.d/S70start_eMBMs_TunnelingModule_le
       # ln -sf -r ${D}/etc/init.d/diagrebootapp ${D}/etc/rcS.d/S
-      ln -sf -r ${D}/etc/init.d/irsc_util ${D}/etc/rcS.d/S29init_irsc_util
-      ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
-
+      ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S29init_irsc_util
+      # If you need the console in the serial port disable this:
+      # ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
+      ln -sf -r ${D}/etc/init.d/csdserver ${D}/etc/rcS.d/S45csdserver
 }
 
 do_install_append() {
-      # Library simlinks... tbd
       ln -sf -r  ${D}/usr/lib/liblog.so.0.0.0 ${D}/usr/lib/liblog.so.0
       ln -sf -r  ${D}/usr/lib/libpugixml.so.1.0.0 ${D}/usr/lib/libpugixml.so.1
       ln -sf -r  ${D}/usr/lib/libqcmaputils.so.1.0.0 ${D}/usr/lib/libqcmaputils.so.1
@@ -359,10 +366,6 @@ do_install_append() {
       ln -sf -r  ${D}/usr/lib/libxml.so.0.0.0 ${D}/usr/lib/libxml.so.0
       ln -sf -r  ${D}/usr/lib/libpsmutils.so.0.0.0 ${D}/usr/lib/libpsmutils.so.0
       ln -sf -r  ${D}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/libcutils.so.0
-    # Let's not allow qmux to start so the modem doesnt kill itself before we got a chance to get the logs
      ln -sf -r  ${D}/usr/lib/libdsutils.so.1.0.0 ${D}/usr/lib/libdsutils.so.1
-  #   ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.2
-  #   ln -sf -r  ${D}/usr/lib/libacdbloader.so.1.0.0 ${D}/usr/lib/libacdbloader.so.1
-  #   mv ${D}/usr/lib/libacdbloader.so.2 ${D}/usr/lib/libacdbloader.so
-
+     ln -sf -r  ${D}/usr/lib/libhardware.so.0.0.0 ${D}/usr/lib/libhardware.so.0
 }
