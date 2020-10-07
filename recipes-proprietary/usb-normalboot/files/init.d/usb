@@ -1,0 +1,142 @@
+#!/bin/sh
+#
+# Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived from
+#       this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE DISCLAIMED.  IN NO
+# EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Starts the USB Android Gadget.
+
+export KERNEL=`uname -r`
+export SOFTAP_W_DUN="N"
+
+if [ -e /data/boot_hsusb_composition ];then
+	usb_com="/data/boot_hsusb_composition"
+else
+	usb_com="/sbin/usb/boot_hsusb_composition"
+fi
+
+case "$1" in
+  start)
+	if [ -d /sys/class/android_usb/android0/f_ffs ]
+	then
+		echo adb > /sys/class/android_usb/android0/f_ffs/aliases
+		mkdir -p /dev/usb-ffs/adb
+		mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
+		mount -o remount,gid=5,mode=620 /dev/pts
+		mkdir -p /system/bin
+		ln -s /bin/sh  /system/bin/sh
+	fi
+
+        case $KERNEL in
+          3.*)
+		case `source /sbin/usb/target` in
+			*9x15* )
+			# Nothing to do here for 9x15
+			;;
+			*9x25* )
+			echo "Unbind EHCI HSIC host device driver"
+			echo msm_hsic_host > /sys/bus/platform/drivers/msm_hsic_host/unbind
+			;;
+			*9x35* )
+			echo "Unbind EHCI HSIC host device driver"
+			echo f9a15000.hsic_host > /sys/bus/platform/drivers/msm_hsic_host/unbind
+			echo 1 > /sys/devices/virtual/android_usb/android0/f_rndis_qc/max_pkt_per_xfer
+			echo 3 > /sys/module/dwc3/parameters/bulk_ep_xfer_timeout_ms
+			;;
+			*8909* )
+			ln -fs /sbin/usb/compositions/9091 \
+				/sbin/usb/boot_hsusb_composition
+			;;
+			*9640* )
+			echo 16384 > /sys/module/g_android/parameters/rndis_dl_max_xfer_size
+			;;
+		esac
+
+		# enable debug message
+		if [ -f /sbin/usb/debuger/default_debug ];
+		then
+			rm -rf /sbin/usb/debuger/statusFile
+			usb_debug -f on n /sbin/usb/debuger/default_debug
+		fi
+
+		# enable concurrent SoftAP and DUN
+		if [ -f /sbin/usb/softap_w_dun ]
+		then
+			SOFTAP_W_DUN=`cat /sbin/usb/softap_w_dun`
+		fi
+
+		# boot hsic composition:
+		if [ -d /sys/class/android_usb/android1 ]
+		then
+			/sbin/usb/boot_hsic_composition y
+			# let hsic compostion script run before starting hsusb
+			sleep 1
+		fi
+		# boot hsusb composition:
+		if [ -d /sys/class/android_usb/android0 ]
+		then
+			s=`cat /proc/mounts | grep ubi0:usrfs`
+			#/sbin/usb/boot_hsusb_composition n
+			if [ -e /data/need_adb_mass_storage ];then
+				$usb_com n 0 n y
+			elif [ -e /data/donot_need_adb_mass_storage ];then
+				$usb_com n 0 n n
+			elif [ "" == "$s" ]; then
+				echo "data not mount and adb appear"
+				$usb_com n 0 n y
+			else
+				$usb_com n 0 n n
+				# sunxiang setting default value from y to n
+			fi
+
+			if [ "$SOFTAP_W_DUN" == "Y" ]
+			then
+				echo "DUN+SOFTAP mode is enabled."
+				echo 1  > /sys/devices/virtual/android_usb/android0/f_serial/dun_w_softap_enable
+			fi
+		fi
+
+		;;
+          2.*)
+                # Nothing to do for 2.x kernels
+                ;;
+          *)
+                # Some other version of kernel?
+                ;;
+        esac
+        ;;
+
+  stop)
+        echo "Stopping USB Android Gadget"
+        ;;
+
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage usb { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
