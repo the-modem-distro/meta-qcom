@@ -30,10 +30,8 @@ MACHINE_EXTRA_RRECOMMENDS += " \
 "
 
 # Image Generation
-# Create the image in tar.gz to easily extract it and
-# in ubifs for the target.
-
-IMAGE_FSTYPES ?= "ubi multiubi tar.gz"
+# Make ubi filesystem and then pack it in a ubi container, as stock
+IMAGE_FSTYPES ?= "ubi multiubi"
 
 # Set the volume name inside the ubi image
 UBI_VOLNAME = "rootfs"
