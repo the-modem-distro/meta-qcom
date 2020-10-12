@@ -1,6 +1,6 @@
 #!/bin/sh
 # Mount the rootfs partition in /tmp/rootfs
 mkdir -p /tmp/rootfs
-ubiattach -m 15 -d 15 /dev/ubi_ctrl 
+ubiattach -m 16 -d 16 /dev/ubi_ctrl 
 sleep 1
-mount -t ubifs /dev/ubi15_0 /tmp/rootfs
+mount -t ubifs /dev/ubi16_0 /tmp/rootfs
