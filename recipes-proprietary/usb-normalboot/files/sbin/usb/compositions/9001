@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+# Copyright (c) 2012-2015,2017, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -24,176 +24,154 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# DESCRIPTION: DIAG + NMEA + AT + MODEM + AUDIO + QMI_RMNET + ADB
+# DESCRIPTION: DIAG + ADB + MODEM + NMEA + QMI_RMNET + Mass Storage (Android)
 
-echo "Switching to composition number 0x9001"
+echo "Switching to composition number 0x9025" > /dev/kmsg
 
 if [ "$1" = "y" ]; then
-	num="1"
+    num="1"
 else
-	num="0"
+    num="0"
 fi
 
 if [ "$#" -ge 2 ]; then
-	delay=$2
+    delay=$2
 else
-	delay="0"
+    delay="0"
 fi
 
 if [ "$#" -ge 3 ]; then
-	from_adb=$3
+    from_adb=$3
 else
-	from_adb="n"
+    from_adb="n"
 fi
 
-if [ "$#" -ge 4 ]; then
-	need_adb=$4
+
+echo "-- START usb in 9025 mode "
+QUEC_USB_PID=0125
+QUEC_USB_VID=2C7C
+QUEC_ENABLE_USB=0
+QUEC_USB_NET_TYPE="rmnet"
+QUEC_USB_TTYGS1=0	#juson.zhang-2018/10/18:add usb channel if QUEC_USB_TTYGS1=1,default value is 0
+QUEC_MANUFCTURE="Quectel, Incorporated"
+QUEC_PRODUCTINFO="LTE Module"
+usb_dir="/data/usb"
+
+if [ -f $usb_dir/usb_net_type ]
+then
+    echo "[Max][USB_NET_TYPE_CHECK] usb_net_type exists! data dir has been created!" > /dev/kmsg
+    QUEC_USB_NET_TYPE=`cat $usb_dir/usb_net_type`
 else
-	need_adb="y"
+    echo "[Max][USB_NET_TYPE_CHECK] usb_net_type NOT exists!Create it" > /dev/kmsg
+    echo rmnet > $usb_dir/usb_net_type
+    chmod 777 $usb_dir/usb_net_type
+    sync
 fi
 
-run_9x15() {
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 0x9025 > /sys/class/android_usb/android$num/idProduct
-	echo 0x05C6 > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo SMD,BAM2BAM > /sys/class/android_usb/android0/f_rmnet/transports
-	echo diag,adb,serial,rmnet,mass_storage > /sys/class/android_usb/android$num/functions
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-}
+if [ -f $usb_dir/quec_usb_pid ]
+then
+    QUEC_USB_PID=`cat $usb_dir/quec_usb_pid`
+else
+    echo $QUEC_USB_PID > $usb_dir/quec_usb_pid
+    chmod 777 $usb_dir/quec_usb_pid
+    sync
+fi
 
-run_9x25() {
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 0x9025 > /sys/class/android_usb/android$num/idProduct
-	echo 0x05C6 > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo SMD,BAM2BAM_IPA > /sys/class/android_usb/android0/f_rmnet/transports
-	echo diag,adb,serial,rmnet,mass_storage > /sys/class/android_usb/android$num/functions
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-}
+if [ -f $usb_dir/quec_usb_vid ]
+then
+    QUEC_USB_VID=`cat $usb_dir/quec_usb_vid`
+else
+    echo $QUEC_USB_VID > $usb_dir/quec_usb_vid
+    chmod 777 $usb_dir/quec_usb_vid
+    sync
+fi
 
-run_9x25_v2() {
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 0x9025 > /sys/class/android_usb/android$num/idProduct
-	echo 0x05C6 > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo QTI,BAM2BAM_IPA > /sys/class/android_usb/android0/f_rmnet/transports
-	echo diag,adb,serial,rmnet,mass_storage > /sys/class/android_usb/android$num/functions
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-}
+echo "[Max][USB_DEF_ID_CHECK] USB ID in fs: pid is $QUEC_USB_PID && vid is $QUEC_USB_VID" > /dev/kmsg
 
-run_9x35() {
-	if [ $from_adb = "n" ]
-	then
-		pkill adbd
-	fi
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 9025 > /sys/class/android_usb/android$num/idProduct
-	echo 05C6 > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo QTI,BAM2BAM_IPA > /sys/class/android_usb/android0/f_rmnet/transports
-	echo diag,ffs,serial,rmnet,mass_storage > /sys/class/android_usb/android$num/functions
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-	if [ $from_adb = "n" ]
-	then
-		/etc/init.d/adbd start
-	fi
-}
+if [ -f $usb_dir/quec_enable_usb ]
+then
+    QUEC_ENABLE_USB=`cat $usb_dir/quec_enable_usb`
+fi
 
-run_9607() {
-	
-	if [ $from_adb = "n" ]
-	then
-		pkill adbd
-	fi
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 9001 > /sys/class/android_usb/android$num/idProduct
-	echo 1E0E > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,smd,smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
-	if [ $need_adb = "y" ]; then
-		echo diag,serial,rmnet,adb > /sys/class/android_usb/android$num/functions
-	else
-		echo diag,serial,rmnet > /sys/class/android_usb/android$num/functions
-	fi
-	#echo diag,serial,rmnet,adb > /sys/class/android_usb/android$num/functions
-	echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
-	echo 1 > /sys/class/android_usb/android$num/remote_wakeup
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-	if [ $from_adb = "n" ]
-	then	
-		s=`cat /proc/mounts | grep ubi0:usrfs`
-		if [ "" == "$s" ]; then
-			/etc/init.d/adbd start y
-		else
-			/etc/init.d/adbd start n
-		fi
-	fi
-}
+SERIAL_FUNC="tty,smd,smd"
+USB_FUNC="diag,serial,rmnet"
+if [ -f $usb_dir/quec_serial_func ]
+then
+    SERIAL_FUNC=`cat $usb_dir/quec_serial_func`
+    sync
+fi
 
-run_californium() {
-	if [ $from_adb = "n" ]
-	then
-		pkill adbd
-	fi
-	echo 0 > /sys/class/android_usb/android$num/enable
-	echo 9025 > /sys/class/android_usb/android$num/idProduct
-	echo 05C6 > /sys/class/android_usb/android$num/idVendor
-	echo diag > /sys/class/android_usb/android0/f_diag/clients
-	echo smd,tty > /sys/class/android_usb/android0/f_serial/transports
-	echo diag,ffs,serial,rmnet_gsi,mass_storage > /sys/class/android_usb/android$num/functions
-	echo 1 > /sys/class/android_usb/android$num/remote_wakeup
-	sleep $delay
-	echo 1 > /sys/class/android_usb/android$num/enable
-	if [ $from_adb = "n" ]
-	then
-		/etc/init.d/adbd start
-	fi
-}
+if [ -f $usb_dir/quec_usb_func ]
+then
+    USB_FUNC=`cat $usb_dir/quec_usb_func`
+    sync
+fi
 
-case `source /sbin/usb/target` in
-	*9x15* )
-		run_9x15 &
-		;;
-	*9x25* )
-		case `cat /sys/devices/soc0/revision` in
-			*1.0* )
-				run_9x25 &
-				;;
-			*2.* )
-				run_9x25_v2 &
-				;;
-			* )
-				run_9x25 &
-				;;
-		esac
-		;;
-	*9x35* )
-		run_9x35 &
-		;;
-	*9607* )
-		run_9607 &
-		;;
-	*8909* )
-		echo "This composition can't be supported on 8909"
-		;;
-	*9640* )
-		run_9x35 &
-		;;
-	*californium* )
-		run_californium &
-		;;
-	* )
-		run_9x15 &
-		;;
-esac
+if [ $QUEC_USB_NET_TYPE == "rndis" ]
+then
+    USB_FUNC=${USB_FUNC//,rmnet/""}
+    if [ "$USB_FUNC" != "" ]
+    then
+        USB_FUNC="rndis,$USB_FUNC"
+    else
+        USB_FUNC="rndis"
+    fi
+else
+    USB_FUNC=${USB_FUNC//rmnet/$QUEC_USB_NET_TYPE}
+fi
+
+echo "[Max][USB_FUNC_CHECK] QUEC_USB_NET_TYPE=$QUEC_USB_NET_TYPE, USB_FUNC=$USB_FUNC, USB_ENABLE=$QUEC_ENABLE_USB" > /dev/kmsg
+
+if [ $from_adb = "n" ]
+then
+    pkill adbd
+fi
+echo 0 > /sys/class/android_usb/android$num/enable
+echo $QUEC_USB_PID > /sys/class/android_usb/android$num/idProduct
+echo $QUEC_USB_VID > /sys/class/android_usb/android$num/idVendor
+echo diag > /sys/class/android_usb/android0/f_diag/clients
+echo 239 > /sys/class/android_usb/android$num/bDeviceClass
+echo 2 > /sys/class/android_usb/android$num/bDeviceSubClass
+echo 1 > /sys/class/android_usb/android$num/bDeviceProtocol
+#juson.zhang-2018/10/16:add usb tty
+if [ $QUEC_USB_TTYGS1 -eq 0 ];then
+    echo $SERIAL_FUNC > /sys/class/android_usb/android0/f_serial/transports
+else
+    echo $SERIAL_FUNC,tty > /sys/class/android_usb/android0/f_serial/transports
+fi
+echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
+echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
+echo $USB_FUNC,ffs > /sys/class/android_usb/android$num/functions
+echo 1 > /sys/class/android_usb/android$num/remote_wakeup
+echo 1 > /sys/class/android_usb/android$num/f_rndis/wceis
+sleep $delay
+#echo 1 > /sys/class/android_usb/android$num/enable
+
+echo $QUEC_MANUFCTURE > /sys/class/android_usb/android$num/iManufacturer
+echo $QUEC_PRODUCTINFO > /sys/class/android_usb/android$num/iProduct
+
+if [ "$USB_FUNC" != "" ]
+then
+    found_mbim=`echo "$USB_FUNC" | grep "mbim"`
+    if [ "$found_mbim" != "" ]
+    then
+        {
+            echo "usb net is mbim! create mbim_ready_state and echo 0" > /dev/kmsg
+            echo 0 > $usb_dir/mbim_ready_state
+            chmod 777 $usb_dir/mbim_ready_state
+        }
+    else
+        {
+            echo "usb net is NOT mbim! del mbim_ready_state" > /dev/kmsg
+            rm -rf $usb_dir/mbim_ready_state
+        }
+    fi
+fi
+#if [ $QUEC_ENABLE_USB = 1 ] && [ "$USB_FUNC" != "" ]
+#then
+echo 1 > /sys/class/android_usb/android$num/enable
+#fi
+if [ $from_adb = "n" ]
+then
+    /etc/launch_adbd start
+fi
