@@ -6,6 +6,9 @@ PROVIDES = "qualcomm-proprietary"
 RDEPENDS_${PN} = "glibc openssl"
 MY_PN = "qualcomm-proprietary"
 PR = "r1"
+S = "${WORKDIR}/"
+
+
 INSANE_SKIP_${PN} = "ldflags"
 INSANE_SKIP_${PN} = "file-rdeps"
 INHIBIT_PACKAGE_STRIP = "1"
@@ -15,6 +18,7 @@ INHIBIT_PACKAGE_STRIP = "1"
 SOLIBS = ".so"
 FILES_SOLIBSDEV = ""
 SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
+         file://usr/bin/alsaucm_test \
          file://usr/bin/atfwd_daemon \
          file://usr/bin/diag_dci_sample \
          file://usr/bin/qti_ppp \
@@ -140,12 +144,22 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://etc/gps.conf \
          file://data/mobileap_cfg.xml \
          file://data/qmi_ip_cfg.xml \
-         file://data/dnsmasq.conf"
-
-# file://etc/firmware/wcd9310/wcd9310_mbhc.bin 
-# file://etc/firmware/wcd9310/wcd9310_anc.bin 
-
-S = "${WORKDIR}/"
+         file://data/dnsmasq.conf \
+         file://etc/snd_soc_msm/snd_soc_msm \
+         file://etc/snd_soc_msm/snd_soc_msm_2x \
+         file://etc/snd_soc_msm/snd_soc_msm_2x_Fusion3 \
+         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd \
+         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuaa \
+         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuab \
+         file://etc/snd_soc_msm/snd_soc_msm_9x07_Tomtom_I2S \
+         file://etc/snd_soc_msm/snd_soc_msm_9x40_Tomtom_I2S \
+         file://etc/snd_soc_msm/snd_soc_msm_I2S \
+         file://etc/snd_soc_msm/snd_soc_msm_Sitar \
+         file://etc/snd_soc_msm/snd_soc_msm_Taiko_I2S \
+         file://etc/snd_soc_msm/snd_soc_msm_Tapan \
+         file://etc/snd_soc_msm/snd_soc_msm_TapanLite \
+         file://etc/snd_soc_msm/snd_soc_msm_Tapan_SKUF \
+         file://etc/snd_soc_msm/snd_soc_msm_Tasha_I2S"
 
 do_install() {
       #make folders if they dont exist
@@ -158,10 +172,12 @@ do_install() {
       install -d ${D}/etc/firmware
       install -d ${D}/etc/udhcpc.d
       install -d ${D}/etc/data
+      install -d ${D}/etc/snd_soc_msm
 
       install -d ${D}/usr/persist
- 
+
       # binaries
+      install -m 0755 ${S}/usr/bin/alsaucm_test ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/atfwd_daemon ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_1000 ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/diag_dci_sample ${D}/usr/bin
@@ -202,7 +218,7 @@ do_install() {
       install -m 0755 ${S}/usr/bin/PktRspTest ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/csd_server ${D}/usr/bin
-      
+
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
       cp ${S}/usr/lib/libpugixml.so.1.0.0   ${D}/usr/lib/
@@ -267,13 +283,29 @@ do_install() {
       cp ${S}/etc/Speaker_cal.acdb ${D}/etc/
       cp ${S}/etc/Global_cal.acdb ${D}/etc/
       cp ${S}/etc/Handset_cal.acdb ${D}/etc/
+      # ALSA config files
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_2x ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_2x_Fusion3 ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuaa ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuab ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_9x07_Tomtom_I2S ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_9x40_Tomtom_I2S ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_I2S ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Sitar ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Taiko_I2S ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tapan ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_TapanLite ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tapan_SKUF ${D}/etc/snd_soc_msm/
+      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tasha_I2S ${D}/etc/snd_soc_msm/
 
       # Daemon settings
       cp ${S}/etc/udhcpc.d/udhcpc.script ${D}/etc/udhcpc.d/
      # cp ${S}/etc/udhcpc.d/50default ${D}/etc/udhcpc.d/
       cp ${S}/etc/qmi_ip_cfg.xml ${D}/etc/
       cp ${S}/etc/thermal-engine.conf ${D}/etc/
- 
+
       cp ${S}/etc/data/qmi_config.xml ${D}/etc/data/
       cp ${S}/etc/data/netmgr_config.xml ${D}/etc/data/
       cp ${S}/etc/data/dsi_config.xml ${D}/etc/data/
