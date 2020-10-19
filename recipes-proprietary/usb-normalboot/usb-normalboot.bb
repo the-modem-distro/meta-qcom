@@ -67,7 +67,7 @@ do_install() {
 
       # USB Init script
       install -m 0755  ${S}/init.d/usb ${D}/etc/init.d
-      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S99usb
+      ln -sf -r ${D}/etc/init.d/usb ${D}/etc/rcS.d/S90usb
 
       # binaries
       install -m 0755  ${S}/sbin/usb/target ${D}/sbin/usb
