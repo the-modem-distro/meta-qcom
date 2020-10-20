@@ -58,6 +58,8 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/PktRspTest \
          file://usr/bin/irsc_util \
          file://usr/bin/mbimd \
+         file://usr/bin/location_hal_tests \
+         file://usr/bin/lowi-test \
          file://usr/lib/libhardware.so.0.0.0  \
          file://usr/lib/libqcmap_client.so.1.0.0  \
          file://usr/lib/libdiag.so.1.0.0 \
@@ -107,11 +109,16 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/liblog.so.0.0.0 \
          file://usr/lib/libpugixml.so.1.0.0 \
          file://usr/lib/libqcmaputils.so.1.0.0 \
+         file://usr/lib/libizat_client_api.so.1.0.0 \
+         file://usr/lib/liblocationservice.so.1.0.0 \
+         file://usr/lib/liblocationservice_glue.so.1.0.0 \
          file://bin/dnsmasq_script.sh \
          file://etc/Headset_cal.acdb \
          file://etc/Hdmi_cal.acdb \
          file://etc/General_cal.acdb \
          file://etc/thermal-engine.conf \
+         file://etc/izat.conf \
+         file://etc/lowi.conf \
          file://etc/init.d \
          file://etc/init.d/data-init \
          file://etc/init.d/start_QCMAP_ConnectionManager_le \
@@ -218,6 +225,8 @@ do_install() {
       install -m 0755 ${S}/usr/bin/PktRspTest ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/csd_server ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/location_hal_tests ${D}/usr/bin
+      install -m 0755 ${S}/usr/bin/lowi-test ${D}/usr/bin
 
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
@@ -271,6 +280,9 @@ do_install() {
       cp ${S}/usr/lib/libxml.so.0.0.0  ${D}/usr/lib/
       cp ${S}/usr/lib/libpsmutils.so.0.0.0 ${D}/usr/lib/
       cp ${S}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/
+      cp ${S}/usr/lib/libizat_client_api.so.1.0.0 ${D}/usr/lib/
+      cp ${S}/usr/lib/liblocationservice.so.1.0.0 ${D}/usr/lib/
+      cp ${S}/usr/lib/liblocationservice_glue.so.1.0.0 ${D}/usr/lib/
 
       # scripts and init
       install -m 0755 ${S}/bin/dnsmasq_script.sh ${D}/bin/
@@ -283,6 +295,10 @@ do_install() {
       cp ${S}/etc/Speaker_cal.acdb ${D}/etc/
       cp ${S}/etc/Global_cal.acdb ${D}/etc/
       cp ${S}/etc/Handset_cal.acdb ${D}/etc/
+      # Qualcomm IZat  & Location MQ settings
+      cp ${S}/etc/izat.conf ${D}/etc/
+      cp ${S}/etc/lowi.conf ${D}/etc/
+
       # ALSA config files
       cp ${S}/etc/snd_soc_msm/snd_soc_msm ${D}/etc/snd_soc_msm/
       cp ${S}/etc/snd_soc_msm/snd_soc_msm_2x ${D}/etc/snd_soc_msm/
@@ -402,4 +418,7 @@ do_install_append() {
       ln -sf -r  ${D}/usr/lib/libcutils.so.0.0.0 ${D}/usr/lib/libcutils.so.0
      ln -sf -r  ${D}/usr/lib/libdsutils.so.1.0.0 ${D}/usr/lib/libdsutils.so.1
      ln -sf -r  ${D}/usr/lib/libhardware.so.0.0.0 ${D}/usr/lib/libhardware.so.0
+     ln -sf -r  ${D}/usr/lib/libizat_client_api.so.1.0.0 ${D}/usr/lib/libizat_client_api.so.1
+     ln -sf -r  ${D}/usr/lib/liblocationservice.so.1.0.0 ${D}/usr/lib/liblocationservice.so.1
+     ln -sf -r  ${D}/usr/lib/liblocationservice_glue.so.1.0.0 ${D}/usr/lib/liblocationservice_glue.so.1
 }
