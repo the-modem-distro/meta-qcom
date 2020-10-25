@@ -33,7 +33,7 @@ BOOT_IMAGE_BASE_NAME = "boot-${KERNEL_IMAGE_NAME}"
 BOOT_IMAGE_SYMLINK_NAME = "boot-${KERNEL_IMAGE_LINK_NAME}"
 # CMDLine params
 QCOM_BOOTIMG_PAGE_SIZE = "2048"
-KERNEL_CMDLINE = "noinitrd ro console=ttyHS0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1 verbose"
+KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1 earlycon=msm_hsl_uart,0x78b3000 verbose"
 QCOM_BOOTIMG_KERNEL_BASE = "0x80000000"
 KERNEL_TAGS_ADDR = "0x81E00000"
 do_compile[nostamp] = "1"

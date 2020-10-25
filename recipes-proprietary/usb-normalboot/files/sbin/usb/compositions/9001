@@ -35,9 +35,9 @@ else
 fi
 
 if [ "$#" -ge 2 ]; then
-    delay=$2
+    delay=3
 else
-    delay="0"
+    delay="3"
 fi
 
 if [ "$#" -ge 3 ]; then
