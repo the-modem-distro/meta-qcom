@@ -37,7 +37,6 @@ SRC_URI="file://etc/init.d/start_ipacm_perf_le \
         file://usr/bin/qmi_test_service_clnt_test_1000 \
         file://usr/bin/alsa_daemon \
         file://usr/bin/rmnetcli \
-        file://usr/bin/aplay \
         file://usr/bin/qti \
         file://usr/bin/qmi_test_mt_client_init_instance \
         file://usr/bin/diag_socket_log \
@@ -60,7 +59,6 @@ SRC_URI="file://etc/init.d/start_ipacm_perf_le \
         file://usr/bin/qmi_ping_clnt_test_0001 \
         file://usr/bin/qmuxd \
         file://usr/bin/psmd \
-        file://usr/bin/arec \
         file://usr/bin/diagrebootapp \
         file://usr/bin/diag_klog \
         file://usr/bin/qmi_test_service_clnt_test_2000 \
@@ -132,7 +130,6 @@ do_install() {
         install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_1000 ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/alsa_daemon ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/rmnetcli ${D}/usr/bin/
-        install -m 0755 ${S}/usr/bin/aplay ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/qti ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/qmi_test_mt_client_init_instance ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/diag_socket_log ${D}/usr/bin/
@@ -155,7 +152,6 @@ do_install() {
         install -m 0755 ${S}/usr/bin/qmi_ping_clnt_test_0001 ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/qmuxd ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/psmd ${D}/usr/bin/
-        install -m 0755 ${S}/usr/bin/arec ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/diagrebootapp ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/diag_klog ${D}/usr/bin/
         install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_2000 ${D}/usr/bin/
