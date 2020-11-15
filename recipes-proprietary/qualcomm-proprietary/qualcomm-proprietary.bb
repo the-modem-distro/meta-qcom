@@ -113,12 +113,6 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/liblocationservice.so.1.0.0 \
          file://usr/lib/liblocationservice_glue.so.1.0.0 \
          file://bin/dnsmasq_script.sh \
-         file://etc/Headset_cal.acdb \
-         file://etc/Hdmi_cal.acdb \
-         file://etc/General_cal.acdb \
-         file://etc/thermal-engine.conf \
-         file://etc/izat.conf \
-         file://etc/lowi.conf \
          file://etc/init.d \
          file://etc/init.d/data-init \
          file://etc/init.d/start_QCMAP_ConnectionManager_le \
@@ -139,34 +133,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://etc/init.d/diagrebootapp \
          file://etc/init.d/init_irsc_util \
          file://etc/udhcpc.d \
-         file://etc/udhcpc.d/udhcpc.script \
-         file://etc/qmi_ip_cfg.xml \
-         file://etc/Bluetooth_cal.acdb \
-         file://etc/Speaker_cal.acdb \
-         file://etc/Global_cal.acdb \
-         file://etc/Handset_cal.acdb \
-         file://etc/data/qmi_config.xml \
-         file://etc/data/netmgr_config.xml \
-         file://etc/data/dsi_config.xml \
-         file://etc/gps.conf \
-         file://data/mobileap_cfg.xml \
-         file://data/qmi_ip_cfg.xml \
-         file://data/dnsmasq.conf \
-         file://etc/snd_soc_msm/snd_soc_msm \
-         file://etc/snd_soc_msm/snd_soc_msm_2x \
-         file://etc/snd_soc_msm/snd_soc_msm_2x_Fusion3 \
-         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd \
-         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuaa \
-         file://etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuab \
-         file://etc/snd_soc_msm/snd_soc_msm_9x07_Tomtom_I2S \
-         file://etc/snd_soc_msm/snd_soc_msm_9x40_Tomtom_I2S \
-         file://etc/snd_soc_msm/snd_soc_msm_I2S \
-         file://etc/snd_soc_msm/snd_soc_msm_Sitar \
-         file://etc/snd_soc_msm/snd_soc_msm_Taiko_I2S \
-         file://etc/snd_soc_msm/snd_soc_msm_Tapan \
-         file://etc/snd_soc_msm/snd_soc_msm_TapanLite \
-         file://etc/snd_soc_msm/snd_soc_msm_Tapan_SKUF \
-         file://etc/snd_soc_msm/snd_soc_msm_Tasha_I2S"
+         file://etc/udhcpc.d/udhcpc.script"
 
 do_install() {
       #make folders if they dont exist
@@ -179,7 +146,6 @@ do_install() {
       install -d ${D}/etc/firmware
       install -d ${D}/etc/udhcpc.d
       install -d ${D}/etc/data
-      install -d ${D}/etc/snd_soc_msm
 
       install -d ${D}/usr/persist
 
@@ -287,46 +253,11 @@ do_install() {
       # scripts and init
       install -m 0755 ${S}/bin/dnsmasq_script.sh ${D}/bin/
 
-      # Calibration data
-      cp ${S}/etc/Headset_cal.acdb ${D}/etc/
-      cp ${S}/etc/Hdmi_cal.acdb ${D}/etc/
-      cp ${S}/etc/General_cal.acdb ${D}/etc/
-      cp ${S}/etc/Bluetooth_cal.acdb ${D}/etc/
-      cp ${S}/etc/Speaker_cal.acdb ${D}/etc/
-      cp ${S}/etc/Global_cal.acdb ${D}/etc/
-      cp ${S}/etc/Handset_cal.acdb ${D}/etc/
-      # Qualcomm IZat  & Location MQ settings
-      cp ${S}/etc/izat.conf ${D}/etc/
-      cp ${S}/etc/lowi.conf ${D}/etc/
-
-      # ALSA config files
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_2x ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_2x_Fusion3 ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuaa ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_8x10_wcd_skuab ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_9x07_Tomtom_I2S ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_9x40_Tomtom_I2S ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_I2S ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Sitar ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Taiko_I2S ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tapan ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_TapanLite ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tapan_SKUF ${D}/etc/snd_soc_msm/
-      cp ${S}/etc/snd_soc_msm/snd_soc_msm_Tasha_I2S ${D}/etc/snd_soc_msm/
-
+     
       # Daemon settings
       cp ${S}/etc/udhcpc.d/udhcpc.script ${D}/etc/udhcpc.d/
      # cp ${S}/etc/udhcpc.d/50default ${D}/etc/udhcpc.d/
-      cp ${S}/etc/qmi_ip_cfg.xml ${D}/etc/
-      cp ${S}/etc/thermal-engine.conf ${D}/etc/
-
-      cp ${S}/etc/data/qmi_config.xml ${D}/etc/data/
-      cp ${S}/etc/data/netmgr_config.xml ${D}/etc/data/
-      cp ${S}/etc/data/dsi_config.xml ${D}/etc/data/
-      cp ${S}/etc/gps.conf ${D}/etc/data/
-
+     
       # services
       install -m 0755 ${S}/etc/init.d/data-init ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/init.d/

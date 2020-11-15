@@ -170,6 +170,8 @@ SectionVerb
 	# ALSA PCMs
 	PlaybackPCM 4
 	capturePCM 4
+	ACDBID	7:1
+	ACDBID	4:2
 
 EndSection
 }
