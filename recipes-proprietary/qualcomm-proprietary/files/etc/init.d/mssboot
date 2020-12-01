@@ -24,7 +24,7 @@ case "$1" in
               break
            fi
            counter=$(( $counter + 1 ))
-           sleep 1
+           sleep .5
         done
         ;;
   stop)

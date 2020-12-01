@@ -11,7 +11,7 @@ case "$1" in
   start)
         echo -n  "Starting QCMAP_ConnectionManager: " > /dev/kmsg
         echo "QCMAP:start" > /dev/kmsg
-        start-stop-daemon -S -b -a QCMAP_ConnectionManager /data/mobileap_cfg.xml d
+        start-stop-daemon -c mdmuser:mdmuser -S -b -a QCMAP_ConnectionManager /data/mobileap_cfg.xml d
         echo "done" > /dev/kmsg
         ;;
   stop)

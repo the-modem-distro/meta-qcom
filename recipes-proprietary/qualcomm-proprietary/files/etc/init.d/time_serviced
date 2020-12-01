@@ -14,7 +14,7 @@ case "$1" in
        start)
                 echo -n "Starting time_services: "
                 mkdir -p /data/time/
-                start-stop-daemon -S -b -n time_daemon -a /usr/bin/time_daemon
+                start-stop-daemon -c mdmuser:mdmuser -S -b -n time_daemon -a /usr/bin/time_daemon
                 echo "done"
                 ;;
        stop)

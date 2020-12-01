@@ -10,7 +10,7 @@ set -e
 case "$1" in
   start)
         echo -n "Starting qmi_ip: "
-        start-stop-daemon -S -b --exec /usr/bin/qmi_ip_multiclient /data/qmi_ip_cfg.xml
+        start-stop-daemon -c mdmuser:mdmuser -S -b --exec /usr/bin/qmi_ip_multiclient /data/qmi_ip_cfg.xml
         echo "done"
         ;;
   stop)

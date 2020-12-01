@@ -3,12 +3,11 @@ inherit bin_package
 DESCRIPTION = "Qualcomm Proprietary blobs and scripts"
 LICENSE = "CLOSED"
 PROVIDES = "qualcomm-proprietary"
-RDEPENDS_${PN} = "glibc openssl"
+RDEPENDS_${PN} = "glibc openssl libcap"
+PACKAGE_WRITE_DEPS = "libcap-native"
 MY_PN = "qualcomm-proprietary"
 PR = "r1"
 S = "${WORKDIR}/"
-
-
 INSANE_SKIP_${PN} = "ldflags"
 INSANE_SKIP_${PN} = "file-rdeps"
 INHIBIT_PACKAGE_STRIP = "1"
@@ -113,7 +112,7 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/liblocationservice.so.1.0.0 \
          file://usr/lib/liblocationservice_glue.so.1.0.0 \
          file://bin/dnsmasq_script.sh \
-         file://etc/init.d \
+         file://etc/sec_config \
          file://etc/init.d/data-init \
          file://etc/init.d/start_QCMAP_ConnectionManager_le \
          file://etc/init.d/start_atfwd_daemon \
@@ -193,6 +192,8 @@ do_install() {
       install -m 0755 ${S}/usr/bin/csd_server ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/location_hal_tests ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/lowi-test ${D}/usr/bin
+
+     
 
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
@@ -276,6 +277,7 @@ do_install() {
       install -m 0755 ${S}/etc/init.d/init_irsc_util ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_atfwd_daemon ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/csdserver ${D}/etc/init.d/
+      install -m 0644 ${S}/etc/sec_config ${D}/etc/
 
       # link services on boot
       ln -sf -r ${D}/etc/init.d/data-init ${D}/etc/rcS.d/S97data-init
@@ -293,7 +295,7 @@ do_install() {
       ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
       ln -sf -r ${D}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/rcS.d/S70start_eMBMs_TunnelingModule_le
       # ln -sf -r ${D}/etc/init.d/diagrebootapp ${D}/etc/rcS.d/S
-      ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S29init_irsc_util
+      ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S20init_irsc_util
       # If you need the console in the serial port disable this:
       ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
       ln -sf -r ${D}/etc/init.d/csdserver ${D}/etc/rcS.d/S45csdserver
@@ -352,4 +354,50 @@ do_install_append() {
      ln -sf -r  ${D}/usr/lib/libizat_client_api.so.1.0.0 ${D}/usr/lib/libizat_client_api.so.1
      ln -sf -r  ${D}/usr/lib/liblocationservice.so.1.0.0 ${D}/usr/lib/liblocationservice.so.1
      ln -sf -r  ${D}/usr/lib/liblocationservice_glue.so.1.0.0 ${D}/usr/lib/liblocationservice_glue.so.1
+}
+
+pkg_postinst_${PN} () {
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/alsaucm_test"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/atfwd_daemon"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_1000"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_dci_sample"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qti_ppp"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/DS_MUX"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_1001"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/netmgrd"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/radish"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/time_daemon"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/psmd"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/mbimd"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_0001"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/eMBMs_TunnelingModule"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_0000"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/thermal-engine"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_mt_client_init_instance"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_test"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_ip_multiclient"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_CLI"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmuxd"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_callback_sample"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_klog"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qti"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_uart_log"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_mdlog"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_shutdown_modem"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/port_bridge"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/test_diag"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/sendcal"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_socket_log"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_simple_ril_test"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/mbimd"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_StaInterface"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diagrebootapp"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/psm_test"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_ConnectionManager"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_2000"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/PktRspTest"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/irsc_util"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/csd_server"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/location_hal_tests"
+      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/lowi-test"
 }

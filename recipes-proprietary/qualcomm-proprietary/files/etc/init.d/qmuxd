@@ -10,7 +10,7 @@ set -e
 case "$1" in
   start)
         echo -n "Starting qmuxd: "
-        start-stop-daemon -S -b -a /usr/bin/qmuxd
+        start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/qmuxd
         echo "done"
         ;;
   stop)

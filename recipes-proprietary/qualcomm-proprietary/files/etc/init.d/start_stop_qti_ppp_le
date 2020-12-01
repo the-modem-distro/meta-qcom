@@ -11,7 +11,7 @@ case "$1" in
   start)
         echo -n "Starting qti_ppp: " > /dev/kmsg
         echo "QTI_PPP:start" > /dev/kmsg
-        start-stop-daemon -S -b --exec /usr/bin/qti_ppp
+        start-stop-daemon -c mdmuser:mdmuser -S -b --exec /usr/bin/qti_ppp
         echo "done"
         ;;
   stop)
