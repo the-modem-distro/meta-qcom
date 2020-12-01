@@ -11,7 +11,7 @@ set -e
 case "$1" in
   start)
         echo -n "Starting ql_forward "
-        start-stop-daemon -S -b -a $DAEMON
+        start-stop-daemon -c mdmuser:mdmuser -S -b -a $DAEMON
         echo "done"
         ;;
   stop)

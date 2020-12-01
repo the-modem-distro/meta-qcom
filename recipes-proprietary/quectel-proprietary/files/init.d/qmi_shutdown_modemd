@@ -13,7 +13,7 @@ set -e
 case "$1" in
        start)
                 echo -n "Starting qmi_shutdown_modem: "
-                start-stop-daemon -S -b -n qmi_shutdown_modem -a /usr/bin/qmi_shutdown_modem
+                start-stop-daemon -c mdmuser:mdmuser -S -b -n qmi_shutdown_modem -a /usr/bin/qmi_shutdown_modem
                 echo "done"
                 ;;
        stop)

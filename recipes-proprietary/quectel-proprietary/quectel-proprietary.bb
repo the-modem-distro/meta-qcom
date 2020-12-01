@@ -5,6 +5,8 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/\
 ${LICENSE};md5=89aea4e17d99a7cacdbeed46a0096b10"
 PROVIDES = "quectel-proprietary"
+RDEPENDS_${PN} = "libcap"
+PACKAGE_WRITE_DEPS = "libcap-native"
 MY_PN = "quectel-proprietary"
 PR = "r1"
 INSANE_SKIP_${PN} = "ldflags"
@@ -30,7 +32,6 @@ SRC_URI="file://bin/ql_forward \
          file://bin/xtwifi-client \
          file://bin/lowi-server \
          file://bin/loc_launcher \
-         file://bin/ql_usbcfg \
          file://init.d/start_ql_forward_le \
          file://init.d/start_ql_manager_server_le \ 
          file://init.d/qmi_shutdown_modemd \ 
@@ -74,7 +75,7 @@ do_install() {
       install -d ${D}/etc/rcS.d
       install -d ${D}/etc/quectel/ql_manager
       # binaries
-      install -m 0755  ${S}/bin/ql_usbcfg ${D}/usr/bin
+ #     install -m 0755  ${S}/bin/ql_usbcfg ${D}/usr/bin
       install -m 0755  ${S}/bin/loc_launcher ${D}/usr/bin
       install -m 0755  ${S}/bin/ql_forward ${D}/usr/bin
       install -m 0755  ${S}/bin/ql_manager_cli ${D}/usr/bin
@@ -159,4 +160,25 @@ do_install() {
       ln -sf -r ${D}/usr/lib/libdataitems.so.1.0.0 ${D}/usr/lib/libdataitems.so.1
       ln -sf -r ${D}/usr/lib/libutils.so.0.0.0 ${D}/usr/lib/libutils.so.0
       ln -sf -r ${D}/usr/lib/libsqlite3.so.0.8.6 ${D}/usr/lib/libsqlite3.so.0
+}
+
+
+pkg_postinst_${PN}() {
+      setcap cap_net_raw+ep "$D/usr/bin/loc_launcher"
+      setcap cap_net_raw+ep "$D/usr/bin/ql_forward"
+      setcap cap_net_raw+ep "$D/usr/bin/ql_manager_cli"
+      setcap cap_net_raw+ep "$D/usr/bin/ql_manager_server"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel_daemon"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel_monitor_daemon"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel_pcm_daemon"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel_psm_aware"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel_tts_service"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel-gps-handle"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel-remotefs-service"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel-smd-atcmd"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel-thermal"
+      setcap cap_net_raw+ep "$D/usr/bin/quectel-uart-ddp"
+      setcap cap_net_raw+ep "$D/usr/bin/xtwifi-client"
+      setcap cap_net_raw+ep "$D/usr/bin/xtwifi-inet-agent"
+      setcap cap_net_raw+ep "$D/usr/bin/lowi-server"
 }

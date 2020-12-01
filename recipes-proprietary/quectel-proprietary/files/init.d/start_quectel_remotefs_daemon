@@ -6,7 +6,7 @@ case "$1" in
 start)
     # add by quectel 2016.06.26  end	
     echo -n "Starting quectel-remotefs-service "
-    start-stop-daemon -S -b -a /usr/bin/quectel-remotefs-service
+    start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/quectel-remotefs-service
     echo "done"
     ;;
   stop)
