@@ -1,34 +1,30 @@
-#  ---------------------------------------------------------------------------
-#   Copyright (c) 2012 Qualcomm Technologies, Inc.  All Rights Reserved.
-#   Qualcomm Technologies Proprietary and Confidential.
-#  ---------------------------------------------------------------------------
-#
-
 #! /bin/sh
 #
-# init.d script for quectel uart ddp
-
+#
+# Init script for: quectel_psm_aware
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=quectel_psm_aware
 set -e
 
 case "$1" in
-       start)
-                echo -n "Starting quectel_psm_aware: "
-                start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/quectel_psm_aware
-                echo "done"
-                ;;
-       stop)
-                echo -n "Stopping quectel uart ddp: "
-                start-stop-daemon -K -n quectel_psm_aware
-                echo "done"
-                ;;
-       restart)
-                $0 stop
-                $0 start
-                ;;
-       *)
-                echo "Usage: quectel_psm_aware { start | stop | restart }" >&2
-                exit 1
-                ;;
+  start)
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -x $DAEMON_PATH$DAEMON
+        ;;
+  stop)
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
 esac
 
 exit 0

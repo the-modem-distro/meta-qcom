@@ -1,38 +1,38 @@
-#!/bin/sh
+#! /bin/sh
 #
-#Copyright (c) 2013 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# Location launcher service  init.d script to start the Location Software's mcmlocserver daemon
-
+#
+# Init script for: loc_launcher
+# Location launcher service  
+# Location Software's mcmlocserver daemon
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=loc_launcher
 set -e
+if [ ! -d /data/misc/location/mq ]
+then
+      mkdir -p /data/misc/location/mq
+fi
+if [ ! -d /data/misc/location/xtwifi ]
+then
+      mkdir -p /data/misc/location/xtwifi
+fi
 
 case "$1" in
   start)
-        # create required directories for location services
-        if [ ! -d /data/misc/location/mq ]
-        then
-            mkdir -p /data/misc/location/mq
-        fi
-        if [ ! -d /data/misc/location/xtwifi ]
-        then
-            mkdir -p /data/misc/location/xtwifi
-        fi
-        echo -n "Starting Location Launcher Services: "
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/loc_launcher
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -x $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping Location launcher Services: "
-        start-stop-daemon -K -n loc_launcher
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage loc_launcher { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac

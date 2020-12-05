@@ -1,34 +1,30 @@
-#  ---------------------------------------------------------------------------
-#   Copyright (c) 2012 Qualcomm Technologies, Inc.  All Rights Reserved.
-#   Qualcomm Technologies Proprietary and Confidential.
-#  ---------------------------------------------------------------------------
-#
-
 #! /bin/sh
 #
-# init.d script for quectel daemon
-
+#
+# Init script for: start_quec_pcm_daemon
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=start_quec_pcm_daemon
 set -e
 
 case "$1" in
-       start)
-                echo -n "Starting quectel_pcm_daemon: "
-                start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/quectel_pcm_daemon
-                echo "done"
-                ;;
-       stop)
-                echo -n "Stopping quectel pcm daemon: "
-                start-stop-daemon -K -n quectel_pcm_daemon
-                echo "done"
-                ;;
-       restart)
-                $0 stop
-                $0 start
-                ;;
-       *)
-                echo "Usage: quectel_pcm_daemon { start | stop | restart }" >&2
-                exit 1
-                ;;
+  start)
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -x $DAEMON_PATH$DAEMON
+        ;;
+  stop)
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
 esac
 
 exit 0
