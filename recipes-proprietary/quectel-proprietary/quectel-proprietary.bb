@@ -18,6 +18,8 @@ INHIBIT_PACKAGE_STRIP = "1"
 SRC_URI="file://bin/ql_forward \
          file://bin/ql_manager_cli \
          file://bin/ql_manager_server \
+         file://bin/start_quec_daemon \
+         file://bin/start_quec_pcm_daemon \
          file://bin/quectel_daemon \
          file://bin/quectel_monitor_daemon \
          file://bin/quectel_pcm_daemon \
@@ -69,6 +71,7 @@ S = "${WORKDIR}/"
 
 do_install() {
       #make folders if they dont exist
+      install -d ${D}/persist
       install -d ${D}/usr/bin
       install -d ${D}/usr/lib
       install -d ${D}/etc/init.d
@@ -80,6 +83,8 @@ do_install() {
       install -m 0755  ${S}/bin/ql_forward ${D}/usr/bin
       install -m 0755  ${S}/bin/ql_manager_cli ${D}/usr/bin
       install -m 0755  ${S}/bin/ql_manager_server ${D}/usr/bin
+      install -m 0755  ${S}/bin/start_quec_daemon ${D}/usr/bin
+      install -m 0755  ${S}/bin/start_quec_pcm_daemon ${D}/usr/bin
       install -m 0755  ${S}/bin/quectel_daemon ${D}/usr/bin
       install -m 0755  ${S}/bin/quectel_monitor_daemon ${D}/usr/bin
       install -m 0755  ${S}/bin/quectel_pcm_daemon ${D}/usr/bin
@@ -135,7 +140,7 @@ do_install() {
       ln -sf -r ${D}/etc/init.d/start_loc_launcher ${D}/etc/rcS.d/S99start_loc_launcher
       ln -sf -r ${D}/etc/init.d/start_ql_manager_server_le ${D}/etc/rcS.d/S99start_ql_manager_server_le
       ln -sf -r ${D}/etc/init.d/start_ql_forward_le ${D}/etc/rcS.d/S45start_ql_forward_le
-      ln -sf -r ${D}/etc/init.d/qmi_shutdown_modemd ${D}/etc/rcS.d/S45qmi_shutdown_modemd
+      #ln -sf -r ${D}/etc/init.d/qmi_shutdown_modemd ${D}/etc/rcS.d/S45qmi_shutdown_modemd
       ln -sf -r ${D}/etc/init.d/quectel_daemon ${D}/etc/rcS.d/S45quectel_daemon
       ln -sf -r ${D}/etc/init.d/quectel_psm_aware ${D}/etc/rcS.d/S45quectel_psm_aware
       ln -sf -r ${D}/etc/init.d/quectel-gps-handle ${D}/etc/rcS.d/S45quectel-gps-handle
@@ -176,7 +181,7 @@ pkg_postinst_${PN}() {
       setcap cap_net_raw+ep "$D/usr/bin/quectel-gps-handle"
       setcap cap_net_raw+ep "$D/usr/bin/quectel-remotefs-service"
       setcap cap_net_raw+ep "$D/usr/bin/quectel-smd-atcmd"
-      setcap cap_net_raw+ep "$D/usr/bin/quectel-thermal"
+      #setcap cap_net_raw+ep "$D/usr/bin/quectel-thermal"
       setcap cap_net_raw+ep "$D/usr/bin/quectel-uart-ddp"
       setcap cap_net_raw+ep "$D/usr/bin/xtwifi-client"
       setcap cap_net_raw+ep "$D/usr/bin/xtwifi-inet-agent"

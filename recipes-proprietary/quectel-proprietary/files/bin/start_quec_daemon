@@ -1,0 +1,3 @@
+#!/bin/sh
+# start_quec_daemon
+/usr/bin/quectel_daemon >> /data/runtime_log.log 2>&1
