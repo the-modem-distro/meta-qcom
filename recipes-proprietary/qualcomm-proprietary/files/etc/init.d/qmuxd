@@ -1,32 +1,30 @@
 #! /bin/sh
 #
-#Copyright (c) 2011 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# qmuxd        init.d script to start QMI's qmuxd daemon
-
+#
+# Init script for: qmuxd
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=qmuxd
 set -e
 
 case "$1" in
   start)
-        echo -n "Starting qmuxd: "
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/qmuxd
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -x $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping qmuxd: "
-        start-stop-daemon -K -n qmuxd
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage qmuxd { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac
-
 
 exit 0

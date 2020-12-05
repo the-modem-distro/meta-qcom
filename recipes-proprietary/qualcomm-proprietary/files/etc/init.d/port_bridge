@@ -1,33 +1,30 @@
 #! /bin/sh
 #
-#Copyright (c) 2017 Qualcomm Technologies, Inc.
-#All Rights Reserved.
-#Confidential and Proprietary - Qualcomm Technologies, Inc.
 #
-# port_bridge   init.d script to start the Data Software's port_bridge daemon
-
+# Init script for: port_bridge
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=port_bridge
 set -e
 
 case "$1" in
   start)
-        echo -n "Starting port_bridge: "
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/port_bridge
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping port_bridge: "
-        start-stop-daemon -K -n port_bridge
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage port_bridge { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac
 
 exit 0
-

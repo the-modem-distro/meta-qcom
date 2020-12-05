@@ -1,29 +1,28 @@
 #! /bin/sh
 #
-#Copyright (c) 2011 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# netmgrd   init.d script to start the Data Software's netmgrd daemon
-
+#
+# Init script for: netmgrd
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=netmgrd
 set -e
 
 case "$1" in
   start)
-        echo -n "Starting netmgrd: "
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a /usr/bin/netmgrd
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping netmgrd: "
-        start-stop-daemon -K -n netmgrd
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage netmgrd { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac

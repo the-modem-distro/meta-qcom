@@ -1,29 +1,28 @@
 #! /bin/sh
 #
-#Copyright (c) 2013 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# thermal-engine        init.d script to start thermal engine
-
+#
+# Init script for: thermal-engine
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=thermal-engine
 set -e
 
 case "$1" in
   start)
-        echo -n "Starting thermal-engine: "
-        start-stop-daemon -S -b -a /usr/bin/thermal-engine
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping thermal-engine: "
-        start-stop-daemon -K -n thermal-engine
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage thermal-engine { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac

@@ -1,26 +1,30 @@
 #! /bin/sh
-
+#
+#
+# Init script for: diagrebootapp
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=diagrebootapp
 set -e
 
 case "$1" in
   start)
-    echo -n "Starting diagrebootapp: "
-    start-stop-daemon -S -b -a /usr/bin/diagrebootapp
-    echo "done"
-    ;;
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON
+        ;;
   stop)
-    echo -n "Stopping diagrebootapp: "
-    start-stop-daemon -K -n diagrebootapp
-    echo "done"
-    ;;
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
+        ;;
   restart)
-    $0 stop
-    $0 start
-    ;;
+        $0 stop
+        $0 start
+        ;;
   *)
-    echo "Usage rebootdiag { start | stop | restart }" >&2
-    exit 1
-    ;;
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
 esac
 
 exit 0

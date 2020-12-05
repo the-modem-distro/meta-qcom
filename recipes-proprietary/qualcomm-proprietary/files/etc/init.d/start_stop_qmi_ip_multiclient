@@ -1,29 +1,28 @@
 #! /bin/sh
 #
-#Copyright (c) 2014 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# qmi_ip   init.d script to start the Data Software's qmi_ip daemon
-
+#
+# Init script for: qmi_ip_multiclient
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=qmi_ip_multiclient
 set -e
 
 case "$1" in
   start)
-        echo -n "Starting qmi_ip: "
-        start-stop-daemon -c mdmuser:mdmuser -S -b --exec /usr/bin/qmi_ip_multiclient /data/qmi_ip_cfg.xml
-        echo "done"
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -x $DAEMON_PATH$DAEMON
         ;;
   stop)
-        echo -n "Stopping qmi_ip: "
-        start-stop-daemon -K -n qmi_ip_multiclient
-        echo "done"
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -x $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage qmi_ip_multiclient { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac

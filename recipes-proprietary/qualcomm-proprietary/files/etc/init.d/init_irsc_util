@@ -1,5 +1,8 @@
 #! /bin/sh
-
+#
+#
+# Init script for: irsc_util
+# This loads the security permissions for the MSM IPC router
 set -e
 
 case "$1" in

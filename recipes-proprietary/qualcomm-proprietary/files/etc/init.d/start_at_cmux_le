@@ -1,37 +1,34 @@
 #! /bin/sh
-#=============================================================================
-#Copyright (c) 2011-2013, 2017 Qualcomm Technologies, Inc.
-#All Rights Reserved.
-#Confidential and Proprietary - Qualcomm Technologies, Inc.
-#============================================================================
 #
-# DS_MUX   init.d script to start the Data Software's DS_MUX daemon
+#
+# Init script for: DS_MUX
+# DS_MUX: Data Software's DS_MUX daemon
 
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=DS_MUX
 DAEMON_OPT1_UART="1"
 DAEMON_OPT2_UART="/dev/ttyHS1"
-
 DAEMON_OPT1_USB="2"
 
 set -e
 
 case "$1" in
   start)
-        echo -n  "Starting DS_MUX: " > /dev/kmsg
-        echo "DS_MUX:start" > /dev/kmsg
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a DS_MUX -- $DAEMON_OPT1_UART $DAEMON_OPT2_UART
-        echo "done" > /dev/kmsg
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON -- $DAEMON_OPT1_UART $DAEMON_OPT2_UART
         ;;
   stop)
-        echo -n "Stopping DS_MUX: " > /dev/kmsg
-        start-stop-daemon -K -n DS_MUX
-        echo "done" > /dev/kmsg
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage DS_MUX { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac

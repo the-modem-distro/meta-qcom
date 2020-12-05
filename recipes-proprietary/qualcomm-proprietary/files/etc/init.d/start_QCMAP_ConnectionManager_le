@@ -1,30 +1,28 @@
 #! /bin/sh
 #
-#Copyright (c) 2011-2013 Qualcomm Technologies, Inc.  All Rights Reserved.
-#Qualcomm Technologies Proprietary and Confidential.
-
-# QCMAP_ConnectionManager   init.d script to start the Data Software's QCMAP_ConnectionManager daemon
-
+#
+# Init script for: QCMAP_ConnectionManager
+USER=mdmuser
+GROUP=mdmuser
+DAEMON_PATH=/usr/bin/
+DAEMON=QCMAP_ConnectionManager
 set -e
 
 case "$1" in
   start)
-        echo -n  "Starting QCMAP_ConnectionManager: " > /dev/kmsg
-        echo "QCMAP:start" > /dev/kmsg
-        start-stop-daemon -c mdmuser:mdmuser -S -b -a QCMAP_ConnectionManager /data/mobileap_cfg.xml d
-        echo "done" > /dev/kmsg
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON /data/mobileap_cfg.xml d
         ;;
   stop)
-        echo -n "Stopping QCMAP_ConnectionManager: " > /dev/kmsg
-        start-stop-daemon -K -n QCMAP_ConnectionManager
-        echo "done" > /dev/kmsg
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
         ;;
   restart)
         $0 stop
         $0 start
         ;;
   *)
-        echo "Usage QCMAP_ConnectionManager { start | stop | restart}" >&2
+        echo "Usage $0 { start | stop | restart}" >&2
         exit 1
         ;;
 esac
