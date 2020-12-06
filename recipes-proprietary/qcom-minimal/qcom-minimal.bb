@@ -18,7 +18,6 @@ SOLIBS = ".so"
 FILES_SOLIBSDEV = ""
 SRC_URI="file://usr/bin/alsaucm_test \
          file://usr/bin/qti \
-         file://usr/bin/irsc_util \
          file://usr/lib/libqmi_cci.so.1.0.0 \
          file://usr/lib/libqmi_client_qmux.so.1.0.0 \
          file://usr/lib/libqmi_encdec.so.1.0.0 \
@@ -33,9 +32,7 @@ SRC_URI="file://usr/bin/alsaucm_test \
          file://usr/lib/libtime_genoff.so.1.0.0 \
          file://usr/lib/libalsa_intf.so.1.0.0 \
          file://usr/lib/libacdbloader.so \
-         file://etc/sec_config \
-         file://etc/init.d/start_qti_le \
-         file://etc/init.d/init_irsc_util"
+         file://etc/init.d/start_qti_le"
 
 do_install() {
       #make folders if they dont exist
@@ -52,7 +49,6 @@ do_install() {
       install -d ${D}/persist
 
       # binaries
-      install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/alsaucm_test ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/qti ${D}/usr/bin
 
@@ -74,12 +70,9 @@ do_install() {
 
       # services
       install -m 0755 ${S}/etc/init.d/start_qti_le ${D}/etc/init.d/
-      install -m 0755 ${S}/etc/init.d/init_irsc_util ${D}/etc/init.d/
-      install -m 0644 ${S}/etc/sec_config ${D}/etc/
 
       # link services on boot
       ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
-      ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S20init_irsc_util
 }
 
 do_install_append() {
