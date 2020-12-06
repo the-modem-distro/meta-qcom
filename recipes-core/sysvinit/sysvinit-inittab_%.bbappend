@@ -8,6 +8,6 @@
 # So keep them and set the init as commented just in case
 # we need it for anything later
 do_install_append() {
-  echo "#m2:5:respawn:/usr/bin/mbimd" >> ${D}/etc/inittab
-  echo "#m3:5:respawn:/usr/bin/diagrebootapp" >> ${D}/etc/inittab
+  # echo "#m2:5:respawn:/usr/bin/mbimd" >> ${D}/etc/inittab
+  # echo "#m3:5:respawn:/usr/bin/diagrebootapp" >> ${D}/etc/inittab
 }
