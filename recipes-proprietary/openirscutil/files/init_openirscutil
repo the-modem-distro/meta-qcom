@@ -1,0 +1,26 @@
+#! /bin/sh
+#
+#
+# Init script for: openirscutil
+# This loads the security permissions for the MSM IPC router
+set -e
+
+case "$1" in
+start)
+    echo -n "Starting openirscutil: "
+    /usr/bin/openirscutil
+    echo "done"
+    ;;
+  stop)
+    echo "done"
+    ;;
+  restart)
+    echo "done"
+    ;;
+  *)
+    echo "Usage openirscutil{ start | stop | restart }" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
