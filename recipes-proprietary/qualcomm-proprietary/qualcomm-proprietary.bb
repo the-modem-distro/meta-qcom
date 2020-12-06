@@ -195,7 +195,7 @@ do_install() {
       install -m 0755 ${S}/usr/bin/location_hal_tests ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/lowi-test ${D}/usr/bin
 
-     
+
 
       # Libraries
       cp ${S}/usr/lib/liblog.so.0.0.0   ${D}/usr/lib/
@@ -256,11 +256,11 @@ do_install() {
       # scripts and init
       install -m 0755 ${S}/bin/dnsmasq_script.sh ${D}/bin/
 
-     
+
       # Daemon settings
       cp ${S}/etc/udhcpc.d/udhcpc.script ${D}/etc/udhcpc.d/
      # cp ${S}/etc/udhcpc.d/50default ${D}/etc/udhcpc.d/
-     
+
       # services
       install -m 0755 ${S}/etc/init.d/data-init ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_QCMAP_ConnectionManager_le ${D}/etc/init.d/
@@ -358,47 +358,16 @@ do_install_append() {
 }
 
 pkg_postinst_${PN} () {
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/atfwd_daemon"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/DS_MUX"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/netmgrd"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/psmd"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/mbimd"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/eMBMs_TunnelingModule"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmuxd"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/port_bridge"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qti"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_StaInterface"
-      setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_ConnectionManager"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/alsaucm_test"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_1000"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_dci_sample"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qti_ppp"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_1001"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/radish"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/time_daemon"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_0001"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_0000"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/thermal-engine"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_mt_client_init_instance"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_test"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_ip_multiclient"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_CLI"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_callback_sample"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_klog"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_uart_log"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_mdlog"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_shutdown_modem"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/test_diag"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/sendcal"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diag_socket_log"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_simple_ril_test"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/mbimd"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/diagrebootapp"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/psm_test"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmi_test_service_clnt_test_2000"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/PktRspTest"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/irsc_util"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/csd_server"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/location_hal_tests"
-      #setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/lowi-test"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/atfwd_daemon"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/DS_MUX"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/netmgrd"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/psmd"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/mbimd"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/eMBMs_TunnelingModule"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qmuxd"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/port_bridge"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/qti"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_StaInterface"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/QCMAP_ConnectionManager"
+    setcap cap_net_raw,cap_net_admin,cap_dac_override+eip "$D/usr/bin/csd_server"
 }
