@@ -1,4 +1,4 @@
-SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspace"
+SUMMARY = "Minimal OpenSource IPC Router Security Feeder reimplementation for Qualcomm MDM9207 userspace"
 LICENSE = "MIT"
 MY_PN = "openirscutil"
 RPROVIDES_${PN} = "openirscutil"
