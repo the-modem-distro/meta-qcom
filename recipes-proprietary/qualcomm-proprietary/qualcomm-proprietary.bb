@@ -56,7 +56,6 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/bin/QCMAP_ConnectionManager \
          file://usr/bin/qmi_test_service_clnt_test_2000 \
          file://usr/bin/PktRspTest \
-         file://usr/bin/irsc_util \
          file://usr/bin/mbimd \
          file://usr/bin/location_hal_tests \
          file://usr/bin/lowi-test \
@@ -113,7 +112,6 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://usr/lib/liblocationservice.so.1.0.0 \
          file://usr/lib/liblocationservice_glue.so.1.0.0 \
          file://bin/dnsmasq_script.sh \
-         file://etc/sec_config \
          file://etc/init.d/data-init \
          file://etc/init.d/start_QCMAP_ConnectionManager_le \
          file://etc/init.d/start_atfwd_daemon \
@@ -131,7 +129,6 @@ SRC_URI="file://usr/bin/qmi_test_service_clnt_test_1000 \
          file://etc/init.d/start_qti_le \
          file://etc/init.d/start_eMBMs_TunnelingModule_le \
          file://etc/init.d/diagrebootapp \
-         file://etc/init.d/init_irsc_util \
          file://etc/udhcpc.d \
          file://etc/udhcpc.d/udhcpc.script"
 
@@ -190,7 +187,6 @@ do_install() {
       install -m 0755 ${S}/usr/bin/QCMAP_ConnectionManager ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/qmi_test_service_clnt_test_2000 ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/PktRspTest ${D}/usr/bin
-      install -m 0755 ${S}/usr/bin/irsc_util ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/csd_server ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/location_hal_tests ${D}/usr/bin
       install -m 0755 ${S}/usr/bin/lowi-test ${D}/usr/bin
@@ -276,10 +272,8 @@ do_install() {
       install -m 0755 ${S}/etc/init.d/start_qti_le ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/diagrebootapp ${D}/etc/init.d/
-      install -m 0755 ${S}/etc/init.d/init_irsc_util ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/start_atfwd_daemon ${D}/etc/init.d/
       install -m 0755 ${S}/etc/init.d/csdserver ${D}/etc/init.d/
-      install -m 0644 ${S}/etc/sec_config ${D}/etc/
 
       # link services on boot
       ln -sf -r ${D}/etc/init.d/data-init ${D}/etc/rcS.d/S97data-init
@@ -296,7 +290,6 @@ do_install() {
       ln -sf -r ${D}/etc/init.d/mssboot ${D}/etc/rcS.d/S30mssboot
       ln -sf -r ${D}/etc/init.d/start_qti_le ${D}/etc/rcS.d/S40start_qti_le
       ln -sf -r ${D}/etc/init.d/start_eMBMs_TunnelingModule_le ${D}/etc/rcS.d/S70start_eMBMs_TunnelingModule_le
-      ln -sf -r ${D}/etc/init.d/init_irsc_util ${D}/etc/rcS.d/S20init_irsc_util
       # If you need the console in the serial port disable this:
       ln -sf -r ${D}/etc/init.d/start_atfwd_daemon ${D}/etc/rcS.d/S80start_atfwd_daemon
       ln -sf -r ${D}/etc/init.d/csdserver ${D}/etc/rcS.d/S45csdserver
