@@ -1,0 +1,27 @@
+#! /bin/sh
+#
+#
+# Init script for: openqti
+# Dummy qti binary replacement
+set -e
+
+case "$1" in
+start)
+    echo -n "Starting openqti: "
+    /usr/bin/openqti
+    echo "done"
+    ;;
+  stop)
+    killall openqti
+    echo "done"
+    ;;
+  restart)
+    echo "done"
+    ;;
+  *)
+    echo "Usage openqti{ start | stop | restart }" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
