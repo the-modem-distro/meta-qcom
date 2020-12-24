@@ -10,9 +10,18 @@ PR = "r6"
 
 MY_PN = "mkbootimg"
 
+SRC_URI = "file://mkbootimg.c \
+           file://sha256.c \
+           file://sha256.h \
+           file://sha.h \
+           file://sha.c \
+           file://bootimg.h \
+           file://hash-internal.h"
+
+S = "${WORKDIR}"
 
 do_compile() {
-         ${CC}  ${CFLAGS} ${LDFLAGS} ${THISDIR}/files/mkbootimg.c -o mkbootimg -Wno-discarded-qualifiers -lmincrypt  --verbose
+         ${CC}  sha256.c mkbootimg.c  -o mkbootimg -Wno-discarded-qualifiers  --verbose
 }
 
 do_install() {
