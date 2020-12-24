@@ -5,7 +5,7 @@ LICENSE = "CLOSED"
 PROVIDES = "quectel-configs"
 MY_PN = "quectel-configs"
 PR = "r1"
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 
 INSANE_SKIP_${PN} = "ldflags"

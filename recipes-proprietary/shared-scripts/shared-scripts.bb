@@ -16,7 +16,7 @@ SRC_URI="file://adbd \
          file://chgrp-diag \
          file://set_modem_dev_perms \
          file://rootfsmount "
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 
 do_install() {

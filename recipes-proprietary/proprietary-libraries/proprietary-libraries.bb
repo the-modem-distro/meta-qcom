@@ -30,7 +30,7 @@ SRC_URI="file://libeloop.so.1 \
          file://libalsa_intf.so.1 "
 
 
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 do_install() {
       # make folders if they dont exist

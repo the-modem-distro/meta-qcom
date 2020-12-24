@@ -11,7 +11,7 @@ INSANE_SKIP_${PN} = "ldflags"
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 INHIBIT_PACKAGE_STRIP = "1"
 SRC_URI="file://usb"
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 
 do_install() {
