@@ -67,7 +67,7 @@ SRC_URI="file://bin/ql_forward \
          file://lib/libxtwifiserver_protocol_uri_v3.so.1.0.0 \
          file://lib/libxtwifiserver_protocol.so.1.0.0"
 
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 do_install() {
       #make folders if they dont exist

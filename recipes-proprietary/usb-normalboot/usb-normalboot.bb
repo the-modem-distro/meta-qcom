@@ -57,7 +57,7 @@ SRC_URI="file://init.d/usb \
 
 
 
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 do_install() {
       #make folders if they dont exist

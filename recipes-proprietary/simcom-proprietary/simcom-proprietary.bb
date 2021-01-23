@@ -114,7 +114,7 @@ SRC_URI="file://etc/init.d/start_ipacm_perf_le \
         file://usr/lib/libqmi_sap.so.1.0.0 \
         file://usr/lib/libqmi_cci.so.1.0.0"
 
-S = "${WORKDIR}/"
+S = "${WORKDIR}"
 
 do_install() {
         #make folders if they dont exist
