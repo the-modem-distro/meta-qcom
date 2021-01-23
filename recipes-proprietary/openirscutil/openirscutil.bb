@@ -11,7 +11,7 @@ SRC_URI = "file://openirscutil.c \
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} openirscutil.c -o openirscutil
+    ${CC} ${LDFLAGS} openirscutil.c -o openirscutil
 }
 
 do_install() {
