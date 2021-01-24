@@ -1,22 +1,11 @@
 #include <unistd.h>
-#include <errno.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/time.h>
-#include <sys/poll.h>
-#include <sys/epoll.h>
-#include <sys/signal.h>
-#include <linux/ioctl.h>
 #include <fcntl.h>
-#include <pthread.h>
 #include <termios.h>
 #include "openqti.h"
 
@@ -163,34 +152,25 @@ int main(int argc, char **argv) {
 		printf("Error binding to socket");
 	}
 	do {
-	/* Request opening the socket */
-	ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-	printf("Data40 sendto: ret: %i", ret);
+		/* Request opening the socket */
+		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+		if (ret == -1){
+			printf("Failed to send request to enable smdcntl8: %i \n", ret);
+		}
+		ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+		if (ret == -1){
+			printf("Failed to send QMI message to socket: %i \n", ret);
+		}
 
-	ret = recvfrom(ipc_router_socket, &bufsck, 3156, MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-	printf("Receive from IPC: %i, %s", ret, bufsck);
-
-	printf("Send QMI Message 2\n");
-	ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-	if (ret == -1){
-		printf("Failed to send QMI message to socket: %i \n", ret);
-	}
-
-	ret = recvfrom(ipc_router_socket, &bufsck, 2048, MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-	printf("Receive from IPC: %i, %s", ret, bufsck);
-	if (ret == -1)	{
-		printf("Failed to receive QMI message to socket: %i \n", ret);
-	}
-  	// Wait one second after requesting bam init...
-	sleep(1);
-	smdcntl8_fd = open(SMD_CNTL, O_RDWR);
-	if (smdcntl8_fd < 0) {
-		printf("Error opening SMD Control 8 interface \n");
-	}
-	// Sleep 2 seconds just in case it needs to loop
-	sleep(2);
+		// Wait one second after requesting bam init...
+		sleep(1);
+		smdcntl8_fd = open(SMD_CNTL, O_RDWR);
+		if (smdcntl8_fd < 0) {
+			printf("Error opening SMD Control 8 interface \n");
+		}
+		// Sleep 1 second just in case it needs to loop
+		sleep(1);
   } while (smdcntl8_fd < 0);
-
 	printf("SMD Interface opened \n");
 	int dtrsignal = (TIOCM_DTR | TIOCM_RTS | TIOCM_CD);
 	if ((ioctl(smdcntl8_fd, TIOCMSET, (void*) &dtrsignal)) == -1)	{
