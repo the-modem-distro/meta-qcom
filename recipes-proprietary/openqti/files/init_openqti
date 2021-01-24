@@ -1,27 +1,30 @@
 #! /bin/sh
 #
 #
-# Init script for: openqti
-# Dummy qti binary replacement
+# Init script for: openqti 
+USER=root
+GROUP=root
+DAEMON_PATH=/usr/bin/
+DAEMON=openqti
 set -e
 
 case "$1" in
-start)
-    echo -n "Starting openqti: "
-    /usr/bin/openqti
-    echo "done"
-    ;;
+  start)
+        echo "Starting $DAEMON" > /dev/kmsg
+        start-stop-daemon -c $USER:$GROUP -S -b -a $DAEMON_PATH$DAEMON
+        ;;
   stop)
-    killall openqti
-    echo "done"
-    ;;
+        echo "Stopping $DAEMON" > /dev/kmsg
+        start-stop-daemon -K -n $DAEMON
+        ;;
   restart)
-    echo "done"
-    ;;
+        $0 stop
+        $0 start
+        ;;
   *)
-    echo "Usage openqti{ start | stop | restart }" >&2
-    exit 1
-    ;;
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
 esac
 
 exit 0

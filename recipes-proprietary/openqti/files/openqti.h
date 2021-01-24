@@ -3,15 +3,13 @@
 
 #define VERSION "v0.0.0"
 
-#define SMD_CNTL "/dev/smdcntl8"
-#define RMNET_CTL "/dev/rmnet_ctrl"
-#define USB_TTY "/dev/ttyGS0"
-#define SMD_TTY "/dev/smd8"
-#define DPL "/dev/dpl_ctrl"
-#define SMEMLOG "/dev/smem_log"
+/* Devices */
 #define DIAGDEV "/dev/diag"
-#define USB_TETHERED_SMD_CH "DATA40_CNTL"
-#define IPPROTO_IP 0
+#define SMEMLOG "/dev/smem_log"
+#define DPL "/dev/dpl_ctrl"
+#define RMNET_CTL "/dev/rmnet_ctrl"
+#define SMD_CNTL "/dev/smdcntl8"
+#define USB_TTY "/dev/ttyGS0"
 
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
@@ -21,15 +19,10 @@
 #define IPC_HEXAGON_RESPONSE_PORT 0x1d
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
-#define QMI_DPM_PORT_NAME_MAX_V01 32
-#define QMI_DPM_OPEN_PORT_REQ_V01 0x0020
-#define QTI_QMI_MSG_TIMEOUT_VALUE           90000
-
 
 #define MAX_PACKET_SIZE 2048 // rmnet max packet size
 #define TRACED_DIAG_SZ 100000
 #define MAX_QTI_PKT_SIZE 8192
-
 
 #define QTI_IOCTL_MAGIC	'r'
 #define GET_LINE_STATE	_IOR(QTI_IOCTL_MAGIC, 2, int)
@@ -59,8 +52,6 @@ struct sockaddr_msm_ipc {
 	struct msm_ipc_addr address;
 	unsigned char reserved;
 };
-#define IPC_ROUTER_IOCTL_LOOKUP_SERVER _IOWR(IPC_IOCTL_MAGIC, 2, struct sockaddr_msm_ipc)
-
 
 enum peripheral_ep_type {
 	DATA_EP_TYPE_RESERVED	= 0x0,
