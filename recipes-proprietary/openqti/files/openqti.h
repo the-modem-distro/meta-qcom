@@ -1,7 +1,7 @@
 #ifndef _OPENQTI_H_
 #define _OPENQTI_H_
 
-#define VERSION "v0.0.0"
+#define VERSION "0.0.1"
 
 /* Devices */
 #define DIAGDEV "/dev/diag"

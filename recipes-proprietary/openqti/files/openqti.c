@@ -5,26 +5,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <linux/ioctl.h>
-#include <sys/ioctl.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/poll.h>
+#include <sys/epoll.h>
+#include <sys/signal.h>
+#include <linux/ioctl.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <sys/epoll.h>
-#include <sys/poll.h>
 #include <termios.h>
-#include <sys/signal.h>
 #include "openqti.h"
-#include <sys/time.h>
-#include <sys/types.h>
 
 /*
  *Dead simple QTI daemon
  */
-
-int main(int argc, char *argv[]) {
+void dump_packet(char * buf) {
+	int i, linec = 0;
+	for (i = 0; i < sizeof(buf); i++) {
+		printf("0x%x ", buf[i]);
+		linec++;
+		if (linec > 20) {
+			printf("\n");
+			linec = 0;
+		}
+	}
+}
+int main(int argc, char **argv) {
 	/* Descriptors */
 	int diagfd = -1;
 	int smem_logfd = -1;
@@ -34,8 +44,8 @@ int main(int argc, char *argv[]) {
 	int ipc_router_socket = -1;
  	struct peripheral_ep_info epinfo;
   	struct sockaddr_msm_ipc ipc_socket_addr;
-	bool debug = false;
-
+	bool debug = false; // Dump usb packets
+	bool bypass_mode = false; // After setting it up, shutdown USB and restart it in SMD mode
 	char buf[4096] = "\0";
 	char diagbuf[TRACED_DIAG_SZ];
 	char rmnetbuf[MAX_PACKET_SIZE] = "\0";
@@ -50,6 +60,7 @@ int main(int argc, char *argv[]) {
 	int linestate;
 	int max_fd = 20;
 	int psize;
+	int c;
   	fd_set readfds;
 	
 	/* IPC Socket settings */
@@ -72,12 +83,30 @@ int main(int argc, char *argv[]) {
 	 * manages to open /dev/smdcntl8, which is the point
 	 * where it is ready
 	 */
-	printf("OpenQTI! \n");
-	if (argc > 1) {
-		if (strcmp(argv[1], "-d") == 0) {
+	printf("OpenQTI %s \n", VERSION);
+	printf("--------------\n");
+	while ((c = getopt (argc, argv, "db")) != -1)
+		switch (c) {
+		case 'd':
+			printf("Debug mode\n");
 			debug = true;
+			bypass_mode = false;
+			break;
+		case 'b':
+			printf("Bypass mode\n");
+			debug = false;
+			bypass_mode = true;
+			break;
+		case '?':
+			printf("Options:\n");
+			printf(" -d: Debug packets passing through SMD and RMNET\n");
+			printf(" -b: Bypass mode (initialize and change usb mode to SMD,BAM_DMUX)\n");
+			return 1;
+		default:
+			debug = false;
+			bypass_mode = false;
+			break;
 		}
-	}
 	if (diagfd < 0) {
     	printf("Opening DIAG interface \n");
     	diagfd = open(DIAGDEV, O_RDWR);
@@ -178,38 +207,45 @@ int main(int argc, char *argv[]) {
 
 	ret = ioctl(rmnet_ctrlfd, MODEM_ONLINE);
 	printf("Set modem online (set DTR high): %i \n", ret);
-
-	while (1) {
-		FD_ZERO(&readfds);
-		memset(rmnetbuf, 0, sizeof(rmnetbuf));
-		FD_SET(rmnet_ctrlfd, &readfds);
-		FD_SET(smdcntl8_fd, &readfds);
+	// Should we proxy USB?
+	if (!bypass_mode) {
+		while (1) {
+			FD_ZERO(&readfds);
+			memset(rmnetbuf, 0, sizeof(rmnetbuf));
+			FD_SET(rmnet_ctrlfd, &readfds);
+			FD_SET(smdcntl8_fd, &readfds);
 			pret = select(max_fd, &readfds, NULL, NULL, NULL);
 			if (FD_ISSET(rmnet_ctrlfd, &readfds)) {
-				printf("Packet received in rmnet \n");
 				ret = read(rmnet_ctrlfd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0) {
-					if (debug) {
-						printf("--> rmnet_ctl: SZ:%i: str: %s \n ", rmnetbuf, ret, sizeof(rmnetbuf));
-					}
 					psize = write(smdcntl8_fd, rmnetbuf, ret);
+					if (debug) {
+						printf("rmnet_ctrl --> smdcntl8\n");
+						dump_packet(rmnetbuf);
+					}
 				}
 			} else if (FD_ISSET(smdcntl8_fd, &readfds)) {
-				printf("Packet received in smdcntl8 \n");
 				ret = read(smdcntl8_fd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0)	{
-					if (debug) {
-						printf("--> smdcntl8: SZ:%i: str: %s \n ", rmnetbuf, ret, sizeof(rmnetbuf));
-					}
 					psize = write(rmnet_ctrlfd, rmnetbuf, ret);
+					if (debug) {
+						printf("smdcntl8 --> rmnet_ctrl \n");
+						dump_packet(rmnetbuf);
+					}
 				}
 			}
-	}
-
+		}	
+	} // If we should proxy USB
   close(smdcntl8_fd);
   close(rmnet_ctrlfd);
   close(diagfd);
   close(ipc_router_socket);
   close(dpl_cntlfd);
+  if (bypass_mode) {
+  	system("echo 0 > /sys/class/android_usb/android0/enable");
+  	system("echo SMD,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports");
+  	sleep(5);
+  	system("echo 1 > /sys/class/android_usb/android0/enable");
+  }
   return 0;
 }
