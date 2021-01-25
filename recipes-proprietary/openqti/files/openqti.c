@@ -12,8 +12,14 @@
 /*
  *Dead simple QTI daemon
  */
-void dump_packet(char * buf) {
+
+/*
+ *	Dump packet to stdout
+ *
+ */
+void dump_packet(char *direction, char *buf) {
 	int i, linec = 0;
+	printf("%s\n", direction);
 	for (i = 0; i < sizeof(buf); i++) {
 		printf("0x%x ", buf[i]);
 		linec++;
@@ -23,6 +29,25 @@ void dump_packet(char * buf) {
 		}
 	}
 }
+
+/*
+ *	WIP: Enable or disable if second byte of the packet matches
+ *
+ */
+void handle_pkt_action(char *pkt) {
+	if (sizeof(pkt) > 3) {
+		if (pkt[0] == 0x1) {
+			if (pkt[1] == 0x40) {
+				printf("Outgoing Call start\n");
+			} else if (pkt[1] == 0x46) {
+				printf("Incoming Call start\n");
+			} else if (pkt[1] == 0x41) {
+				printf("Hang up! \n");
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	/* Descriptors */
 	int diagfd = -1;
@@ -147,20 +172,20 @@ int main(int argc, char **argv) {
 	if (ret) {
 		printf("Error setting socket options \n");
 	}
-	ret = bind(ipc_router_socket, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+/*	ret = bind(ipc_router_socket, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 	if (ret < 0) {
 		printf("Error binding to socket");
-	}
+	}*/
 	do {
 		/* Request opening the socket */
 		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			printf("Failed to send request to enable smdcntl8: %i \n", ret);
 		}
-		ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+	/*	ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			printf("Failed to send QMI message to socket: %i \n", ret);
-		}
+		}*/
 
 		// Wait one second after requesting bam init...
 		sleep(1);
@@ -198,19 +223,19 @@ int main(int argc, char **argv) {
 			if (FD_ISSET(rmnet_ctrlfd, &readfds)) {
 				ret = read(rmnet_ctrlfd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0) {
+					handle_pkt_action(rmnetbuf);
 					psize = write(smdcntl8_fd, rmnetbuf, ret);
 					if (debug) {
-						printf("rmnet_ctrl --> smdcntl8\n");
-						dump_packet(rmnetbuf);
+						dump_packet("rmnet_ctrl --> smdcntl8", rmnetbuf);
 					}
 				}
 			} else if (FD_ISSET(smdcntl8_fd, &readfds)) {
 				ret = read(smdcntl8_fd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0)	{
+					handle_pkt_action(rmnetbuf);
 					psize = write(rmnet_ctrlfd, rmnetbuf, ret);
 					if (debug) {
-						printf("smdcntl8 --> rmnet_ctrl \n");
-						dump_packet(rmnetbuf);
+						dump_packet("smdcntl8 --> rmnet_ctrl", rmnetbuf);
 					}
 				}
 			}
