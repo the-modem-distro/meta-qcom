@@ -35,6 +35,7 @@ void dump_packet(char *direction, char *buf) {
  *
  */
 void handle_pkt_action(char *pkt) {
+	/* All packets passing between rmnet_ctl and smdcntl8 seem to be 4 byte long */
 	if (sizeof(pkt) > 3) {
 		if (pkt[0] == 0x1) {
 			if (pkt[1] == 0x40) {
@@ -46,6 +47,45 @@ void handle_pkt_action(char *pkt) {
 			}
 		}
 	}
+}
+
+void prepare_audio() {
+	printf("Initialize audio sysfs entries\n");
+	/* Sleep while waiting for /dev/snd/controlC0, the DSP might need a little while to finish starting when this is called 
+	 *	Once controlC0 is ready, we can open the config file snd_soc_msm_9x07_Tomtom_I2S and look for the call or VoLTE call 
+	 *	verbs
+	 *  Enable AFE Loopback (Quectel and Simcom always do this at boot)
+	 *	:: SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX",1
+	 *  Then change loop gain echo 0x100d 0 > /sys/kernel/debug/afe_loop_gain
+	 *
+	 *	Need to trace alsaucm_test in case it does something interesting or if the modem really needs calibration data
+	 *	After alsaucm_test,
+	 *	1. Mixer_open (controlC0)
+	 *	2. Set mixer controls when in call:
+	 * 		'SEC_AUX_PCM_RX_Voice Mixer VoLTE':1:1
+	 *		'VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE':1:1
+	 *	
+	 *	Set Alsa PCMs
+	 *		PlaybackPCM 4
+	 *		capturePCM 4
+	 *	3. Disable on hang up
+	 *	? Should set sampling rate how? 
+	 *		Quectel has hardcoded sysfs entries in kernel, then pieces of tinyalsa for the rest
+	 			echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/mode
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/sync
+				echo %d > /sys/devices/soc:sound/pcm_mode_select
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/frame
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/quant
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/data
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/rate
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/num_slots
+				echo %d > /sys/devices/soc:qcom,msm-sec-auxpcm/slot_mapping
+				echo %d > /sys/devices/soc:sound/quec_auxpcm_rate
+	 *		Simcom does use ALSA for that with a (more or less) untouched downstream kernel
+	 */
+
+
+	
 }
 
 int main(int argc, char **argv) {
@@ -172,20 +212,16 @@ int main(int argc, char **argv) {
 	if (ret) {
 		printf("Error setting socket options \n");
 	}
-/*	ret = bind(ipc_router_socket, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-	if (ret < 0) {
-		printf("Error binding to socket");
-	}*/
 	do {
-		/* Request opening the socket */
+		/* Request dpm to open smdcntl8 via IPC router */
 		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			printf("Failed to send request to enable smdcntl8: %i \n", ret);
 		}
-	/*	ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+		ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			printf("Failed to send QMI message to socket: %i \n", ret);
-		}*/
+		}
 
 		// Wait one second after requesting bam init...
 		sleep(1);
@@ -212,6 +248,9 @@ int main(int argc, char **argv) {
 
 	ret = ioctl(rmnet_ctrlfd, MODEM_ONLINE);
 	printf("Set modem online (set DTR high): %i \n", ret);
+
+	prepare_audio();
+
 	// Should we proxy USB?
 	if (!bypass_mode) {
 		while (1) {
