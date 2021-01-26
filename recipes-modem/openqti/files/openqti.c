@@ -48,7 +48,77 @@ void handle_pkt_action(char *pkt) {
 		}
 	}
 }
+int parse_ext(const struct dirent *dir)
+   {
+     if(!dir)
+       return 0;
 
+     if(dir->d_type == DT_REG) { /* only deal with regular file */
+         const char *ext = strrchr(dir->d_name,'.');
+         if((!ext) || (ext == dir->d_name))
+           return 0;
+         else {
+           if(strcmp(ext, ".acdb") == 0)
+             return 1;
+         }
+     }
+
+     return 0;
+   }
+
+void sendACDB() {
+	/*
+	Bluetooth_cal.acdb
+	General_cal.acdb
+	Global_cal.acdb
+	Handset_cal.acdb
+	Hdmi_cal.acdb
+	Headset_cal.acdb
+	Speaker_cal.acdb
+	*/
+	struct dirent **flist;
+	int n;
+	int aud_cal = open("/dev/msm_audio_cal", O_RDWR); // 6
+	int msm_rtac = open("/dev/msm_rtac", O_RDWR); // 9
+	int ion = open("/dev/ion", O_RDONLY|O_DSYNC); // 10
+	int control = open("/dev/snd/controlC0", O_RDWR); // 5
+	char *calfile_buf;
+	if (aud_cal < 0 || msm_rtac < 0 || ion < 0) { //leave control out of here for now
+		printf("Error opening audio calibration devices\n");
+		return 1;
+	}
+	n = scandir("/etc", &namelist, parse_ext, alphasort);
+	if (n < 0) {
+		printf("Error reading directory")
+		return;
+	}
+	else {
+		while (n--) {
+			printf("%s\n", flist[n]->d_name);
+			/* Foreach file, mmap and 2 ioctls, sample from trace
+			 	  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0, 0x14), 0xbe9c0610) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0x4, 0x8), 0xbe9c05cc) = 0
+			1182  mmap2(NULL, 245760, PROT_READ|PROT_WRITE, MAP_SHARED, 13, 0) = 0xb6125000
+			1182  ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x61, 0xc8, 0x4), 0xbe9c0624) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0, 0x14), 0xbe9c0610) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0x4, 0x8), 0xbe9c05cc) = 0
+			1182  mmap2(NULL, 61440, PROT_READ|PROT_WRITE, MAP_SHARED, 16, 0) = 0xb6116000
+			1182  ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x61, 0xc8, 0x4), 0xbe9c0624) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0, 0x14), 0xbe9c0610) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0x4, 0x8), 0xbe9c05cc) = 0
+			1182  mmap2(NULL, 61440, PROT_READ|PROT_WRITE, MAP_SHARED, 21, 0) = 0xb6107000
+			1182  ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x61, 0xc8, 0x4), 0xbe9c0624) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0, 0x14), 0xbe9c0610) = 0
+			1182  ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x49, 0x4, 0x8), 0xbe9c05cc) = 0
+			It's the same all the time, ioctl to msm_audio_cal, then map it in ion memdev
+			Need to check if there's something prior in ion driver (quectel blobs make the kernel complain with this if run twice)
+			Down the rabbit hole again...
+*/
+			free(namelist[n]);
+		}
+		free(namelist);
+	}
+}
 void prepare_audio() {
 	printf("Initialize audio sysfs entries\n");
 	/* Sleep while waiting for /dev/snd/controlC0, the DSP might need a little while to finish starting when this is called 

@@ -10,6 +10,7 @@
 #define RMNET_CTL "/dev/rmnet_ctrl"
 #define SMD_CNTL "/dev/smdcntl8"
 #define USB_TTY "/dev/ttyGS0"
+#define ALSACFG "/etc/snd/snd_soc_msm_9x07_Tomtom_I2S"
 
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
@@ -29,6 +30,28 @@
 #define EP_LOOKUP _IOR(QTI_IOCTL_MAGIC, 3, struct ep_info)
 #define MODEM_OFFLINE _IO(QTI_IOCTL_MAGIC, 4)
 #define MODEM_ONLINE _IO(QTI_IOCTL_MAGIC, 5)
+#define CAL_IOCTL_MAGIC 'a'
+
+#define AUDIO_ALLOCATE_CALIBRATION	_IOWR(CAL_IOCTL_MAGIC, 200, void *)
+#define AUDIO_DEALLOCATE_CALIBRATION	_IOWR(CAL_IOCTL_MAGIC, 201, void *)
+#define AUDIO_PREPARE_CALIBRATION	_IOWR(CAL_IOCTL_MAGIC, 202, void *)
+#define AUDIO_SET_CALIBRATION		_IOWR(CAL_IOCTL_MAGIC, 203, void *)
+#define AUDIO_GET_CALIBRATION		_IOWR(CAL_IOCTL_MAGIC, 204, void *)
+#define AUDIO_POST_CALIBRATION		_IOWR(CAL_IOCTL_MAGIC, 205, void *)
+
+/* For Real-Time Audio Calibration */
+#define AUDIO_GET_RTAC_ADM_INFO		_IOR(CAL_IOCTL_MAGIC, 207, void *)
+#define AUDIO_GET_RTAC_VOICE_INFO	_IOR(CAL_IOCTL_MAGIC, 208, void *)
+#define AUDIO_GET_RTAC_ADM_CAL		_IOWR(CAL_IOCTL_MAGIC, 209, void *)
+#define AUDIO_SET_RTAC_ADM_CAL		_IOWR(CAL_IOCTL_MAGIC, 210, void *)
+#define AUDIO_GET_RTAC_ASM_CAL		_IOWR(CAL_IOCTL_MAGIC, 211, void *)
+#define AUDIO_SET_RTAC_ASM_CAL		_IOWR(CAL_IOCTL_MAGIC, 212, void *)
+#define AUDIO_GET_RTAC_CVS_CAL		_IOWR(CAL_IOCTL_MAGIC, 213, void *)
+#define AUDIO_SET_RTAC_CVS_CAL		_IOWR(CAL_IOCTL_MAGIC, 214, void *)
+#define AUDIO_GET_RTAC_CVP_CAL		_IOWR(CAL_IOCTL_MAGIC, 215, void *)
+#define AUDIO_SET_RTAC_CVP_CAL		_IOWR(CAL_IOCTL_MAGIC, 216, void *)
+#define AUDIO_GET_RTAC_AFE_CAL		_IOWR(CAL_IOCTL_MAGIC, 217, void *)
+#define AUDIO_SET_RTAC_AFE_CAL		_IOWR(CAL_IOCTL_MAGIC, 218, void *)
 
 struct msm_ipc_port_addr {
 	uint32_t node_id;
