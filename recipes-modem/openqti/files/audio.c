@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -242,10 +241,12 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
         if (mixer->info[n].id.index == index) {
             if (!strncmp(name, (char*) mixer->info[n].id.name,
 			sizeof(mixer->info[n].id.name))) {
+                printf(" --> Mixer control found: %i", n);
                 return mixer->ctl + n;
             }
         }
     }
+    printf (" --> Mixer control not found\n");
     return 0;
 }
 
@@ -259,7 +260,7 @@ struct mixer_ctl *get_ctl(struct mixer *mixer, char *name)
 {
     char *p;
     unsigned idx = 0;
-
+    printf("--> Mixer name: %s \n", name);
     if (isdigit(name[0]))
         return mixer_get_nth_control(mixer, atoi(name) - 1);
 
@@ -304,11 +305,11 @@ static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
  * Add support for controls taking more than one parameter as input value
  * This is useful for volume controls which take two parameters as input value.
  */
-int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, char ** argv)
+int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val)
 {
     struct snd_ctl_elem_value ev;
     unsigned n;
-
+    printf("mixerctl mulvalues");
     if (!ctl) {
         printf("can't find control\n");
         return -1;
@@ -316,23 +317,27 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, char ** argv)
     if (count < ctl->info->count || count > ctl->info->count)
         return -EINVAL;
 
+    printf("memset \n");
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
+    printf("switch to type\n");
     switch (ctl->info->type) {
     case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+        printf("is boolean! %i \n", ctl->info->count);
         for (n = 0; n < ctl->info->count; n++)
-            ev.value.integer.value[n] = !!atoi(argv[n]);
+            printf ("loop: %i, val %i  \n", n, val);
+            ev.value.integer.value[n] = val;
         break;
     case SNDRV_CTL_ELEM_TYPE_INTEGER: {
         for (n = 0; n < ctl->info->count; n++) {
-             fprintf( stderr, "Value: %d idx:%d\n", atoi(argv[n]), n);
-             ev.value.integer.value[n] = atoi(argv[n]);
+             printf( "Value: %d idx:%d\n", val, n);
+             ev.value.integer.value[n] = val;
         }
         break;
     }
     case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
         for (n = 0; n < ctl->info->count; n++) {
-             long long value_ll = scale_int64(ctl->info, atoi(argv[n]));
+             long long value_ll = scale_int64(ctl->info, atoi(val));
              fprintf( stderr, "ll_value = %lld\n", value_ll);
              ev.value.integer64.value[n] = value_ll;
         }
@@ -340,8 +345,8 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, char ** argv)
     }
     case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
         for (n = 0; n < ctl->info->count; n++) {
-            fprintf( stderr, "Value: %d idx:%d\n", atoi(argv[n]), n);
-            ev.value.enumerated.item[n] = (unsigned int)atoi(argv[n]);
+            fprintf( stderr, "Value: %d idx:%d\n", atoi(val), n);
+            ev.value.enumerated.item[n] = (unsigned int)atoi(val);
         }
         break;
     }
@@ -610,13 +615,14 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 }
 
 
-int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, char ** argv)
+int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val)
 {
     unsigned int size;
     unsigned int *tlv = NULL;
     long min, max;
     enum ctl_type type;
     unsigned int tlv_type;
+    printf("CTRL SET VAL \n");
 
     if (is_volume(ctl->info->id.name, &type)) {
         printf("capability: volume\n");
@@ -625,13 +631,14 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, char ** argv)
             printf("failed to allocate memory\n");
         } else if (!mixer_ctl_read_tlv(ctl, tlv, &min, &max, &tlv_type)) {
             printf("min = %x max = %x", min, max);
-            if (set_volume_simple(ctl, argv, min, max, count))
-                mixer_ctl_mulvalues(ctl, count, argv);
+            if (set_volume_simple(ctl, val, min, max, count))
+                mixer_ctl_mulvalues(ctl, count, val);
         } else
             printf("mixer_ctl_read_tlv failed\n");
         free(tlv);
     } else {
-        mixer_ctl_mulvalues(ctl, count, argv);
+        printf("not volume\n");
+        mixer_ctl_mulvalues(ctl, count, val);
     }
     return 0;
 }

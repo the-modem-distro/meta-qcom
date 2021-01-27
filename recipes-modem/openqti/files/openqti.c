@@ -56,31 +56,45 @@ void prepare_audio() {
 	struct mixer *mixer;
     struct mixer_ctl *ctltx;
     struct mixer_ctl *ctlrx;
+	struct mixer_ctl *afe;
 
     unsigned value;
     int r;
 	const char* dev = "/dev/snd/controlC0";
+	char rxctl[] = "SEC_AUX_PCM_RX_Voice Mixer VoLTE";
+	char txctl[] = "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE";
+	char afectl[] = "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX";
 	printf(" Open mixer \n");
-    mixer = mixer_open(dev);
     if (!mixer){
-        fprintf(stderr,"oops: %s: %d\n", strerror(errno), __LINE__);
-        return -1;
+        fprintf(stderr,"error opening mixer! %s: %d\n", strerror(errno), __LINE__);
+        return;
     }
     mixer_dump(mixer);
 
+	// Enable backend DAIs
+	printf("Get control: TX \n");
+	ctltx = get_ctl(mixer, txctl);
+	printf("Get control: RX \n");
+	ctlrx = get_ctl(mixer, rxctl);
+	printf("AFE \n");
+	afe = get_ctl(mixer, afectl);
 
-	printf("Get controls \n");
-	ctltx = get_ctl(mixer, TXCTL);
-	ctlrx = get_ctl(mixer, RXCTL);
+	printf(" Controls ready\n");
 	// These expect an array of params that I'm not setting up
-	r = mixer_ctl_set_value(ctltx, 1);
+	r = mixer_ctl_set_value(ctltx, 1, 1);
 	if (r < 0) {
 		printf("Failed to set CTL TX\n");
 	}
-	r = mixer_ctl_set_value(ctlrx, 1);
+	r = mixer_ctl_set_value(ctlrx, 1, 1);
 	if (r < 0) {
 		printf("Failed to set CTL RX\n");
 	}
+
+	r = mixer_ctl_set_value(afe, 1, 1);
+	if (r < 0) {
+		printf("Failed to set AFE\n");
+	}
+	
     mixer_close(mixer);
 	/* Sleep while waiting for /dev/snd/controlC0, the DSP might need a little while to finish starting when this is called 
 	 *	Once controlC0 is ready, we can open the config file snd_soc_msm_9x07_Tomtom_I2S and look for the call or VoLTE call 
@@ -114,11 +128,20 @@ void prepare_audio() {
 				echo %d > /sys/devices/soc:sound/quec_auxpcm_rate
 	 *		Simcom does use ALSA for that with a (more or less) untouched downstream kernel
 	 */
-
-
-	
 }
 
+int dump_audio_mixer() {
+	struct mixer *mixer;
+	const char* dev = "/dev/snd/controlC0";
+    mixer = mixer_open(dev);
+    if (!mixer){
+        fprintf(stderr,"oops: %s: %d\n", strerror(errno), __LINE__);
+        return -1;
+    }
+    mixer_dump(mixer);
+    mixer_close(mixer);
+	return 0;
+}
 int main(int argc, char **argv) {
 	/* Descriptors */
 	int diagfd = -1;
@@ -170,8 +193,13 @@ int main(int argc, char **argv) {
 	 */
 	printf("OpenQTI %s \n", VERSION);
 	printf("--------------\n");
-	while ((c = getopt (argc, argv, "db")) != -1)
+	while ((c = getopt (argc, argv, "adb")) != -1)
 		switch (c) {
+		case 'a':
+			printf("Dump audio mixer data \n");
+			return dump_audio_mixer();
+			break;
+ 
 		case 'd':
 			printf("Debug mode\n");
 			debug = true;
