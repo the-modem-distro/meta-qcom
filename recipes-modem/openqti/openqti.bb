@@ -7,12 +7,14 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = "file://openqti.c \
            file://openqti.h \
+           file://audio.h \
+           file://audio.c \
            file://init_openqti"
 
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} openqti.c -o openqti
+    ${CC} ${LDFLAGS} audio.c openqti.c -o openqti
 }
 
 do_install() {
