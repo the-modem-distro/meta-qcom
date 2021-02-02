@@ -1,3 +1,22 @@
+/*
+** Copyright 2010, The Android Open-Source Project
+** Copyright (c) 2011-2013, 2015 The Linux Foundation. All rights reserved.
+**
+** Licensed under the Apache License, Version 2.0 (the "License");
+** you may not use this file except in compliance with the License.
+** You may obtain a copy of the License at
+**
+**     http://www.apache.org/licenses/LICENSE-2.0
+**
+** Unless required by applicable law or agreed to in writing, software
+** distributed under the License is distributed on an "AS IS" BASIS,
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+** See the License for the specific language governing permissions and
+** limitations under the License.
+*/
+
+/** Pieces of alsa_mixer.c **/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,9 +28,6 @@
 #include <math.h>
 
 #include <sys/ioctl.h>
-#define __force
-#define __bitwise
-#define __user
 #include <sound/asound.h>
 #include <sound/tlv.h>
 
@@ -232,6 +248,68 @@ void mixer_dump(struct mixer *mixer)
         printf("\n");
     }
 }
+void mixer_dump_by_id(struct mixer *mixer, char *name)
+{
+    unsigned n, m;
+    int id = -1;
+    for (n = 0; n < mixer->count; n++) {
+        if (!strncmp(name, (char*) mixer->info[n].id.name,
+        sizeof(mixer->info[n].id.name))) {
+            id = n;
+        }
+    }
+    if (id < 0) {
+        printf("%s: Invalid name: %s \n", __func__, name);
+        return;
+    }
+    n = id;
+    printf("  id iface dev sub idx num perms     type   isvolume  name\n");
+    printf("----------------------------------------------------------\n");
+	enum ctl_type type;
+    struct snd_ctl_elem_info *ei = mixer->info + n;
+
+    printf("%4d %5s %3d %3d %3d %3d %c%c%c%c%c%c%c%c %-6s %8d  %s",
+        ei->id.numid, elem_iface_name(ei->id.iface),
+        ei->id.device, ei->id.subdevice, ei->id.index,
+        ei->count,
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_READ) ? 'r' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_WRITE) ? 'w' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_VOLATILE) ? 'V' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_TLV_READ) ? 'R' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_TLV_WRITE) ? 'W' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_TLV_COMMAND) ? 'C' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_INACTIVE) ? 'I' : ' ',
+        (ei->access & SNDRV_CTL_ELEM_ACCESS_LOCK) ? 'L' : ' ',
+        elem_type_name(ei->type),
+        (is_volume(ei->id.name, &type)) ? 1 : 0,
+
+        ei->id.name);
+        switch (ei->type) {
+        case SNDRV_CTL_ELEM_TYPE_INTEGER:
+            printf(ei->value.integer.step ?
+                   " { %ld-%ld, %ld }\n" : " { %ld-%ld }",
+                   ei->value.integer.min,
+                   ei->value.integer.max,
+                   ei->value.integer.step);
+            break;
+        case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+            printf(ei->value.integer64.step ?
+                   " { %lld-%lld, %lld }\n" : " { %lld-%lld }",
+                   ei->value.integer64.min,
+                   ei->value.integer64.max,
+                   ei->value.integer64.step);
+            break;
+        case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
+            unsigned m;
+            printf(" { %s=0", mixer->ctl[n].ename[0]);
+            for (m = 1; m < ei->value.enumerated.items; m++)
+                printf(", %s=%d", mixer->ctl[n].ename[m],m);
+            printf(" }");
+            break;
+        }
+        }
+        printf("\n");
+}
 
 struct mixer_ctl *mixer_get_control(struct mixer *mixer,
                                     const char *name, unsigned index)
@@ -241,7 +319,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
         if (mixer->info[n].id.index == index) {
             if (!strncmp(name, (char*) mixer->info[n].id.name,
 			sizeof(mixer->info[n].id.name))) {
-                printf(" --> Mixer control found: %i", n);
+                printf(" --> Mixer control found: %i\n", n);
                 return mixer->ctl + n;
             }
         }
@@ -301,58 +379,54 @@ static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
     return (long long)percent_to_index(percent, ei->value.integer.min, ei->value.integer.max);
 }
 
-/*
- * Add support for controls taking more than one parameter as input value
- * This is useful for volume controls which take two parameters as input value.
- */
 int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val)
 {
     struct snd_ctl_elem_value ev;
     unsigned n;
-    printf("mixerctl mulvalues");
+    printf(" ----> mixerctl mulvalues %i\n", ctl->info->id.numid);
     if (!ctl) {
-        printf("can't find control\n");
+        printf(" ----> Bailing out, can't find control\n");
         return -1;
     }
     if (count < ctl->info->count || count > ctl->info->count)
         return -EINVAL;
 
-    printf("memset \n");
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
-    printf("switch to type\n");
     switch (ctl->info->type) {
-    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
-        printf("is boolean! %i \n", ctl->info->count);
-        for (n = 0; n < ctl->info->count; n++)
-            printf ("loop: %i, val %i  \n", n, val);
-            ev.value.integer.value[n] = val;
-        break;
-    case SNDRV_CTL_ELEM_TYPE_INTEGER: {
-        for (n = 0; n < ctl->info->count; n++) {
-             printf( "Value: %d idx:%d\n", val, n);
-             ev.value.integer.value[n] = val;
+        case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+            printf(" ----> %i is boolean, looping", ev.id.numid);
+            for (n = 0; n < ctl->info->count; n++) {
+                printf (" -----> Setting: %i, val %i  \n", n, !!val);
+                ev.value.integer.value[n] = !!val;
+            }
+            break;
+        case SNDRV_CTL_ELEM_TYPE_INTEGER: {
+            for (n = 0; n < ctl->info->count; n++) {
+                printf( "Value: %i idx:%d\n", val, n);
+                ev.value.integer.value[n] = val;
+            }
+            break;
         }
-        break;
-    }
-    case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
-        for (n = 0; n < ctl->info->count; n++) {
-             long long value_ll = scale_int64(ctl->info, atoi(val));
-             fprintf( stderr, "ll_value = %lld\n", value_ll);
-             ev.value.integer64.value[n] = value_ll;
+        case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
+            for (n = 0; n < ctl->info->count; n++) {
+                long long value_ll = scale_int64(ctl->info, val);
+                fprintf( stderr, "ll_value = %lld\n", value_ll);
+                ev.value.integer64.value[n] = value_ll;
+            }
+            break;
         }
-        break;
-    }
-    case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
-        for (n = 0; n < ctl->info->count; n++) {
-            fprintf( stderr, "Value: %d idx:%d\n", atoi(val), n);
-            ev.value.enumerated.item[n] = (unsigned int)atoi(val);
+        case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
+            for (n = 0; n < ctl->info->count; n++) {
+                fprintf( stderr, " ----> Value: %i idx:%d\n", val, n);
+                ev.value.enumerated.item[n] = (unsigned int)val;
+            }
+            break;
         }
-        break;
-    }
-    default:
-        errno = EINVAL;
-        return errno;
+        default:
+            printf(" ----> Error: Default case hit\n");
+            errno = EINVAL;
+            return errno;
     }
 
     return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
@@ -450,36 +524,19 @@ int mixer_ctl_read_tlv(struct mixer_ctl *ctl,
  */
 
 static int set_volume_simple(struct mixer_ctl *ctl,
-    char **ptr, long pmin, long pmax, int count)
+    int ptr, long pmin, long pmax, int count)
 {
     long val, orig;
-    char *p = *ptr, *s;
+    int p = ptr, *s;
     struct snd_ctl_elem_value ev;
     unsigned n;
 
-    if (*p == ':')
-        p++;
-    if (*p == '\0' || (!isdigit(*p) && *p != '-'))
-        goto skip;
-
     s = p;
-    val = strtol(s, &p, 10);
-    if (*p == '.') {
-        p++;
-        strtol(p, &p, 10);
-    }
-    if (*p == '%') {
-        val = (long)percent_to_index(strtod(s, NULL), pmin, pmax);
-        p++;
-    } else if (p[0] == 'd' && p[1] == 'B') {
-        val = (long)(strtod(s, NULL) * 100.0);
-        p += 2;
-    } else {
+
         if (pmin < 0) {
             pmax = pmax - pmin;
             pmin = 0;
         }
-    }
     val = check_range(val, pmin, pmax);
     printf("val = %x", val);
 
@@ -523,9 +580,7 @@ static int set_volume_simple(struct mixer_ctl *ctl,
     return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
 
 skip:
-        if (*p == ',')
-                p++;
-        *ptr = p;
+        ptr = p;
         return 0;
 }
 
@@ -622,23 +677,23 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val)
     long min, max;
     enum ctl_type type;
     unsigned int tlv_type;
-    printf("CTRL SET VAL \n");
-
+    int ret;
+    printf(" ---->Set mixer control value, isVolume? ");
     if (is_volume(ctl->info->id.name, &type)) {
-        printf("capability: volume\n");
+        printf(" yes\n");
         tlv = calloc(1, DEFAULT_TLV_SIZE);
         if (tlv == NULL) {
             printf("failed to allocate memory\n");
         } else if (!mixer_ctl_read_tlv(ctl, tlv, &min, &max, &tlv_type)) {
             printf("min = %x max = %x", min, max);
             if (set_volume_simple(ctl, val, min, max, count))
-                mixer_ctl_mulvalues(ctl, count, val);
+                return mixer_ctl_mulvalues(ctl, count, val);
         } else
             printf("mixer_ctl_read_tlv failed\n");
         free(tlv);
     } else {
-        printf("not volume\n");
-        mixer_ctl_mulvalues(ctl, count, val);
+        printf(" nope \n");
+        return mixer_ctl_mulvalues(ctl, count, val);
     }
-    return 0;
+    return EINVAL;
 }
