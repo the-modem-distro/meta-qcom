@@ -162,30 +162,30 @@ int start_audio() {
 		return -EINVAL;
 	}
 
+	if (set_params(pcm_tx, PCM_OUT)) {
+		fprintf(stderr,"Error setting TX Params\n");
+		pcm_close(pcm_tx);
+		return -EINVAL;
+	} 
+
     if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
 		fprintf(stderr,"Error getting RX PCM ready\n");
 		pcm_close(pcm_rx);
 		return -EINVAL;
     }
 
-	if (set_params(pcm_tx, PCM_OUT)) {
-		fprintf(stderr,"Error setting TX Params\n");
-		pcm_close(pcm_tx);
-		return -EINVAL;
-	}
-	
-	if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
+	if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
 		fprintf(stderr,"Error getting TX PCM ready\n");
 		pcm_close(pcm_tx);
 		return -EINVAL;
     }
 
-	if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_START)) {
+	if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_START) < 0) {
 			fprintf(stderr,"PCM ioctl start failed for TX\n");
 			pcm_close(pcm_tx);
 	}
 
-	if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_START)) {
+	if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_START) < 0) {
 			fprintf(stderr,"PCM ioctl start failed for RX\n");
 			pcm_close(pcm_rx);
 	}
