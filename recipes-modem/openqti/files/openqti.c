@@ -16,42 +16,56 @@
  *Dead simple QTI daemon
  */
 
-/*
- *	Dump packet to stdout
- *
- */
+/* Outgoing
+smdcntl8 --> rmnet_ctrl :0x1 0x10 0x0 0x80 
+smdcntl8 --> rmnet_ctrl :0x1 0x40 0x0 0x80 
+smdcntl8 --> rmnet_ctrl :0x1 0x3a 0x0 0x80 
+*/
+/* Hangup
+smdcntl8 --> rmnet_ctrl :0x1 0x41 0x0 0x80 
+rmnet_ctrl --> smdcntl8 :0x1 0xc 0x0 0x0 
+*/
+
+/* Incoming
+smdcntl8 --> rmnet_ctrl :0x1 0x10 0x0 0x80 
+smdcntl8 --> rmnet_ctrl :0x1 0x46 0x0 0x80 
+smdcntl8 --> rmnet_ctrl :0x1 0x4c 0x0 0x80 
+*/
 
 void dump_packet(char *direction, char *buf) {
-	int i, linec = 0;
-	fprintf(stderr,"%s\n", direction);
+	int i;
+	fprintf(stdout,"%s :", direction);
 	for (i = 0; i < sizeof(buf); i++) {
-		fprintf(stderr,"0x%x ", buf[i]);
-		linec++;
-		if (linec > 20) {
-			fprintf(stderr,"\n");
-			linec = 0;
-		}
+		fprintf(stdout,"0x%02x ", buf[i]);
 	}
-	fprintf(stderr,"\n");
+	fprintf(stdout,"\n");
 }
-
+char prev_pkt;
 /* Called from the select() */
-void handle_pkt_action(char *pkt) {
+void handle_pkt_action(char *pkt, int from) {
 	/* All packets passing between rmnet_ctl and smdcntl8 seem to be 4 byte long */
-	if (sizeof(pkt) > 3) {
+	/* This is messy and doesn't work correctly. Sometimes there's a flood and this gets
+	   hit leaving audio on for no reason, need to find a reliable way of knowing if 
+	   there's an actual call */
+	if (sizeof(pkt) > 3 && from == FROM_DSP) {
 		if (pkt[0] == 0x1) {
-			if (pkt[1] == 0x40) {
+			if (prev_pkt == 0x40 && pkt[1] == 0x3a) {
 				fprintf(stdout,"Outgoing Call start\n");
 				start_audio();
-			} else if (pkt[1] == 0x46) {
-				fprintf(stdout,"Incoming Call start\n");
+			} else if (prev_pkt == 0x46 && pkt[1] == 0x4c) {
+				fprintf(stdout,"Incoming Call start : voice\n");
 				start_audio();
-			} else if (pkt[1] == 0x41) {
+			} else if (prev_pkt == 0x3c && pkt[1] == 0x42) {
+				fprintf(stdout,"Incoming Call start : VoLTE\n");
+				start_audio();
+			} else if (pkt[1] == 0x41 || pkt[1] == 0x69) {
 				fprintf(stdout,"Hang up! \n");
 				stop_audio();
 			}
 		}
+	prev_pkt = pkt[1];
 	}
+
 }
 
 
@@ -80,6 +94,7 @@ int set_mixer_ctl(struct mixer *mixer, char *name, bool enable) {
 	}
 	return 0;
 }
+
 int stop_audio() {
 	if (!is_call_active) {
 		fprintf(stderr,"%s: No call in progress \n", __func__);
@@ -96,14 +111,15 @@ int stop_audio() {
         fprintf(stderr,"error opening mixer! %s: %d\n", strerror(errno), __LINE__);
         return 0;
     }
+
 	set_mixer_ctl(mixer, AFECTL, false);
 	set_mixer_ctl(mixer, TXCTL, false); // Playback
 	set_mixer_ctl(mixer, RXCTL, false); // Capture
 	mixer_close(mixer);
 	is_call_active = false;
 	return 1;
-
 }
+
 int start_audio() {
 	if (is_call_active) {
 		fprintf(stderr,"%s: Audio already active, nothing to do\n", __func__);
@@ -197,7 +213,8 @@ int dump_audio_mixer() {
 	struct mixer *mixer;
     mixer = mixer_open(SND_CTL);
     if (!mixer){
-		fprintf(stderr,"%s: Error opening mixer!\n", __func__);        return -1;
+		fprintf(stderr,"%s: Error opening mixer!\n", __func__);        
+		return -1;
     }
     mixer_dump(mixer);
     mixer_close(mixer);
@@ -207,8 +224,6 @@ int dump_audio_mixer() {
 
 int main(int argc, char **argv) {
 	/* Descriptors */
-	int diagfd = -1;
-	int smem_logfd = -1;
 	int rmnet_ctrlfd = -1;
 	int dpl_cntlfd = -1;
 	int smdcntl8_fd = -1;
@@ -217,21 +232,15 @@ int main(int argc, char **argv) {
   	struct sockaddr_msm_ipc ipc_socket_addr;
 	bool debug = false; // Dump usb packets
 	bool bypass_mode = false; // After setting it up, shutdown USB and restart it in SMD mode
-	char buf[4096] = "\0";
-	char diagbuf[TRACED_DIAG_SZ];
 	char rmnetbuf[MAX_PACKET_SIZE] = "\0";
 
 	/* QMI messages to request opening smdcntl8 */
   	char qmi_msg_01[] = { 0x00, 0x01, 0x00, 0x21, 0x00, 0x1c, 0x00, 0x10, 0x0d, 0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54, 0x4c, 0x11, 0x09, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00 };
 	char qmi_msg_02[] = { 0x00, 0x02, 0x00, 0x20, 0x00, 0x2c, 0x00, 0x10, 0x15, 0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54, 0x4c, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x11, 0x11, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-	char bufsck[4096];
-	unsigned int rmtmask = 0;	// mask looks like 0 in ghidra, and looks like 0 from the strace too
 	int ret;
 	int pret;
 	int linestate;
 	int max_fd = 20;
-	int psize;
-	int c;
   	fd_set readfds;
 	
 	/* IPC Socket settings */
@@ -246,16 +255,11 @@ int main(int argc, char **argv) {
 
 	epinfo.ep_type = DATA_EP_TYPE_BAM_DMUX;
 	epinfo.peripheral_iface_id = RMNET_CONN_ID;
-	/* The modem needs some more time to boot the DSP
-	 * Since I haven't found a way to query its status
-	 * except by probing it, I loop until the IPC socket
-	 * manages to open /dev/smdcntl8, which is the point
-	 * where it is ready
-	 */
+
 	fprintf(stdout,"OpenQTI \n");
 	fprintf(stdout,"--------------\n");
-	while ((c = getopt (argc, argv, "adb")) != -1)
-		switch (c) {
+	while ((ret = getopt (argc, argv, "adb")) != -1)
+		switch (ret) {
 		case 'a':
 			fprintf(stdout,"Dump audio mixer data \n");
 			return dump_audio_mixer();
@@ -290,7 +294,7 @@ int main(int argc, char **argv) {
 	/* Sleep just a bit to let it breathe */
 	sleep(1);
  	if (ipc_router_socket < 0) {
-      fprintf(stderr,"Opening socket to the IPC Router \n");
+      fprintf(stdout,"Opening socket to the IPC Router \n");
       ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
     }
 
@@ -329,6 +333,7 @@ int main(int argc, char **argv) {
 		}
 
 		// Wait one second after requesting bam init...
+		
 		sleep(1);
 		smdcntl8_fd = open(SMD_CNTL, O_RDWR);
 		if (smdcntl8_fd < 0) {
@@ -336,6 +341,12 @@ int main(int argc, char **argv) {
 		}
 		// Sleep 1 second just in case it needs to loop
 		sleep(1);
+	/* The modem needs some more time to boot the DSP
+	 * Since I haven't found a way to query its status
+	 * except by probing it, I loop until the IPC socket
+	 * manages to open /dev/smdcntl8, which is the point
+	 * where it is ready
+	 */
   } while (smdcntl8_fd < 0);
 	fprintf(stdout,"SMD Interface opened \n");
 	int dtrsignal = (TIOCM_DTR | TIOCM_RTS | TIOCM_CD);
@@ -355,7 +366,7 @@ int main(int argc, char **argv) {
 
 	ret = ioctl(rmnet_ctrlfd, MODEM_ONLINE);
 	if (ret < 0)
-		fprintf(stderr,"Set modem online (set DTR high): %i \n", ret);
+		fprintf(stderr,"Set modem online: %i \n", ret);
 
 	// Should we proxy USB?
 	if (!bypass_mode) {
@@ -368,8 +379,8 @@ int main(int argc, char **argv) {
 			if (FD_ISSET(rmnet_ctrlfd, &readfds)) {
 				ret = read(rmnet_ctrlfd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0) {
-					handle_pkt_action(rmnetbuf);
-					psize = write(smdcntl8_fd, rmnetbuf, ret);
+					handle_pkt_action(rmnetbuf, FROM_HOST);
+					ret = write(smdcntl8_fd, rmnetbuf, ret);
 					if (debug) {
 						dump_packet("rmnet_ctrl --> smdcntl8", rmnetbuf);
 					}
@@ -377,8 +388,8 @@ int main(int argc, char **argv) {
 			} else if (FD_ISSET(smdcntl8_fd, &readfds)) {
 				ret = read(smdcntl8_fd, &rmnetbuf, MAX_PACKET_SIZE);
 				if (ret > 0)	{
-					handle_pkt_action(rmnetbuf);
-					psize = write(rmnet_ctrlfd, rmnetbuf, ret);
+					handle_pkt_action(rmnetbuf, FROM_DSP);
+					ret = write(rmnet_ctrlfd, rmnetbuf, ret);
 					if (debug) {
 						dump_packet("smdcntl8 --> rmnet_ctrl", rmnetbuf);
 					}

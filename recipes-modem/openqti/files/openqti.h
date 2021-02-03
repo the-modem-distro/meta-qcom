@@ -14,19 +14,19 @@
 #define IPC_ROUTER_ADDRTYPE 1 // As specified in the kernel
 #define IPC_HEXAGON_NODE 0x3 //DST:<0x3:0x1c> 
 #define IPC_HEXAGON_PORT 0x1c
-#define IPC_HEXAGON_RESPONSE_PORT 0x1d
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
 
 #define MAX_PACKET_SIZE 2048 // rmnet max packet size
-#define TRACED_DIAG_SZ 100000
-#define MAX_QTI_PKT_SIZE 8192
 
 #define QTI_IOCTL_MAGIC	'r'
 #define GET_LINE_STATE	_IOR(QTI_IOCTL_MAGIC, 2, int)
 #define EP_LOOKUP _IOR(QTI_IOCTL_MAGIC, 3, struct ep_info)
 #define MODEM_OFFLINE _IO(QTI_IOCTL_MAGIC, 4)
 #define MODEM_ONLINE _IO(QTI_IOCTL_MAGIC, 5)
+// for handle_pkt
+#define FROM_DSP 0
+#define FROM_HOST 1
 
 struct msm_ipc_port_addr {
 	uint32_t node_id;
