@@ -3,9 +3,22 @@
 
 #include <sound/asound.h>
 
-#define RXCTL "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
-#define TXCTL "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
-#define AFECTL "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
+/* VoLTE */
+
+#define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
+#define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
+#define AFECTL_VOLTE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
+#define AFERX_VOLTE "AFE_PCM_RX_Voice Mixer VoLTE"
+#define AFETX_VOLTE "VoLTE_Tx Mixer AFE_PCM_TX_VoLTE" 
+
+/* CSVoice */
+#define RXCTL_VOICE "SEC_AUX_PCM_RX_Voice Mixer CSVoice"
+#define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
+#define AFECTL_VOICE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
+#define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
+#define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
+
+
 
 /* AUDIO */
 

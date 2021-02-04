@@ -388,11 +388,18 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val)
         printf(" ----> Bailing out, can't find control\n");
         return -1;
     }
-    if (count < ctl->info->count || count > ctl->info->count)
-        return -EINVAL;
+    if (count < ctl->info->count || count > ctl->info->count) {
+        printf("Count is invalid!: ");
+        if (count < ctl->info->count) 
+            printf("Insufficent number of params \n");
+        if (count > ctl->info->count)
+            printf("Too many params\n");
+        //return -EINVAL;
+    }
 
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
+    printf(" ----->> Type is %i\n", ctl->info->type);
     switch (ctl->info->type) {
         case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
             printf(" ----> %i is boolean, looping", ev.id.numid);
@@ -401,28 +408,39 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val)
                 ev.value.integer.value[n] = !!val;
             }
             break;
-        case SNDRV_CTL_ELEM_TYPE_INTEGER: {
-            for (n = 0; n < ctl->info->count; n++) {
-                printf( "Value: %i idx:%d\n", val, n);
-                ev.value.integer.value[n] = val;
+        case SNDRV_CTL_ELEM_TYPE_INTEGER: 
+            printf(" ----> %i is integer, looping", ev.id.numid);
+                        for (n = 0; n < ctl->info->count; n++) {
+
+            if (count < ctl->info->count && n == 0) {
+                printf("Injecting first val as 1 (enable) \n");
+                ev.value.integer.value[n] = 1;
+
+            } else {
+            printf (" -----> Setting: %i, val %i  \n", n, val);
+            ev.value.integer.value[n] = val;
+
             }
+                        }
+     
             break;
-        }
-        case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
+        case SNDRV_CTL_ELEM_TYPE_INTEGER64: 
+            printf(" ----> %i is integer64, looping", ev.id.numid);
+
             for (n = 0; n < ctl->info->count; n++) {
                 long long value_ll = scale_int64(ctl->info, val);
                 fprintf( stderr, "ll_value = %lld\n", value_ll);
                 ev.value.integer64.value[n] = value_ll;
             }
             break;
-        }
-        case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
+        case SNDRV_CTL_ELEM_TYPE_ENUMERATED: 
+            printf(" ----> %i is enumerated, looping", ev.id.numid);
+
             for (n = 0; n < ctl->info->count; n++) {
                 fprintf( stderr, " ----> Value: %i idx:%d\n", val, n);
                 ev.value.enumerated.item[n] = (unsigned int)val;
             }
             break;
-        }
         default:
             printf(" ----> Error: Default case hit\n");
             errno = EINVAL;

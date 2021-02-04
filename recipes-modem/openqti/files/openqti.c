@@ -69,29 +69,20 @@ void handle_pkt_action(char *pkt, int from) {
 }
 
 
-int set_mixer_ctl(struct mixer *mixer, char *name, bool enable) {
+int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 	struct mixer_ctl *ctl;
 	mixer_dump_by_id(mixer, name);
 	ctl = get_ctl(mixer, name);
 	int r;
-	if (enable) {
-		fprintf(stderr," --> Setting %s to ENABLE... \n", name);
-		r = mixer_ctl_set_value(ctl, 1, 1);
-		if (r < 0) {
-			fprintf(stderr,"Failed! %i\n", r);
-		} else {
-			fprintf(stderr," Success: %i\n", r);
-		}
-	} else {
-		fprintf(stderr," --> Setting %s to DISABLE\n", name);
-		r = mixer_ctl_set_value(ctl, 1, 0);
-		if (r < 0) {
-			fprintf(stderr,"Failed! \n");
-		} else {
-			fprintf(stderr," Success! \n");
-		}
 
+	fprintf(stderr," --> Setting %s to value %i... \n", name, value);
+	r = mixer_ctl_set_value(ctl, 1, value);
+	if (r < 0) {
+		fprintf(stderr,"Failed! %i\n", r);
+	} else {
+		fprintf(stderr," Success: %i\n", r);
 	}
+
 	return 0;
 }
 
@@ -112,9 +103,11 @@ int stop_audio() {
         return 0;
     }
 
-	set_mixer_ctl(mixer, AFECTL, false);
-	set_mixer_ctl(mixer, TXCTL, false); // Playback
-	set_mixer_ctl(mixer, RXCTL, false); // Capture
+//	set_mixer_ctl(mixer, AFECTL, 0);
+//		set_mixer_ctl(mixer, AFE2, 0); // 
+//	set_mixer_ctl(mixer, AFE3, 0); // 
+	set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
+	set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
 	mixer_close(mixer);
 	is_call_active = false;
 	return 1;
@@ -131,12 +124,16 @@ int start_audio() {
 	SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX
 	start voice_pcm_service_thread, ret = %d
 	voice_pcm_service_thread
+	
 	SEC_AUX_PCM_RX_Voice Mixer CSVoice
 	Voice_Tx Mixer SEC_AUX_PCM_TX_Voice
+
 	SEC_AUX_PCM_RX_Voice Mixer VoLTE
 	VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE
+	
 	AFE_PCM_RX_Voice Mixer CSVoice
 	Voice_Tx Mixer AFE_PCM_TX_Voice
+	
 	AFE_PCM_RX_Voice Mixer VoLTE
 	VoLTE_Tx Mixer AFE_PCM_TX_VoLTE
 	*/
@@ -146,9 +143,12 @@ int start_audio() {
         fprintf(stderr,"%s: Error opening mixer!\n", __func__);
         return 0;
     }
-	set_mixer_ctl(mixer, AFECTL, true);
-	set_mixer_ctl(mixer, TXCTL, true); // Playback
-	set_mixer_ctl(mixer, RXCTL, true); // Capture
+//	set_mixer_ctl(mixer, AFECTL, 1);
+//	set_mixer_ctl(mixer, AFE2, 1); // 
+//	set_mixer_ctl(mixer, AFE3, 1); // 
+	set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
+	set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
+//	set_mixer_ctl(mixer, "Voip Rx Gain", 2500);
 
 	system("echo 0 > /sys/devices/soc:qcom,msm-sec-auxpcm/mode");
 	system("echo 0 > /sys/devices/soc:qcom,msm-sec-auxpcm/sync");
