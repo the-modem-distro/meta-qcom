@@ -16,22 +16,6 @@
  *Dead simple QTI daemon
  */
 
-/* Outgoing
-smdcntl8 --> rmnet_ctrl :0x1 0x10 0x0 0x80 
-smdcntl8 --> rmnet_ctrl :0x1 0x40 0x0 0x80 
-smdcntl8 --> rmnet_ctrl :0x1 0x3a 0x0 0x80 
-*/
-/* Hangup
-smdcntl8 --> rmnet_ctrl :0x1 0x41 0x0 0x80 
-rmnet_ctrl --> smdcntl8 :0x1 0xc 0x0 0x0 
-*/
-
-/* Incoming
-smdcntl8 --> rmnet_ctrl :0x1 0x10 0x0 0x80 
-smdcntl8 --> rmnet_ctrl :0x1 0x46 0x0 0x80 
-smdcntl8 --> rmnet_ctrl :0x1 0x4c 0x0 0x80 
-*/
-
 void dump_packet(char *direction, char *buf) {
 	int i;
 	fprintf(stdout,"%s :", direction);
@@ -40,7 +24,7 @@ void dump_packet(char *direction, char *buf) {
 	}
 	fprintf(stdout,"\n");
 }
-char prev_pkt;
+
 /* Called from the select() */
 void handle_pkt_action(char *pkt, int from) {
 	/* All packets passing between rmnet_ctl and smdcntl8 seem to be 4 byte long */
@@ -49,23 +33,31 @@ void handle_pkt_action(char *pkt, int from) {
 	   there's an actual call */
 	if (sizeof(pkt) > 3 && from == FROM_DSP) {
 		if (pkt[0] == 0x1) {
-			if (prev_pkt == 0x40 && pkt[1] == 0x3a) {
-				fprintf(stdout,"Outgoing Call start\n");
-				start_audio();
-			} else if (prev_pkt == 0x46 && pkt[1] == 0x4c) {
-				fprintf(stdout,"Incoming Call start : voice\n");
-				start_audio();
-			} else if (prev_pkt == 0x3c && pkt[1] == 0x42) {
+			switch (pkt[1]) {
+				case 0x40:
+				fprintf(stdout,"Outgoing Call start: VoLTE\n");
+				start_audio(1);
+				break;
+				case 0x38:
+				fprintf(stdout,"Outgoing Call start: CS Voice\n");
+				start_audio(0);
+				break;		
+				case 0x46: //not really tested
+				fprintf(stdout,"Incoming Call start : Voice\n");
+				start_audio(1);
+				break;
+				case 0x3c: // not really tested
 				fprintf(stdout,"Incoming Call start : VoLTE\n");
-				start_audio();
-			} else if (pkt[1] == 0x41 || pkt[1] == 0x69) {
+				start_audio(1);
+				break;
+				case 0x41:
 				fprintf(stdout,"Hang up! \n");
 				stop_audio();
+				break;				
+
 			}
 		}
-	prev_pkt = pkt[1];
 	}
-
 }
 
 
@@ -102,72 +94,102 @@ int stop_audio() {
         fprintf(stderr,"error opening mixer! %s: %d\n", strerror(errno), __LINE__);
         return 0;
     }
-
-//	set_mixer_ctl(mixer, AFECTL, 0);
-//		set_mixer_ctl(mixer, AFE2, 0); // 
-//	set_mixer_ctl(mixer, AFE3, 0); // 
+	
+	// We close all the mixers
 	set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
 	set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+	set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
+	set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+
 	mixer_close(mixer);
 	is_call_active = false;
 	return 1;
 }
 
-int start_audio() {
+int write_to(char *path, char *val) {
+	int ret;
+	int fd = open(path, O_RDWR);
+	if (fd < 0) {
+		return ENOENT;
+	}
+	ret = write(fd, val, sizeof(val));
+	close(fd);
+	return ret;
+}
+
+/*	Setup mixers and open PCM devs
+ *		type: 0: CS Voice Call
+ *		      1: VoLTE Call
+ */
+int start_audio(int type) {
+	int i;
+	char pcm_device[18];
 	if (is_call_active) {
 		fprintf(stderr,"%s: Audio already active, nothing to do\n", __func__);
 		return 1;
 	}
 
-	/*
-	set _enadev Auxpcm Tx" > /run/alsaucm_test
-	SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX
-	start voice_pcm_service_thread, ret = %d
-	voice_pcm_service_thread
-	
-	SEC_AUX_PCM_RX_Voice Mixer CSVoice
-	Voice_Tx Mixer SEC_AUX_PCM_TX_Voice
-
-	SEC_AUX_PCM_RX_Voice Mixer VoLTE
-	VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE
-	
-	AFE_PCM_RX_Voice Mixer CSVoice
-	Voice_Tx Mixer AFE_PCM_TX_Voice
-	
-	AFE_PCM_RX_Voice Mixer VoLTE
-	VoLTE_Tx Mixer AFE_PCM_TX_VoLTE
-	*/
 	mixer = mixer_open(SND_CTL);
 	fprintf(stderr," Open mixer \n");
     if (!mixer){
         fprintf(stderr,"%s: Error opening mixer!\n", __func__);
         return 0;
     }
-//	set_mixer_ctl(mixer, AFECTL, 1);
-//	set_mixer_ctl(mixer, AFE2, 1); // 
-//	set_mixer_ctl(mixer, AFE3, 1); // 
-	set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
-	set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
-//	set_mixer_ctl(mixer, "Voip Rx Gain", 2500);
 
-	system("echo 0 > /sys/devices/soc:qcom,msm-sec-auxpcm/mode");
-	system("echo 0 > /sys/devices/soc:qcom,msm-sec-auxpcm/sync");
-	system("echo 0 > /sys/devices/soc:sound/pcm_mode_select");
-	system("echo 2 > /sys/devices/soc:qcom,msm-sec-auxpcm/frame");
-	system("echo 1 > /sys/devices/soc:qcom,msm-sec-auxpcm/data");
-	system("echo 256000 > /sys/devices/soc:qcom,msm-sec-auxpcm/rate");
-	system("echo 8000 > /sys/devices/soc:sound/quec_auxpcm_rate");
-
-	/* Now PCM */
+	switch (type) {
+		case 0:
+			set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
+			set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
+			strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+			break;
+		case 1:
+			set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
+			set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
+			strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
+			
+			
+			
+			break;
+		default:
+			fprintf(stderr, "%s: Can't set mixers, unknown call type %i\n", __func__, type);
+			break;
+	}
 	mixer_close(mixer);
+	printf ("Using PCM Device %s \n", pcm_device);
+	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/mode", "0") < 0) {
+		fprintf(stderr, "%s: Error writing to auxpcm mode\n", __func__);
+	}
 
-	/* Check if PCM was already active */
-	pcm_rx = pcm_open(PCM_IN | PCM_MONO,PCM_DEV);
+	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/sync", "0") < 0) {
+		fprintf(stderr, "%s: Error writing to auxpcm sync\n", __func__);
+	}
+
+	if (write_to("/sys/devices/soc:sound/pcm_mode_select", "0") < 0) {
+		fprintf(stderr, "%s: Error writing to pcm_mode_select\n", __func__);
+	}
+
+	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/frame", "2") < 0) {
+		fprintf(stderr, "%s: Error writing to auxpcm frame\n", __func__);
+	}
+
+	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/data", "1") < 0) {
+		fprintf(stderr, "%s: Error writing to auxpcm data\n", __func__);
+	}
+
+	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "256000") < 0) {
+		fprintf(stderr, "%s: Error writing to auxpcm rate\n", __func__);
+	}
+
+	if (write_to("/sys/devices/soc:sound/quec_auxpcm_rate", "8000") < 0) {
+		fprintf(stderr, "%s: Error writing to quec_auxpcm_rate\n", __func__);
+	}
+	
+	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
 	pcm_rx->rate = 8000;
 	pcm_rx->flags =  PCM_IN | PCM_MONO;
 
-	pcm_tx = pcm_open(PCM_OUT | PCM_MONO, PCM_DEV);
+	pcm_tx = pcm_open(PCM_OUT | PCM_MONO, pcm_device);
 	pcm_tx->channels = 1;
 	pcm_tx->rate = 8000;
 	pcm_tx->flags = PCM_OUT | PCM_MONO;

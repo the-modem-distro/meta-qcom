@@ -8,7 +8,10 @@
 #define RMNET_CTL "/dev/rmnet_ctrl"
 #define SMD_CNTL "/dev/smdcntl8"
 #define SND_CTL  "/dev/snd/controlC0"
-#define PCM_DEV "/dev/snd/pcmC0D4" // VoLTE is 4, CS is 2
+
+#define PCM_DEV_VOCS "/dev/snd/pcmC0D2" // Normal Voice calls use CS - Circuit Switch, device #2
+#define PCM_DEV_VOLTE "/dev/snd/pcmC0D4" // VoLTE uses PCM device #4
+
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 #define IPC_ROUTER_ADDRTYPE 1 // As specified in the kernel

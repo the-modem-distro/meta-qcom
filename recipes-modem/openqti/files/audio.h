@@ -3,17 +3,20 @@
 
 #include <sound/asound.h>
 
-/* VoLTE */
-
+/* VoLTE calls use these mixers */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
 #define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
+
+/* Keeping these as reference but not using them since we're not using ACDBs */
 #define AFECTL_VOLTE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOLTE "AFE_PCM_RX_Voice Mixer VoLTE"
 #define AFETX_VOLTE "VoLTE_Tx Mixer AFE_PCM_TX_VoLTE" 
 
-/* CSVoice */
+/* Normal Voice calls */
 #define RXCTL_VOICE "SEC_AUX_PCM_RX_Voice Mixer CSVoice"
 #define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
+
+/* Keeping these as reference but not using them since we're not using ACDBs */
 #define AFECTL_VOICE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
@@ -132,10 +135,6 @@ struct pcm {
 #define PCM_PERIOD_SZ_MIN 128
 #define PCM_PERIOD_SZ_SHIFT 12
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
-
-
-/* PCM */
-
 
 /* fn */
 struct mixer *mixer_open(const char *device);
