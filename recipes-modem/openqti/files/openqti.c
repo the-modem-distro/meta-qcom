@@ -156,6 +156,15 @@ int start_audio(int type) {
 	}
 	mixer_close(mixer);
 	printf ("Using PCM Device %s \n", pcm_device);
+
+	fprintf(stdout, "%s: Setting sysfs entries... \n", __func__);
+	for (i = 0; i < sizeof(sysfs_value_pairs); i++ ){
+		if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value) <0) {
+			fprintf(stderr, "%s: Error writing to %s\n", __func__, sysfs_value_pairs[i].path);
+
+		}
+	}
+	/*
 	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/mode", "0") < 0) {
 		fprintf(stderr, "%s: Error writing to auxpcm mode\n", __func__);
 	}
@@ -182,7 +191,7 @@ int start_audio(int type) {
 
 	if (write_to("/sys/devices/soc:sound/quec_auxpcm_rate", "8000") < 0) {
 		fprintf(stderr, "%s: Error writing to quec_auxpcm_rate\n", __func__);
-	}
+	}*/
 	
 	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
