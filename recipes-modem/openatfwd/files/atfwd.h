@@ -1,5 +1,6 @@
 #ifndef _ATFWD_H_
 #define _ATFWD_H_
+#include <stdbool.h>
 
 #define VERSION "0.0.2"
 
@@ -21,9 +22,10 @@
 #define QTI_IOCTL_MAGIC	'r'
 #define GET_LINE_STATE	_IOR(QTI_IOCTL_MAGIC, 2, int)
 #define EP_LOOKUP _IOR(QTI_IOCTL_MAGIC, 3, struct ep_info)
-// for handle_pkt
-#define FROM_DSP 0
-#define FROM_HOST 1
+
+
+#define QMI_SERVICE_CTL         0x00
+#define QMI_DEFAULT_BUF_SIZE    0x1000
 
 struct msm_ipc_port_addr {
 	uint32_t node_id;
@@ -72,7 +74,10 @@ struct ep_info {
 	struct ipa_ep_pair ipa_ep_pair;
 };
 
-// From lookup.c
+#define DIAG_SERVICE 4097
+typedef uint8_t ctl_state_t;
+
+// From lookup.c, useful to know which service you're at
 static const struct {
 	unsigned int service;
 	unsigned int ifilter;
@@ -144,5 +149,97 @@ static const struct {
 	{ 4096, 0, "TFTP" },
 	{ DIAG_SERVICE, 0, "DIAG service" },
 };
+
+/* QMI Device handler proto
+ *
+ *	The idea is to be able to have multiple handlers for
+ *  different services subscribed, each with their transaction
+ *  IDs to manage or sniff different services.
+ *  First one to check is 47 or 0x2F, which is the DPM, to play
+ *  with modem init and request DATA40_CNTL properly
+ */
+struct qmi_device {
+	int32_t fd;
+	struct sockaddr_msm_ipc socket;
+	uint8_t service;
+	uint8_t transaction_id;
+	ctl_state_t ctl_state;
+	uint8_t buf[QMI_DEFAULT_BUF_SIZE];
+	uint32_t handle;
+};
+
+/* From qmi_hdrs.h at qmi-dialer */
+
+//qmux header
+struct qmux_header{
+    uint16_t length;
+    uint8_t control_flags;
+    uint8_t service_type;
+    uint8_t client_id;
+} __attribute__((packed));
+
+//The two different types of QMI headers I have seen. According to the
+//specification, the size of the header is implementation-dependant (depending
+//on service)
+struct qmi_header_ctl{
+    uint8_t control_flags;
+    uint8_t transaction_id;
+    uint16_t message_id;
+    uint16_t length;
+} __attribute__((packed));
+
+struct qmi_header_gen{
+    uint8_t control_flags;
+    uint16_t transaction_id;
+    uint16_t message_id;
+    uint16_t length;
+} __attribute__((packed));
+
+struct qmi_tlv{
+    uint8_t type;
+    uint16_t length;
+} __attribute__((packed));
+
+typedef struct qmux_header qmux_hdr_t;
+typedef struct qmi_header_ctl qmi_hdr_ctl_t;
+typedef struct qmi_header_gen qmi_hdr_gen_t;
+typedef struct qmi_tlv qmi_tlv_t;
+
+#define QMI_DEFAULT_BUF_SIZE    0x1000
+#define QMI_CTL_RELEASE_CID     0x0023
+
+//Control flags
+#define QMI_CTL_FLAGS_RESP      0x3
+#define QMI_CTL_FLAGS_IND       0x4
+
+//Variables
+#define QMI_RESULT_SUCCESS      0x0000
+#define QMI_RESULT_FAILURE      0x0001
+
+//Return values for message passing functions
+#define QMI_MSG_SUCCESS         0x0
+#define QMI_MSG_FAILURE         0x1
+#define QMI_MSG_IGNORE          0x2
+
+//Different sates for each service type
+enum{
+    CTL_NOT_SYNCED = 0,
+    CTL_SYNCED,
+};
+
+
+//CTL message types
+#define QMI_CTL_GET_CID         0x0022
+#define QMI_CTL_RELEASE_CID     0x0023
+#define QMI_CTL_SET_DATA_FORMAT	0x0026
+#define QMI_CTL_SYNC            0x0027
+
+//CTL TLVs
+#define QMI_CTL_TLV_ALLOC_INFO  0x01
+
+//Set data format
+#define	QMI_CTL_TLV_DATA_FORMAT	0x01
+#define QMI_CTL_TLV_DATA_PROTO	0x10
+
 
 #endif

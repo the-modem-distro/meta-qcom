@@ -45,34 +45,35 @@ int callback() {
     printf(" ->Callback called\n");
 }
 
+struct qmi_device open_socket(uint8_t service, uint8_t instance) {
+    struct qmi_device qmisock;
+    qmisock.fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
+    qmisock.transaction_id = 1;
+    qmisock.socket.family = IPC_ROUTER;
+    qmisock.socket.address.addrtype = IPC_ROUTER_ADDRTYPE;
+    qmisock.socket.address.addr.port_addr.node_id = IPC_HEXAGON_NODE;
+    qmisock.socket.address.addr.port_addr.port_id = IPC_HEXAGON_PORT;
+    qmisock.socket.address.addr.port_name.service = service;	// SERVICE ID
+    qmisock.socket.address.addr.port_name.instance = instance;	// Instance
+    return qmisock;
+}
+
 int main (int argc, char **argv) {
  printf("Let's play!\n");
-int ipc_router_socket = -1;
-struct peripheral_ep_info epinfo;
-struct sockaddr_msm_ipc ipc_socket_addr;
-struct timeval tv;
-
-/* IPC Socket settings */
-ipc_socket_addr.family = IPC_ROUTER;
-ipc_socket_addr.address.addrtype = IPC_ROUTER_ADDRTYPE;
-ipc_socket_addr.address.addr.port_addr.node_id = IPC_HEXAGON_NODE;
-ipc_socket_addr.address.addr.port_addr.port_id = IPC_HEXAGON_PORT;
-ipc_socket_addr.address.addr.port_name.service = 0x2f;	// SERVICE ID
-ipc_socket_addr.address.addr.port_name.instance = 0x1;	// Instance
-
-epinfo.ep_type = DATA_EP_TYPE_BAM_DMUX;
-epinfo.peripheral_iface_id = RMNET_CONN_ID;
-
-if (ipc_router_socket < 0) {
-    fprintf(stdout,"Opening socket to the IPC Router \n");
-    ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
-}
-
-if (ioctl(ipc_router_socket, _IOC(_IOC_READ, IPC_IOCTL_MAGIC, 0x4, 0x4), callback()) < 0) {
-    fprintf(stderr,"IOCTL to the IPC1 socket failed \n");
-}
-
+ int i;
+ struct qmi_device* services = malloc(sizeof(common_names) * sizeof *services);
+ for (i = 0; i < sizeof(common_names); i++) {
+     printf("%s: Opening socket for service %i: %s...",__func__, common_names[i].service, common_names[i].name);
+     services[i] = open_socket(common_names[i].service,1);
+     if (services[i].fd < 0) {
+         printf("Failed! \n");
+     } else {
+         printf("OK! \n");
+         qmi_ctl_send_sync(services[i]);
+     }
+ }
 
 printf("Eeeend \n");
 return 0;   
 }
+
