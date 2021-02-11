@@ -168,6 +168,7 @@ struct qmi_device {
 	uint32_t handle;
 };
 
+
 /* From qmi_hdrs.h at qmi-dialer */
 
 //qmux header

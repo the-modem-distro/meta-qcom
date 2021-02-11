@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
@@ -45,9 +46,21 @@ int callback() {
     printf(" ->Callback called\n");
 }
 
+char *find_common_name(int service) {
+    int i;
+    for (i = 0; i <(sizeof(common_names) / sizeof(common_names[0])); i++) {
+        if (common_names[i].service == service) {
+            return common_names[i].name;
+        }
+    }
+    return "Unknown svc";
+}
+
 struct qmi_device open_socket(uint8_t service, uint8_t instance) {
     struct qmi_device qmisock;
     qmisock.fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
+    qmisock.service = service;
+
     qmisock.transaction_id = 1;
     qmisock.socket.family = IPC_ROUTER;
     qmisock.socket.address.addrtype = IPC_ROUTER_ADDRTYPE;
@@ -61,19 +74,61 @@ struct qmi_device open_socket(uint8_t service, uint8_t instance) {
 int main (int argc, char **argv) {
  printf("Let's play!\n");
  int i;
- struct qmi_device* services = malloc(sizeof(common_names) * sizeof *services);
- for (i = 0; i < sizeof(common_names); i++) {
-     printf("%s: Opening socket for service %i: %s...",__func__, common_names[i].service, common_names[i].name);
+ struct qmi_device* services = malloc((sizeof(common_names) / sizeof(common_names[0])) * sizeof *services);
+ for (i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+     printf("* Opening socket for %s...", common_names[i].name);
      services[i] = open_socket(common_names[i].service,1);
      if (services[i].fd < 0) {
          printf("Failed! \n");
      } else {
          printf("OK! \n");
-         qmi_ctl_send_sync(services[i]);
+         if (qmi_ctl_send_sync(&services[i]) < 0) {
+             printf ("   --> Error sending sync to %s, closing this socket \n", common_names[i].name);
+             close(services[i].fd);
+             services[i].fd = -1;
+         }
      }
  }
 
-printf("Eeeend \n");
+printf ("First pass finished, let's see what remains: \n");
+printf ("ID     ACTIVE    NAME\n");
+printf ("---------------------------------\n");
+for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+    printf("%04i ", common_names[i].service);
+    if (services[i].fd > 0)
+        printf("   Y    ");
+    else
+        printf("   N    ");
+    printf(" %s \n", common_names[i].name);
+}
+printf("\n------\n");
+int max_fd = 100;
+int pret, ret,j;
+unsigned long count = 0;
+fd_set readfds;
+uint8_t buf[8192];
+while (1) {
+    printf (" --> Count: %ld", count);
+	FD_ZERO(&readfds);
+    for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+        if (services[i].fd > 0) {
+            FD_SET(services[i].fd, &readfds);
+        }
+    }
+    pret = select(max_fd, &readfds, NULL, NULL, NULL);
+    for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+        if (services[i].fd > 0 && FD_ISSET(services[i].fd, &readfds)) {
+            printf("%s FD has pending data: \n", find_common_name(services[i].service));
+        	ret = read(services[i].fd , &buf, 8192);
+            for (j=0; j < ret; j++) {
+                printf ("0x%02x ", buf[j]);
+            }
+            printf("\n");
+          //  parse_qmi(buf);
+        }
+    }
+    count++;
+}
 return 0;   
 }
 

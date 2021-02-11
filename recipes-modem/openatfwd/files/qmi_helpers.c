@@ -12,17 +12,14 @@
 
 void create_qmi_request(uint8_t *buf, uint8_t service, uint8_t client_id, 
         uint16_t transaction_id, uint16_t message_id){
-    printf ("Create QMI request");
     qmux_hdr_t *qmux_hdr = (qmux_hdr_t*) buf;
     if(service == QMI_SERVICE_CTL)
     {
-        printf ("Control service \n");
         //-1 is for removing the preamble
         qmux_hdr->length = htole16(sizeof(qmux_hdr_t) - 1 +
                 sizeof(qmi_hdr_ctl_t));
     }
     else {
-        printf("Different service: %i\n", service);
         qmux_hdr->length = htole16(sizeof(qmux_hdr_t) - 1 +
                 sizeof(qmi_hdr_gen_t));
     }
@@ -34,7 +31,6 @@ void create_qmi_request(uint8_t *buf, uint8_t service, uint8_t client_id,
 
     //Can I somehow do this more elegant?
     if(service == QMI_SERVICE_CTL){
-        printf ("Prepare contorl packet \n");
         qmi_hdr_ctl_t *qmi_hdr = (qmi_hdr_ctl_t*) (qmux_hdr+1);
         //Always sends request (message type 0, only flag)
         qmi_hdr->control_flags = 0;
@@ -44,7 +40,6 @@ void create_qmi_request(uint8_t *buf, uint8_t service, uint8_t client_id,
         qmi_hdr->message_id = htole16(message_id);
         qmi_hdr->length = 0;
     } else {
-        printf("Prepare std packet \n");
         qmi_hdr_gen_t *qmi_hdr = (qmi_hdr_gen_t*) (qmux_hdr+1);
         qmi_hdr->control_flags = 0;
         qmi_hdr->transaction_id = htole16(transaction_id);
@@ -87,7 +82,7 @@ void parse_qmi(uint8_t *buf){
     qmi_tlv_t *tlv = NULL;
     uint16_t tlv_length = 0;
 
-    fprintf(stderr, "Complete message: ");
+    fprintf(stderr, " --> MSG: ");
     //When I call this function, a messages is either ready to be sent or has
     //been received. All values are in little endian
     for(i=0; i < le16toh(qmux_hdr->length); i++)
@@ -97,28 +92,28 @@ void parse_qmi(uint8_t *buf){
     //(and this byte is not included in length)
     fprintf(stderr, "%.2x\n", buf[i]);
 
-    fprintf(stderr, "QMUX:\n");
-    fprintf(stderr, "\tlength: %u\n", le16toh(qmux_hdr->length));
-    fprintf(stderr, "\tflags: 0x%.2x\n", qmux_hdr->control_flags);
-    fprintf(stderr, "\tservice: 0x%.2x\n", qmux_hdr->service_type);
-    fprintf(stderr, "\tclient id: %u\n", qmux_hdr->client_id);
+    fprintf(stderr, " ---> QMUX: ");
+    fprintf(stderr, "length: %u | ", le16toh(qmux_hdr->length));
+    fprintf(stderr, "flags: 0x%.2x | ", qmux_hdr->control_flags);
+    fprintf(stderr, "service: 0x%.2x | ", qmux_hdr->service_type);
+    fprintf(stderr, "client id: %u\n", qmux_hdr->client_id);
 
     if(qmux_hdr->service_type == QMI_SERVICE_CTL){
         qmi_hdr_ctl_t *qmi_hdr = (qmi_hdr_ctl_t*) (qmux_hdr+1);
-        fprintf(stderr, "QMI (control):\n");
-        fprintf(stderr, "\tflags: %u\n", qmi_hdr->control_flags >> 1);
-        fprintf(stderr, "\ttransaction id: %u\n", qmi_hdr->transaction_id);
-        fprintf(stderr, "\tmessage type: 0x%.2x\n", le16toh(qmi_hdr->message_id));
-        fprintf(stderr, "\tlength: %u %x\n", le16toh(qmi_hdr->length), le16toh(qmi_hdr->length));
+        fprintf(stderr, " ---> QMI (control): ");
+        fprintf(stderr, "flags: %u | ", qmi_hdr->control_flags >> 1);
+        fprintf(stderr, "transaction id: %u | ", qmi_hdr->transaction_id);
+        fprintf(stderr, "message type: 0x%.2x | ", le16toh(qmi_hdr->message_id));
+        fprintf(stderr, "length: %u %x\n", le16toh(qmi_hdr->length), le16toh(qmi_hdr->length));
         tlv = (qmi_tlv_t *) (qmi_hdr+1);
         tlv_length = le16toh(qmi_hdr->length);
     } else {
         qmi_hdr_gen_t *qmi_hdr = (qmi_hdr_gen_t*) (qmux_hdr+1);
-        fprintf(stderr, "QMI (service):\n");
-        fprintf(stderr, "\tflags: %u\n", qmi_hdr->control_flags >> 1);
-        fprintf(stderr, "\ttransaction id: %u\n", le16toh(qmi_hdr->transaction_id));
-        fprintf(stderr, "\tmessage type: 0x%.2x\n", le16toh(qmi_hdr->message_id));
-        fprintf(stderr, "\tlength: %u\n", le16toh(qmi_hdr->length));
+        fprintf(stderr, " ---> QMI (service): ");
+        fprintf(stderr, "flags: %u\n", qmi_hdr->control_flags >> 1);
+        fprintf(stderr, "transaction id: %u | ", le16toh(qmi_hdr->transaction_id));
+        fprintf(stderr, "message type: 0x%.2x | ", le16toh(qmi_hdr->message_id));
+        fprintf(stderr, "length: %u\n", le16toh(qmi_hdr->length));
         tlv = (qmi_tlv_t *) (qmi_hdr+1);
         tlv_length = le16toh(qmi_hdr->length);
     }
@@ -126,10 +121,10 @@ void parse_qmi(uint8_t *buf){
     i=0;
     while(i<tlv_length){
         tlv_val = (uint8_t*) (tlv+1);
-        fprintf(stderr, "TLV:\n");
-        fprintf(stderr, "\ttype: 0x%.2x\n", tlv->type);
-        fprintf(stderr, "\tlen: %u\n", le16toh(tlv->length));
-        fprintf(stderr, "\tvalue: ");
+        fprintf(stderr, " ---> TLV: ");
+        fprintf(stderr, "type: 0x%.2x | ", tlv->type);
+        fprintf(stderr, "len: %u | ", le16toh(tlv->length));
+        fprintf(stderr, "value: ");
         
         for(j=0; j<le16toh(tlv->length)-1; j++)
             fprintf(stderr, "%.2x:", tlv_val[j]);
@@ -148,23 +143,15 @@ void parse_qmi(uint8_t *buf){
 
 static inline ssize_t qmi_ctl_write(struct qmi_device *qmid, uint8_t *buf,
         ssize_t len){
-    printf("QMI_CTL_WRITE\n");
     //TODO: Only do this if request is sucessful?
     qmid->transaction_id = (qmid->transaction_id + 1) % UINT8_MAX;
-    printf("Check transaction ID...\n");
     //According to spec, transaction id must be non-zero
     if(!qmid->transaction_id)
         qmid->transaction_id = 1;
-
-        fprintf(stderr, "Will send (CTL):\n");
         parse_qmi(buf);
 
     //+1 is to include marker
-    //return -1; // TODO Write to socket, not to file
-    printf("Send it!\n");
     return sendto(qmid->fd, buf, len + 1, MSG_DONTWAIT, (void*) &qmid->socket, sizeof(qmid->socket));
-
-   // return qmi_helpers_write(qmid->fd, buf, len + 1);
 }
 
 ssize_t qmi_ctl_update_cid(struct qmi_device *qmid, uint8_t service,
@@ -212,12 +199,8 @@ ssize_t qmi_ctl_send_sync(struct qmi_device *qmid){
     uint8_t buf[QMI_DEFAULT_BUF_SIZE];
     qmux_hdr_t *qmux_hdr = (qmux_hdr_t*) buf;
 
-    fprintf(stderr, "Sending sync request\n");
-
-    printf("create for transaction id %i\n", qmid->transaction_id);
     create_qmi_request(buf, QMI_SERVICE_CTL, 0, qmid->transaction_id,
             QMI_CTL_SYNC);
-    printf ("write \n");
     return qmi_ctl_write(qmid, buf, le16toh(qmux_hdr->length));
 }
 
