@@ -71,6 +71,18 @@ struct qmi_device open_socket(uint8_t service, uint8_t instance) {
     return qmisock;
 }
 
+
+static ssize_t read_data(struct qmi_device *qmid){
+    uint8_t numbytes;
+    qmux_hdr_t *qmux_hdr;
+
+    numbytes = recvfrom(qmid->fd , &qmid->buf, sizeof(qmid->buf), MSG_DONTWAIT, (void*) &qmid->socket, sizeof(qmid->socket));
+    if(numbytes >= sizeof(qmux_hdr_t)) {
+        printf("We got a header with data\n");
+        qmux_hdr = (qmux_hdr_t*) qmid->buf;
+    }
+    return numbytes;
+}
 int main (int argc, char **argv) {
  printf("Let's play!\n");
  int i;
@@ -107,6 +119,7 @@ int pret, ret,j;
 unsigned long count = 0;
 fd_set readfds;
 uint8_t buf[8192];
+system("echo ----- start loop ----- > /dev/kmsg");
 while (1) {
     printf (" --> Count: %ld", count);
 	FD_ZERO(&readfds);
@@ -119,16 +132,25 @@ while (1) {
     for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
         if (services[i].fd > 0 && FD_ISSET(services[i].fd, &readfds)) {
             printf("%s FD has pending data: \n", find_common_name(services[i].service));
-        	ret = read(services[i].fd , &buf, 8192);
+        	//ret = read(services[i].fd , &buf, 8192);
+            ret = read_data(&services[i]);
+        	/*ret = recvfrom(services[i].fd , &services[i].buf, sizeof(services[i].buf), MSG_DONTWAIT, (void*) &services[i].socket, sizeof(services[i].socket));*/
+            printf("Got %i bytes back\n", ret);
             for (j=0; j < ret; j++) {
-                printf ("0x%02x ", buf[j]);
+                printf ("0x%02x ", services[i].buf[j]);
             }
             printf("\n");
-          //  parse_qmi(buf);
+        
+      
+           parse_qmi(buf);
         }
     }
+    printf(" End of round %i\n", count);
     count++;
 }
+/*
+ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+                 struct sockaddr *src_addr, socklen_t *addrlen);
+                 */
 return 0;   
 }
-
