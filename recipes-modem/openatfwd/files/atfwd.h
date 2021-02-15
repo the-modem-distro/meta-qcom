@@ -2,13 +2,12 @@
 #define _ATFWD_H_
 #include <stdbool.h>
 
-#define VERSION "0.0.2"
+#define VERSION "0.0.0"
 
 /* Devices */
 #define DPL "/dev/dpl_ctrl"
 #define RMNET_CTL "/dev/rmnet_ctrl"
 #define SMD_CNTL "/dev/smdcntl8"
-#define SND_CTL  "/dev/snd/controlC0"
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 #define IPC_ROUTER_ADDRTYPE 1 // As specified in the kernel
@@ -16,7 +15,7 @@
 #define IPC_HEXAGON_PORT 0x1c
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
-
+#define IOCTL_BIND_TOIPC _IOR(IPC_IOCTL_MAGIC, 4, uint32_t)
 #define MAX_PACKET_SIZE 2048 // rmnet max packet size
 
 #define QTI_IOCTL_MAGIC	'r'
@@ -73,6 +72,28 @@ struct ep_info {
 	struct peripheral_ep_info	ph_ep_info;
 	struct ipa_ep_pair ipa_ep_pair;
 };
+
+
+/* Playing around */
+struct portmapper_port_map_arr {
+	char *port_name;
+	struct peripheral_ep_info epinfo;
+}
+
+struct portmapper_open_request {
+	uint8_t is_valid_ctl_list;
+	uint32_t ctl_list_length;
+	struct portmapper_cl_port_map_arr port_map[2];
+
+	uint8_t is_valid_hw_list;
+	uint32_t hw_list_length;
+	struct ep_info hw_epinfo;
+
+	uint8_t is_valid_sw_list;
+	uint32_t hw_list_length;
+	struct portmapper_port_map_arr port_map[2];
+};
+
 
 #define DIAG_SERVICE 4097
 typedef uint8_t ctl_state_t;
@@ -365,6 +386,5 @@ enum{
 //Set data format
 #define	QMI_CTL_TLV_DATA_FORMAT	0x01
 #define QMI_CTL_TLV_DATA_PROTO	0x10
-
 
 #endif
