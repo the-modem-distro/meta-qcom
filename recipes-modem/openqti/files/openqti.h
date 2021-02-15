@@ -85,14 +85,14 @@ bool is_call_active = false;
 
 static const struct {
 	const char *path;
-	unsigned int value;
+	const char *value;
 } sysfs_value_pairs[] = {
-	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/mode", 0 },
-	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/sync", 0 },
-	{ "/sys/devices/soc:sound/pcm_mode_select", 0 },
-	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/frame", 2 },
-	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/data", 1 },
-	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/rate", 256000 },
-	{ "/sys/devices/soc:sound/quec_auxpcm_rate", 8000 },
+	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/mode", "0" },
+	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/sync", "0" },
+	{ "/sys/devices/soc:sound/pcm_mode_select", "0" },
+	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/frame", "2" },
+	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/data", "1" },
+	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "256000" },
+	{ "/sys/devices/soc:sound/quec_auxpcm_rate", "8000" },
 };
 #endif

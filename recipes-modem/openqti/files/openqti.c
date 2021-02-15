@@ -125,8 +125,8 @@ int start_audio(int type) {
 	int i;
 	char pcm_device[18];
 	if (is_call_active) {
-		fprintf(stderr,"%s: Audio already active, nothing to do\n", __func__);
-		return 1;
+		fprintf(stderr,"%s: Audio already active, restarting... \n", __func__);
+		stop_audio();
 	}
 
 	mixer = mixer_open(SND_CTL);
@@ -164,34 +164,6 @@ int start_audio(int type) {
 
 		}
 	}
-	/*
-	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/mode", "0") < 0) {
-		fprintf(stderr, "%s: Error writing to auxpcm mode\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/sync", "0") < 0) {
-		fprintf(stderr, "%s: Error writing to auxpcm sync\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:sound/pcm_mode_select", "0") < 0) {
-		fprintf(stderr, "%s: Error writing to pcm_mode_select\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/frame", "2") < 0) {
-		fprintf(stderr, "%s: Error writing to auxpcm frame\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/data", "1") < 0) {
-		fprintf(stderr, "%s: Error writing to auxpcm data\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "256000") < 0) {
-		fprintf(stderr, "%s: Error writing to auxpcm rate\n", __func__);
-	}
-
-	if (write_to("/sys/devices/soc:sound/quec_auxpcm_rate", "8000") < 0) {
-		fprintf(stderr, "%s: Error writing to quec_auxpcm_rate\n", __func__);
-	}*/
 	
 	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
@@ -354,10 +326,10 @@ int main(int argc, char **argv) {
 	}
 	do {
 		/* Request dpm to open smdcntl8 via IPC router */
-		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
-		if (ret == -1){
-			fprintf(stderr,"Failed to send request to enable smdcntl8: %i \n", ret);
-		}
+	//	ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), 0, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+	//	if (ret == -1){
+	//		fprintf(stderr,"Failed to send request to enable smdcntl8: %i \n", ret);
+	//	}
 		ret = sendto(ipc_router_socket, &qmi_msg_02, sizeof(qmi_msg_02), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			fprintf(stderr,"Failed to send QMI message to socket: %i \n", ret);
