@@ -106,7 +106,7 @@ int stop_audio() {
 	return 1;
 }
 
-int write_to(char *path, char *val) {
+int write_to(const char *path, const char *val) {
 	int ret;
 	int fd = open(path, O_RDWR);
 	if (fd < 0) {
@@ -146,9 +146,6 @@ int start_audio(int type) {
 			set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
 			set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
 			strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
-			
-			
-			
 			break;
 		default:
 			fprintf(stderr, "%s: Can't set mixers, unknown call type %i\n", __func__, type);
@@ -156,14 +153,6 @@ int start_audio(int type) {
 	}
 	mixer_close(mixer);
 	printf ("Using PCM Device %s \n", pcm_device);
-
-	fprintf(stdout, "%s: Setting sysfs entries... \n", __func__);
-	for (i = 0; i < sizeof(sysfs_value_pairs); i++ ){
-		if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value) <0) {
-			fprintf(stderr, "%s: Error writing to %s\n", __func__, sysfs_value_pairs[i].path);
-
-		}
-	}
 	
 	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
@@ -236,7 +225,7 @@ int main(int argc, char **argv) {
 	bool debug = false; // Dump usb packets
 	bool bypass_mode = false; // After setting it up, shutdown USB and restart it in SMD mode
 	char rmnetbuf[MAX_PACKET_SIZE] = "\0";
-
+	int i;
 	/* QMI messages to request opening smdcntl8 */
 	char qmi_msg_01[] = { 0x00, 0x02, 0x00, 0x20, 0x00, 0x2c, 0x00, 0x10, 0x15, 0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54, 0x4c, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x11, 0x11, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	int ret;
@@ -300,7 +289,7 @@ int main(int argc, char **argv) {
       ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
     }
 
-	if (ioctl(ipc_router_socket, _IOC(_IOC_READ, IPC_IOCTL_MAGIC, 0x4, 0x4), 0) < 0) {
+	if (ioctl(ipc_router_socket, IOCTL_BIND_TOIPC, 0) < 0) {
 		fprintf(stderr,"IOCTL to the IPC1 socket failed \n");
 	}
 
@@ -323,6 +312,7 @@ int main(int argc, char **argv) {
 	if (ret) {
 		fprintf(stderr,"Error setting socket options \n");
 	}
+
 	do {
 		/* Request dpm to open smdcntl8 via IPC router */
 		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
@@ -366,13 +356,22 @@ int main(int argc, char **argv) {
 	if (ret < 0)
 		fprintf(stderr,"Set modem online: %i \n", ret);
 
+	fprintf(stdout, "Setting audio sysfs entries... \n");
+	for (i = 0; i < sizeof(sysfs_value_pairs); i++ ){
+		if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value) <0) {
+			fprintf(stderr, "Error writing to %s\n", sysfs_value_pairs[i].path);
+
+		}
+	}
 	// Should we proxy USB?
 	if (!bypass_mode) {
+		fprintf(stdout, " Normal mode: Ready!\n");
 		while (1) {
 			FD_ZERO(&readfds);
 			memset(rmnetbuf, 0, sizeof(rmnetbuf));
 			FD_SET(rmnet_ctrlfd, &readfds);
 			FD_SET(smdcntl8_fd, &readfds);
+			FD_SET(ipc_router_socket, &readfds);
 			pret = select(max_fd, &readfds, NULL, NULL, NULL);
 			if (FD_ISSET(rmnet_ctrlfd, &readfds)) {
 				ret = read(rmnet_ctrlfd, &rmnetbuf, MAX_PACKET_SIZE);
@@ -400,10 +399,11 @@ int main(int argc, char **argv) {
   close(ipc_router_socket);
   close(dpl_cntlfd);
   if (bypass_mode) {
-  	system("echo 0 > /sys/class/android_usb/android0/enable");
-  	system("echo SMD,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports");
-  	sleep(5);
-  	system("echo 1 > /sys/class/android_usb/android0/enable");
+	fprintf(stdout, "Bypass mode: ready!\n");
+	write_to("/sys/class/android_usb/android0/enable", "0");
+	write_to("/sys/class/android_usb/android0/f_rmnet/transports", "SMD,BAM_DMUX");
+	sleep(5);
+	write_to("/sys/class/android_usb/android0/enable", "1");
   }
 
   return 0;

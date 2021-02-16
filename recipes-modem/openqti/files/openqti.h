@@ -19,6 +19,7 @@
 #define IPC_HEXAGON_PORT 0x1c
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
+#define IOCTL_BIND_TOIPC _IOR(IPC_IOCTL_MAGIC, 4, uint32_t)
 
 #define MAX_PACKET_SIZE 2048 // rmnet max packet size
 
