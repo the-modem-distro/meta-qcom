@@ -78,20 +78,20 @@ struct ep_info {
 struct portmapper_port_map_arr {
 	char *port_name;
 	struct peripheral_ep_info epinfo;
-}
+};
 
 struct portmapper_open_request {
 	uint8_t is_valid_ctl_list;
 	uint32_t ctl_list_length;
-	struct portmapper_cl_port_map_arr port_map[2];
+	struct portmapper_port_map_arr hw_port_map[2];
 
 	uint8_t is_valid_hw_list;
 	uint32_t hw_list_length;
 	struct ep_info hw_epinfo;
 
 	uint8_t is_valid_sw_list;
-	uint32_t hw_list_length;
-	struct portmapper_port_map_arr port_map[2];
+	uint32_t sw_list_length;
+	struct portmapper_port_map_arr sw_port_map[2];
 };
 
 
