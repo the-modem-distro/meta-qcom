@@ -12,6 +12,7 @@
 #define PCM_DEV_VOCS "/dev/snd/pcmC0D2" // Normal Voice calls use CS - Circuit Switch, device #2
 #define PCM_DEV_VOLTE "/dev/snd/pcmC0D4" // VoLTE uses PCM device #4
 
+#define SMDCTLPORTNAME "DATA40_CNTL"
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 #define IPC_ROUTER_ADDRTYPE 1 // As specified in the kernel
@@ -62,27 +63,56 @@ enum peripheral_ep_type {
 	DATA_EP_TYPE_PCIE	= 0x3,
 	DATA_EP_TYPE_EMBEDDED	= 0x4,
 	DATA_EP_TYPE_BAM_DMUX	= 0x5,
-};
+} __attribute__((packed));
 
 struct peripheral_ep_info {
 	enum peripheral_ep_type ep_type;
-	unsigned long int peripheral_iface_id;
-};
+	uint32_t peripheral_iface_id;
+} __attribute__((packed));
 
 struct ipa_ep_pair {
 	unsigned long int cons_pipe_num;
 	unsigned long int prod_pipe_num;
-};
+} __attribute__((packed));
 
 struct ep_info {
 	struct peripheral_ep_info	ph_ep_info;
 	struct ipa_ep_pair ipa_ep_pair;
-};
+} __attribute__((packed));
 
 struct mixer *mixer;
 struct pcm *pcm_tx;
 struct pcm *pcm_rx;
 bool is_call_active = false;
+
+/* Testing stuff */
+struct portmapper_port_map_arr {
+	char port_name[11];
+	struct peripheral_ep_info epinfo;
+};
+
+struct portmapper_open_request {
+	// QMI Header
+	uint8_t ctlid;
+	uint16_t transaction_id;
+	uint16_t msgid;
+    uint16_t length;
+
+	// Control list
+	uint8_t is_valid_ctl_list;
+	uint32_t ctl_list_length;
+	struct portmapper_port_map_arr hw_port_map[1];
+
+	// HW list
+	uint8_t is_valid_hw_list;
+	uint32_t hw_list_length;
+	struct ep_info hw_epinfo;
+	
+	// SW list
+	uint8_t is_valid_sw_list;
+	uint32_t sw_list_length;
+} __attribute__((packed));
+
 
 static const struct {
 	const char *path;
@@ -96,4 +126,5 @@ static const struct {
 	{ "/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "256000" },
 	{ "/sys/devices/soc:sound/quec_auxpcm_rate", "8000" },
 };
+
 #endif

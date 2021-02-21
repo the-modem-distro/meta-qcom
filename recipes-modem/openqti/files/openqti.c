@@ -213,7 +213,6 @@ int dump_audio_mixer() {
 	return 0;
 }
 
-
 int main(int argc, char **argv) {
 	/* Descriptors */
 	int rmnet_ctrlfd = -1;
@@ -224,16 +223,16 @@ int main(int argc, char **argv) {
   	struct sockaddr_msm_ipc ipc_socket_addr;
 	bool debug = false; // Dump usb packets
 	bool bypass_mode = false; // After setting it up, shutdown USB and restart it in SMD mode
+	bool recreate = false;
 	char rmnetbuf[MAX_PACKET_SIZE] = "\0";
 	int i;
-	/* QMI messages to request opening smdcntl8 */
-	char qmi_msg_01[] = { 0x00, 0x02, 0x00, 0x20, 0x00, 0x2c, 0x00, 0x10, 0x15, 0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54, 0x4c, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x11, 0x11, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	int ret;
 	int pret;
 	int linestate;
 	int max_fd = 20;
   	fd_set readfds;
-	
+	struct portmapper_open_request dpmreq;
+
 	/* IPC Socket settings */
 	ipc_socket_addr.family = IPC_ROUTER;
 	ipc_socket_addr.address.addrtype = IPC_ROUTER_ADDRTYPE;
@@ -282,8 +281,6 @@ int main(int argc, char **argv) {
     rmnet_ctrlfd = open(RMNET_CTL, O_RDWR);
     }
 
-	/* Sleep just a bit to let it breathe */
-	sleep(1);
  	if (ipc_router_socket < 0) {
       fprintf(stdout,"Opening socket to the IPC Router \n");
       ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
@@ -312,14 +309,34 @@ int main(int argc, char **argv) {
 	if (ret) {
 		fprintf(stderr,"Error setting socket options \n");
 	}
-
 	do {
-		/* Request dpm to open smdcntl8 via IPC router */
-		ret = sendto(ipc_router_socket, &qmi_msg_01, sizeof(qmi_msg_01), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
+		/* Parts of this are probably _very_ wrong*/
+		dpmreq.ctlid = 0x00;
+		dpmreq.transaction_id = htole16(1);
+		dpmreq.msgid = htole16(32);
+		dpmreq.length= sizeof(struct portmapper_open_request) - (3*sizeof(uint16_t)) - sizeof(uint8_t); // Size of the packet minux qmi header
+		dpmreq.is_valid_ctl_list = htole16(0x10);
+		dpmreq.ctl_list_length = 0x0b010015; //sizeof(SMDCTLPORTNAME); this has to be wrong...
+
+		strncpy(dpmreq.hw_port_map[0].port_name, SMDCTLPORTNAME, sizeof(SMDCTLPORTNAME));
+		dpmreq.hw_port_map[0].epinfo.ep_type = htole16(DATA_EP_TYPE_BAM_DMUX);
+		dpmreq.hw_port_map[0].epinfo.peripheral_iface_id = 0x08000000; 
+		
+		dpmreq.is_valid_hw_list = 0x00;
+		dpmreq.hw_list_length = 0x11110000;
+		dpmreq.hw_epinfo.ph_ep_info.ep_type = DATA_EP_TYPE_RESERVED;
+		dpmreq.hw_epinfo.ph_ep_info.peripheral_iface_id = 0x00000501;
+
+		dpmreq.hw_epinfo.ipa_ep_pair.cons_pipe_num = 0x00000800; // 6 is what the bam responds but packet seems to say 0
+		dpmreq.hw_epinfo.ipa_ep_pair.prod_pipe_num = htole32(0); 
+
+		dpmreq.is_valid_sw_list = false;
+		dpmreq.sw_list_length = 0;
+
+		ret = sendto(ipc_router_socket, &dpmreq, sizeof(dpmreq), MSG_DONTWAIT, (void*) &ipc_socket_addr, sizeof(ipc_socket_addr));
 		if (ret == -1){
 			fprintf(stderr,"Failed to send QMI message to socket: %i \n", ret);
 		}
-
 		// Wait one second after requesting bam init...
 		
 		sleep(1);
@@ -389,6 +406,13 @@ int main(int argc, char **argv) {
 					ret = write(rmnet_ctrlfd, rmnetbuf, ret);
 					if (debug) {
 						dump_packet("smdcntl8 --> rmnet_ctrl", rmnetbuf);
+					}
+				}
+			} else if (FD_ISSET(ipc_router_socket, &readfds)) {
+				ret = read(ipc_router_socket, &rmnetbuf, MAX_PACKET_SIZE);
+				if (ret > 0)	{
+					if (debug) {
+						dump_packet("ipcrtr:", rmnetbuf);
 					}
 				}
 			}
