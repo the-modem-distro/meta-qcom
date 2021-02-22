@@ -35,19 +35,6 @@
 
 #define ATCOP_REGISTER_AT_COMMAND_RESPONSE 0x0022
 
-
-int connect_atcop_svc() {
-
-}
-
-int register_custom_commands() {
-
-}
-
-int callback() {
-    printf(" ->Callback called\n");
-}
-
 char *find_common_name(int service) {
     int i;
     for (i = 0; i <(sizeof(common_names) / sizeof(common_names[0])); i++) {
@@ -88,6 +75,9 @@ static ssize_t read_data(struct qmi_device *qmid){
 int main (int argc, char **argv) {
  printf("Let's play!\n");
  int i;
+ struct timeval tv;
+ tv.tv_sec = 1;
+ tv.tv_usec = 0;
  struct qmi_device* services = malloc((sizeof(common_names) / sizeof(common_names[0])) * sizeof *services);
  for (i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
      printf("* Opening socket for %s...", common_names[i].name);
@@ -133,7 +123,7 @@ unsigned long count = 0;
 fd_set readfds;
 uint8_t buf[8192];
 system("echo ----- start loop ----- > /dev/kmsg");
-while (1) {
+//while (1) {
     printf (" --> Count: %ld", count);
 	FD_ZERO(&readfds);
     for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
@@ -141,7 +131,7 @@ while (1) {
             FD_SET(services[i].fd, &readfds);
         }
     }
-    pret = select(max_fd, &readfds, NULL, NULL, NULL);
+    pret = select(max_fd, &readfds, NULL, NULL, &tv);
     for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
         if (services[i].fd > 0 && FD_ISSET(services[i].fd, &readfds)) {
             printf("%s FD has pending data: \n", find_common_name(services[i].service));
@@ -160,6 +150,35 @@ while (1) {
     }
     printf(" End of round %i\n", count);
     count++;
+//} //Do only one pass to clear
+printf("checkpoint, regpar \n");
+struct atcmd_reg_request atcmd;
+atcmd.ctlid = 0x00;
+atcmd.transaction_id = htole16(0);
+atcmd.msgid = htole16(2);
+atcmd.length = 0;
+atcmd.dummy1 = 0x0001;
+atcmd.dummy2 = 0x0001;
+atcmd.dummy3 = 0x0001;
+atcmd.var1 = 0x0a; // these are the ones that change between commands
+atcmd.var2 = 0x07;
+int tid = 0;
+int sckret;
+memset(atcmd.fillzero, 0x00, sizeof(atcmd.fillzero));
+//atcmd.fillzero = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+for (i=0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+    if (services[i].service == 8) { // ATCop
+     for (j=0; j <  (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
+         printf ("Pushing command %i: %s \n", at_commands[j].command_id, at_commands[j].cmd);
+         atcmd.atcmd = calloc(1, sizeof(at_commands[j].cmd));
+         strncpy(atcmd.atcmd, at_commands[j].cmd, sizeof(at_commands[j].cmd));
+         atcmd.transaction_id = htole16(tid);
+         tid++;
+//         sckret = sendto(services[i].fd, (void *)atcmd, sizeof(atcmd) +1, MSG_DONTWAIT, (void*) &services[i].socket, sizeof(services[i].socket));
+
+     }
+    }
+
 }
 
 return 0;   

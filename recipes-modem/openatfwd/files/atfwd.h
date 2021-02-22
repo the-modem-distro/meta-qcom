@@ -387,4 +387,24 @@ enum{
 #define	QMI_CTL_TLV_DATA_FORMAT	0x01
 #define QMI_CTL_TLV_DATA_PROTO	0x10
 
+
+struct atcmd_reg_request {
+	// QMI Header
+	uint8_t ctlid; // 0x00
+	uint16_t transaction_id; // incremental counter for each request
+	uint16_t msgid; // 0x20 0x00
+    uint16_t length; // Sizeof rest of pack?
+	
+	// the request packet itself
+	// Obviously unfinished :)
+	uint16_t dummy1; // always 0x00 0x01
+	uint8_t var1; //0x0a - 0x0f || 0x11 - 0x13
+	uint16_t dummy2; // always 0x00 0x01
+	uint8_t var2; // 0x07 - 0x0e
+	uint16_t dummy3; // always 0x00 0x01
+	char *atcmd; // The command itself (+CFUN, +QDAI...)
+	uint8_t fillzero[47]; // Fills 47 bytes with zeroes on _every_ command...
+	
+} __attribute__((packed));
+
 #endif
