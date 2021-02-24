@@ -34,11 +34,7 @@ else
     num="0"
 fi
 
-if [ "$#" -ge 2 ]; then
-    delay=3
-else
-    delay="3"
-fi
+delay="10"
 
 if [ "$#" -ge 3 ]; then
     from_adb=$3
