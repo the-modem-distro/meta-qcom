@@ -31,6 +31,10 @@ void handle_pkt_action(char *pkt, int from) {
 	/* This is messy and doesn't work correctly. Sometimes there's a flood and this gets
 	   hit leaving audio on for no reason, need to find a reliable way of knowing if 
 	   there's an actual call */
+	/* All calls report these codes from the DSP, usually preceeded by a 0x10.
+		Problem is depending on modem status, the packets don't really arrive
+		one after the other and you have some other stuff in between. Maybe keeping track
+		of last 4 or 8 bytes is enough to track if it's a call or something else */
 	if (sizeof(pkt) > 3 && from == FROM_DSP) {
 		if (pkt[0] == 0x1) {
 			switch (pkt[1]) {
@@ -42,11 +46,11 @@ void handle_pkt_action(char *pkt, int from) {
 				fprintf(stdout,"Outgoing Call start: CS Voice\n");
 				start_audio(0);
 				break;		
-				case 0x46: //not really tested
-				fprintf(stdout,"Incoming Call start : Voice\n");
+				case 0x46: 
+				fprintf(stdout,"Incoming Call start : CS Voice\n");
 				start_audio(1);
 				break;
-				case 0x3c: // not really tested
+				case 0x3c: // or 0x42
 				fprintf(stdout,"Incoming Call start : VoLTE\n");
 				start_audio(1);
 				break;
@@ -63,18 +67,13 @@ void handle_pkt_action(char *pkt, int from) {
 
 int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 	struct mixer_ctl *ctl;
-	mixer_dump_by_id(mixer, name);
 	ctl = get_ctl(mixer, name);
 	int r;
 
-	fprintf(stderr," --> Setting %s to value %i... \n", name, value);
 	r = mixer_ctl_set_value(ctl, 1, value);
 	if (r < 0) {
-		fprintf(stderr,"Failed! %i\n", r);
-	} else {
-		fprintf(stderr," Success: %i\n", r);
+		fprintf(stderr,"%s: Setting %s to value %i failed \n",__func__, name, value);
 	}
-
 	return 0;
 }
 
@@ -130,7 +129,6 @@ int start_audio(int type) {
 	}
 
 	mixer = mixer_open(SND_CTL);
-	fprintf(stderr," Open mixer \n");
     if (!mixer){
         fprintf(stderr,"%s: Error opening mixer!\n", __func__);
         return 0;
@@ -138,11 +136,13 @@ int start_audio(int type) {
 
 	switch (type) {
 		case 0:
+			fprintf(stdout, "Call in progress: Circuit Switch\n");
 			set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
 			set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
 			strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
 			break;
 		case 1:
+			fprintf(stdout, "Call in progress: VoLTE\n");
 			set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
 			set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
 			strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
@@ -151,9 +151,7 @@ int start_audio(int type) {
 			fprintf(stderr, "%s: Can't set mixers, unknown call type %i\n", __func__, type);
 			break;
 	}
-	mixer_close(mixer);
-	printf ("Using PCM Device %s \n", pcm_device);
-	
+	mixer_close(mixer);	
 	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
 	pcm_rx->rate = 8000;
@@ -223,7 +221,7 @@ int main(int argc, char **argv) {
   	struct sockaddr_msm_ipc ipc_socket_addr;
 	bool debug = false; // Dump usb packets
 	bool bypass_mode = false; // After setting it up, shutdown USB and restart it in SMD mode
-	bool recreate = false;
+	bool reset_usb = false; // When booting, stop and start USB after SMDCNTL8 is ready to let ModemManager detect it has voice cap
 	char rmnetbuf[MAX_PACKET_SIZE] = "\0";
 	int i;
 	int ret;
@@ -248,7 +246,7 @@ int main(int argc, char **argv) {
 
 	fprintf(stdout,"OpenQTI \n");
 	fprintf(stdout,"--------------\n");
-	while ((ret = getopt (argc, argv, "adb")) != -1)
+	while ((ret = getopt (argc, argv, "adbu")) != -1)
 		switch (ret) {
 		case 'a':
 			fprintf(stdout,"Dump audio mixer data \n");
@@ -263,6 +261,11 @@ int main(int argc, char **argv) {
 			fprintf(stdout,"Bypass mode\n");
 			debug = false;
 			bypass_mode = true;
+			break;
+		case 'u':
+			fprintf(stdout,"Restart USB on start\n");
+			reset_usb = true;
+			bypass_mode = false;
 			break;
 		case '?':
 			fprintf(stdout,"Options:\n");
@@ -379,6 +382,11 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "Error writing to %s\n", sysfs_value_pairs[i].path);
 
 		}
+	}
+	if (reset_usb) {
+		write_to("/sys/class/android_usb/android0/enable", "0");	
+		sleep(5);
+		write_to("/sys/class/android_usb/android0/enable", "1");	
 	}
 	// Should we proxy USB?
 	if (!bypass_mode) {
