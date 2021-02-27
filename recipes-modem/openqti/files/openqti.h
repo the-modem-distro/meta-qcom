@@ -4,7 +4,7 @@
 #define VERSION "0.0.2"
 
 /* Devices */
-#define DPL "/dev/dpl_ctrl"
+#define DPM_CTL "/dev/dpl_ctrl"
 #define RMNET_CTL "/dev/rmnet_ctrl"
 #define SMD_CNTL "/dev/smdcntl8"
 #define SND_CTL  "/dev/snd/controlC0"
@@ -32,7 +32,12 @@
 // for handle_pkt
 #define FROM_DSP 0
 #define FROM_HOST 1
-
+/* Current call state:
+	0 -> No active call
+	1 -> Circuit Switch
+	2 -> VoLTE
+*/
+uint8_t current_call_state;
 struct msm_ipc_port_addr {
 	uint32_t node_id;
 	uint32_t port_id;
@@ -83,7 +88,6 @@ struct ep_info {
 struct mixer *mixer;
 struct pcm *pcm_tx;
 struct pcm *pcm_rx;
-bool is_call_active = false;
 
 /* Testing stuff */
 struct portmapper_port_map_arr {

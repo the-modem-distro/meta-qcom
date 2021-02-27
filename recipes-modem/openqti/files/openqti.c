@@ -40,21 +40,24 @@ void handle_pkt_action(char *pkt, int from) {
 			switch (pkt[1]) {
 				case 0x40:
 				fprintf(stdout,"Outgoing Call start: VoLTE\n");
-				start_audio(1);
+				start_audio(2);
 				break;
 				case 0x38:
 				fprintf(stdout,"Outgoing Call start: CS Voice\n");
-				start_audio(0);
+				start_audio(1);
 				break;		
 				case 0x46: 
 				fprintf(stdout,"Incoming Call start : CS Voice\n");
-				start_audio(1);
+				start_audio(2);
 				break;
 				case 0x3c: // or 0x42
+				case 0x42: // 0x4a too?
 				fprintf(stdout,"Incoming Call start : VoLTE\n");
-				start_audio(1);
+				start_audio(2);
 				break;
-				case 0x41:
+				case 0x41: 
+				case 0x69: // Hangup from CSVoice
+				case 0x5f: // Hangup from LTE?
 				fprintf(stdout,"Hang up! \n");
 				stop_audio();
 				break;				
@@ -63,7 +66,6 @@ void handle_pkt_action(char *pkt, int from) {
 		}
 	}
 }
-
 
 int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 	struct mixer_ctl *ctl;
@@ -78,7 +80,7 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 }
 
 int stop_audio() {
-	if (!is_call_active) {
+	if (current_call_state == 0) {
 		fprintf(stderr,"%s: No call in progress \n", __func__);
 		return 1;
 	}
@@ -93,27 +95,19 @@ int stop_audio() {
         fprintf(stderr,"error opening mixer! %s: %d\n", strerror(errno), __LINE__);
         return 0;
     }
-	
+
 	// We close all the mixers
-	set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
-	set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
-	set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
-	set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+	if (current_call_state == 1) {
+		set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
+		set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+	} else if (current_call_state == 2) {
+		set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
+		set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+	}
 
 	mixer_close(mixer);
-	is_call_active = false;
+	current_call_state = 0;
 	return 1;
-}
-
-int write_to(const char *path, const char *val) {
-	int ret;
-	int fd = open(path, O_RDWR);
-	if (fd < 0) {
-		return ENOENT;
-	}
-	ret = write(fd, val, sizeof(val));
-	close(fd);
-	return ret;
 }
 
 /*	Setup mixers and open PCM devs
@@ -123,7 +117,7 @@ int write_to(const char *path, const char *val) {
 int start_audio(int type) {
 	int i;
 	char pcm_device[18];
-	if (is_call_active) {
+	if (current_call_state > 0) {
 		fprintf(stderr,"%s: Audio already active, restarting... \n", __func__);
 		stop_audio();
 	}
@@ -135,13 +129,13 @@ int start_audio(int type) {
     }
 
 	switch (type) {
-		case 0:
+		case 1:
 			fprintf(stdout, "Call in progress: Circuit Switch\n");
 			set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
 			set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
 			strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
 			break;
-		case 1:
+		case 2:
 			fprintf(stdout, "Call in progress: VoLTE\n");
 			set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
 			set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
@@ -149,9 +143,10 @@ int start_audio(int type) {
 			break;
 		default:
 			fprintf(stderr, "%s: Can't set mixers, unknown call type %i\n", __func__, type);
-			break;
+			return -EINVAL;
 	}
 	mixer_close(mixer);	
+
 	pcm_rx = pcm_open(PCM_IN | PCM_MONO, pcm_device);
 	pcm_rx->channels = 1;
 	pcm_rx->rate = 8000;
@@ -187,16 +182,21 @@ int start_audio(int type) {
     }
 
 	if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-			fprintf(stderr,"PCM ioctl start failed for TX\n");
-			pcm_close(pcm_tx);
+		fprintf(stderr,"PCM ioctl start failed for TX\n");
+		pcm_close(pcm_tx);
+		return -EINVAL;
 	}
 
 	if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-			fprintf(stderr,"PCM ioctl start failed for RX\n");
-			pcm_close(pcm_rx);
+		fprintf(stderr,"PCM ioctl start failed for RX\n");
+		pcm_close(pcm_rx);
 	}
-	
-	is_call_active = true;
+
+	if (type == 1) {
+		current_call_state = 1;
+	} else if (type == 2) {
+		current_call_state = 2;
+	}
 }
 
 int dump_audio_mixer() {
@@ -211,10 +211,21 @@ int dump_audio_mixer() {
 	return 0;
 }
 
+int write_to(const char *path, const char *val) {
+	int ret;
+	int fd = open(path, O_RDWR);
+	if (fd < 0) {
+		return ENOENT;
+	}
+	ret = write(fd, val, sizeof(val));
+	close(fd);
+	return ret;
+}
+
 int main(int argc, char **argv) {
 	/* Descriptors */
 	int rmnet_ctrlfd = -1;
-	int dpl_cntlfd = -1;
+	int dpm_cntlfd = -1;
 	int smdcntl8_fd = -1;
 	int ipc_router_socket = -1;
  	struct peripheral_ep_info epinfo;
@@ -230,6 +241,7 @@ int main(int argc, char **argv) {
 	int max_fd = 20;
   	fd_set readfds;
 	struct portmapper_open_request dpmreq;
+	struct timeval tv;
 
 	/* IPC Socket settings */
 	ipc_socket_addr.family = IPC_ROUTER;
@@ -239,13 +251,14 @@ int main(int argc, char **argv) {
 	ipc_socket_addr.address.addr.port_name.service = 0x2f;	// SERVICE ID
 	ipc_socket_addr.address.addr.port_name.instance = 0x1;	// Instance
 
-	struct timeval tv;
-
+	/* Set peripheral type */
 	epinfo.ep_type = DATA_EP_TYPE_BAM_DMUX;
 	epinfo.peripheral_iface_id = RMNET_CONN_ID;
 
+	/* Reset current call state */
+	current_call_state = 0;
+
 	fprintf(stdout,"OpenQTI \n");
-	fprintf(stdout,"--------------\n");
 	while ((ret = getopt (argc, argv, "adbu")) != -1)
 		switch (ret) {
 		case 'a':
@@ -278,27 +291,31 @@ int main(int argc, char **argv) {
 			bypass_mode = false;
 			break;
 		}
-
-  if (rmnet_ctrlfd < 0)	{
-    fprintf(stdout,"Opening RMNET_CTRL \n");
+	sleep(1);
     rmnet_ctrlfd = open(RMNET_CTL, O_RDWR);
+  	if (rmnet_ctrlfd < 0)	{
+    	fprintf(stderr,"Error opening %s \n", RMNET_CTL);
+		return -EINVAL;
     }
 
+    ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
  	if (ipc_router_socket < 0) {
-      fprintf(stdout,"Opening socket to the IPC Router \n");
-      ipc_router_socket = socket(IPC_ROUTER, SOCK_DGRAM, 0);
+      fprintf(stderr,"Error opening socket to the IPC Router \n");
+	  return -EINVAL;
     }
 
 	if (ioctl(ipc_router_socket, IOCTL_BIND_TOIPC, 0) < 0) {
 		fprintf(stderr,"IOCTL to the IPC1 socket failed \n");
 	}
 
-    if (dpl_cntlfd < 0) {
-      fprintf(stdout,"Opening DPL_CTRL interface \n");
-  	  dpl_cntlfd = open(DPL, O_RDWR);
+  	dpm_cntlfd = open(DPM_CTL, O_RDWR);
+    if (dpm_cntlfd < 0) {
+    	fprintf(stderr,"Error opening %s \n", DPM_CTL);
+		return -EINVAL;
 	}
+
 	// Unknown IOCTL, just before line state to rmnet
-	if (ioctl(dpl_cntlfd, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0)	{
+	if (ioctl(dpm_cntlfd, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0)	{
 		fprintf(stderr,"IOCTL failed: %i\n", ret);
 	}
 
@@ -314,6 +331,7 @@ int main(int argc, char **argv) {
 	}
 	do {
 		/* Parts of this are probably _very_ wrong*/
+		/* Recreate the magic packet that request the port mapper to open smdcntl8 */
 		dpmreq.ctlid = 0x00;
 		dpmreq.transaction_id = htole16(1);
 		dpmreq.msgid = htole16(32);
@@ -341,11 +359,10 @@ int main(int argc, char **argv) {
 			fprintf(stderr,"Failed to send QMI message to socket: %i \n", ret);
 		}
 		// Wait one second after requesting bam init...
-		
 		sleep(1);
 		smdcntl8_fd = open(SMD_CNTL, O_RDWR);
 		if (smdcntl8_fd < 0) {
-			fprintf(stderr,"Error opening SMD Control 8 interface \n");
+    		fprintf(stderr,"Error opening %s, retry... \n", SMD_CNTL);
 		}
 		// Sleep 1 second just in case it needs to loop
 		sleep(1);
@@ -383,12 +400,14 @@ int main(int argc, char **argv) {
 
 		}
 	}
+
 	if (reset_usb) {
 		write_to("/sys/class/android_usb/android0/enable", "0");	
 		sleep(5);
 		write_to("/sys/class/android_usb/android0/enable", "1");	
 	}
-	// Should we proxy USB?
+	
+	// If not in bypass mode, proxy communications between rmnet_ctl and smcntl8
 	if (!bypass_mode) {
 		fprintf(stdout, " Normal mode: Ready!\n");
 		while (1) {
@@ -426,10 +445,16 @@ int main(int argc, char **argv) {
 			}
 		}	
 	} // If we should proxy USB
+
+  // Close everything
   close(smdcntl8_fd);
   close(rmnet_ctrlfd);
   close(ipc_router_socket);
-  close(dpl_cntlfd);
+  close(dpm_cntlfd);
+
+  // If in bypass mode, shutdown usb, change the settings in gadget driver and turn
+  // it back up. If you run this from ADB it will be killed before turning it on, so
+  // make sure you run it from init.
   if (bypass_mode) {
 	fprintf(stdout, "Bypass mode: ready!\n");
 	write_to("/sys/class/android_usb/android0/enable", "0");

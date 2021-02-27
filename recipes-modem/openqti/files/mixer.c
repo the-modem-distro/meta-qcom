@@ -452,75 +452,6 @@ int mixer_ctl_read_tlv(struct mixer_ctl *ctl,
     return -EINVAL;
 }
 
-
-/* the api parses the mixer control input to extract
- * the value of volume in any one of the following format
- * <volume><%>
- * <volume><dB>
- * All remaining formats are currently ignored.
- */
-
-static int set_volume_simple(struct mixer_ctl *ctl,
-    int ptr, long pmin, long pmax, int count)
-{
-    long val, orig;
-    int p = ptr, *s;
-    struct snd_ctl_elem_value ev;
-    unsigned n;
-
-    s = p;
-
-        if (pmin < 0) {
-            pmax = pmax - pmin;
-            pmin = 0;
-        }
-    val = check_range(val, pmin, pmax);
-    printf("val = %x", val);
-
-    if (!ctl) {
-        printf("can't find control\n");
-        return -EPERM;
-    }
-    if (count < ctl->info->count || count > ctl->info->count)
-        return -EINVAL;
-
-    printf("Value = ");
-
-    memset(&ev, 0, sizeof(ev));
-    ev.id.numid = ctl->info->id.numid;
-    switch (ctl->info->type) {
-    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
-        for (n = 0; n < ctl->info->count; n++)
-            ev.value.integer.value[n] = !!val;
-        print_dB(val);
-        break;
-    case SNDRV_CTL_ELEM_TYPE_INTEGER: {
-        for (n = 0; n < ctl->info->count; n++)
-             ev.value.integer.value[n] = val;
-        print_dB(val);
-        break;
-    }
-    case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
-        for (n = 0; n < ctl->info->count; n++) {
-             long long value_ll = scale_int64(ctl->info, val);
-             print_dB(value_ll);
-             ev.value.integer64.value[n] = value_ll;
-        }
-        break;
-    }
-    default:
-        errno = EINVAL;
-        return errno;
-    }
-
-    printf("\n");
-    return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
-
-skip:
-        ptr = p;
-        return 0;
-}
-
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 {
     struct snd_ctl_elem_value ev;
@@ -608,15 +539,7 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val)
     unsigned int tlv_type;
     int ret;
     if (is_volume(ctl->info->id.name, &type)) {
-        tlv = calloc(1, DEFAULT_TLV_SIZE);
-        if (tlv == NULL) {
-            printf("failed to allocate memory\n");
-        } else if (!mixer_ctl_read_tlv(ctl, tlv, &min, &max, &tlv_type)) {
-            if (set_volume_simple(ctl, val, min, max, count))
-                return mixer_ctl_mulvalues(ctl, count, val);
-        } else
-            printf("mixer_ctl_read_tlv failed\n");
-        free(tlv);
+       fprintf(stderr, "Volume levels not handled\n");
     } else {
         return mixer_ctl_mulvalues(ctl, count, val);
     }
