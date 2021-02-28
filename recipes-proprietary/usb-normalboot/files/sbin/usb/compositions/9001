@@ -171,3 +171,4 @@ if [ $from_adb = "n" ]
 then
     /etc/launch_adbd start
 fi
+echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
