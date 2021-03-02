@@ -14,7 +14,6 @@ SRC_URI="file://adbd \
          file://find_partitions.sh \
          file://recoverymount \
          file://chgrp-diag \
-         file://set_modem_dev_perms \
          file://rootfsmount "
 S = "${WORKDIR}"
 
@@ -37,16 +36,13 @@ do_install() {
 
       install -m 0755 ${S}/adbd ${D}/etc/init.d/
       install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
-#      install -m 0755  ${S}/chgrp-diag ${D}/etc/init.d/
-#     install -m 0755  ${S}/set_modem_dev_perms ${D}/etc/init.d/
+      install -m 0755  ${S}/chgrp-diag ${D}/etc/init.d/
       install -m 0755  ${S}/recoverymount ${D}/bin
       install -m 0755  ${S}/rootfsmount ${D}/bin
       
       ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S99adbd
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S11find_partitions.sh
-  #    ln -sf -r ${D}/etc/init.d/chgrp-diag ${D}/etc/rcS.d/S10chgrp-diag
-  #    ln -sf -r ${D}/etc/init.d/set_modem_dev_perms ${D}/etc/rcS.d/S11set_modem_dev_perms
-  #    ln -sf -r ${D}/etc/init.d/set_modem_dev_perms ${D}/etc/rcS.d/S90set_modem_dev_perms
+      ln -sf -r ${D}/etc/init.d/chgrp-diag ${D}/etc/rcS.d/S10chgrp-diag
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
       touch ${D}/etc/default/adbd
       touch ${D}/etc/default/find_partitions.sh
