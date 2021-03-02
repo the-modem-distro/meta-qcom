@@ -25,15 +25,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Starts the USB Android Gadget.
-wait_for_data_mount() {
-    while ! [ -d /data/usb ]
-    do
-        echo "waiting for /data to mount"
-    done
-}
-
 export KERNEL=`uname -r`
-export SOFTAP_W_DUN="N"
 
 case "$1" in
     start)
@@ -104,32 +96,24 @@ case "$1" in
         echo adb > /sys/class/android_usb/android0/f_ffs/aliases
         echo ffs > /sys/class/android_usb/android0/functions
         
-        
-        # enable concurrent SoftAP and DUN
-        if [ -f /data/usb/softap_w_dun ]
-        then
-            SOFTAP_W_DUN=`cat /data/usb/softap_w_dun`
-        fi
-        
-        # boot hsic composition:
-        if [ -d /sys/class/android_usb/android1 ]
-        then
-            /data/usb/boot_hsic_composition y
-            # let hsic compostion script run before starting hsusb
-            sleep 1
-        fi
-        
-        # boot hsusb composition:
-        if [ -d /sys/class/android_usb/android0 ]
-        then
-            /sbin/usb/compositions/9001 n
-            
-            if [ "$SOFTAP_W_DUN" == "Y" ]
-            then
-                echo "DUN+SOFTAP mode is enabled."
-                echo 1  > /sys/devices/virtual/android_usb/android0/f_serial/dun_w_softap_enable
-            fi
-        fi
+        echo 0 > /sys/class/android_usb/android0/enable
+        echo 0125 > /sys/class/android_usb/android0/idProduct
+        echo 2C7C > /sys/class/android_usb/android0/idVendor
+        echo diag > /sys/class/android_usb/android0/f_diag/clients
+        echo 239 > /sys/class/android_usb/android0/bDeviceClass
+        echo 2 > /sys/class/android_usb/android0/bDeviceSubClass
+        echo 1 > /sys/class/android_usb/android0/bDeviceProtocol
+        echo tty,smd,smd > /sys/class/android_usb/android0/f_serial/transports
+        echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
+        echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
+        echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
+        echo 1 > /sys/class/android_usb/android0/remote_wakeup
+        echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
+        sleep 10 # Wait 10 seconds here to give time to openqti to settle
+        echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
+        echo "LTE Module" > /sys/class/android_usb/android0/iProduct
+        echo 1 > /sys/class/android_usb/android0/enable
+        echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
     ;;
     
     stop)
