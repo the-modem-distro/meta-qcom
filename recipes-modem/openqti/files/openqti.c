@@ -252,8 +252,8 @@ int main(int argc, char **argv) {
 	ipc_socket_addr.address.addr.port_name.instance = 0x1;	// Instance
 
 	/* Set peripheral type */
-	epinfo.ep_type = DATA_EP_TYPE_BAM_DMUX;
-	epinfo.peripheral_iface_id = RMNET_CONN_ID;
+/*	epinfo.ep_type = DATA_EP_TYPE_BAM_DMUX;
+	epinfo.peripheral_iface_id = RMNET_CONN_ID;*/
 
 	/* Reset current call state */
 	current_call_state = 0;
@@ -318,11 +318,11 @@ int main(int argc, char **argv) {
 	if (ioctl(dpm_cntlfd, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0)	{
 		fprintf(stderr,"IOCTL failed: %i\n", ret);
 	}
-
+/*
 	if (ioctl(rmnet_ctrlfd, EP_LOOKUP, &epinfo) < 0) {
 		fprintf(stderr,"EP_Lookup failed \n");
 	} 
-
+*/
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
 	ret = setsockopt(ipc_router_socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
@@ -406,7 +406,6 @@ int main(int argc, char **argv) {
 		sleep(5);
 		write_to("/sys/class/android_usb/android0/enable", "1");	
 	}
-	
 	// If not in bypass mode, proxy communications between rmnet_ctl and smcntl8
 	if (!bypass_mode) {
 		fprintf(stdout, " Normal mode: Ready!\n");
