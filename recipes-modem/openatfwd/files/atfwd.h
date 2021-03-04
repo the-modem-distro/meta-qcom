@@ -10,9 +10,9 @@
 #define SMD_CNTL "/dev/smdcntl8"
 #define IPC_ROUTER 27 // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
-#define IPC_ROUTER_ADDRTYPE 1 // As specified in the kernel
-#define IPC_HEXAGON_NODE 0x3 //DST:<0x3:0x1c> 
-#define IPC_HEXAGON_PORT 0x1c
+#define IPC_ROUTER_ADDRTYPE 2 // From the decoded packets, this should be 2, not 1 like for DPM
+#define IPC_HEXAGON_NODE 0x3
+#define IPC_HEXAGON_PORT  0x1b
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
 #define IOCTL_BIND_TOIPC _IOR(IPC_IOCTL_MAGIC, 4, uint32_t)
@@ -402,7 +402,7 @@ struct atcmd_reg_request {
 	uint16_t dummy2; // always 0x00 0x01
 	uint8_t var2; // 0x07 - 0x0e
 	uint16_t dummy3; // always 0x00 0x01
-	char *atcmd; // The command itself (+CFUN, +QDAI...)
+	char *command; // The command itself (+CFUN, +QDAI...)
 	uint8_t fillzero[47]; // Fills 47 bytes with zeroes on _every_ command...
 	
 } __attribute__((packed));
