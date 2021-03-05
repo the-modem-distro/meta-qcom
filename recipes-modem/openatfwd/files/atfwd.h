@@ -210,6 +210,7 @@ static const struct {
 	{105, "+QWIFICFG", },
 	{106, "+QAPRDYIND", },
 	{107, "+QFOTADL", },
+	{108, "+HEREWEGO", },
 };
 
 // From lookup.c, useful to know which service you're at
@@ -397,11 +398,13 @@ struct atcmd_reg_request {
 	
 	// the request packet itself
 	// Obviously unfinished :)
-	uint16_t dummy1; // always 0x00 0x01
+	uint8_t dummy1; // always 0x00 0x01
 	uint8_t var1; //0x0a - 0x0f || 0x11 - 0x13
+//	uint8_t dummy4; // always 0x00 0x01
 	uint16_t dummy2; // always 0x00 0x01
 	uint8_t var2; // 0x07 - 0x0e
 	uint16_t dummy3; // always 0x00 0x01
+	uint8_t var3;
 	char *command; // The command itself (+CFUN, +QDAI...)
 	uint8_t fillzero[47]; // Fills 47 bytes with zeroes on _every_ command...
 	
