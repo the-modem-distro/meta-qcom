@@ -94,45 +94,19 @@ int main(int argc, char ** argv) {
     fprintf(stderr, " -- Error sending sync\n");
   }
   fprintf(stdout, "About to register commands....\n");
-      atcmd = malloc(sizeof(struct atcmd_reg_request)); 
+  atcmd = malloc(sizeof(struct atcmd_reg_request)); 
 
-  printf("Begin");
   atcmd->ctlid = 0x00;
-  printf("Begin");
   atcmd->transaction_id = htole16(0);
-  printf("Begin");
   atcmd->msgid = htole16(32);
-  printf("Begin");
   atcmd->length = 0;
   atcmd->dummy1 = 0x01;
   atcmd->var1 = 0x0a; // these are the ones that change between commands
-  //atcmd->dummy4 = 0x00;
   atcmd->dummy2 = 0x0100;
-    atcmd->var2 = 0x07;
+  atcmd->var2 = 0x07;
   atcmd->dummy3 = 0x00;
   atcmd->var3 = 0x06;
-  /*
 
-struct atcmd_reg_request {
-	// QMI Header
-	uint8_t ctlid; // 0x00
-	uint16_t transaction_id; // incremental counter for each request
-	uint16_t msgid; // 0x20 0x00
-    uint16_t length; // Sizeof rest of pack?
-	
-	// the request packet itself
-	// Obviously unfinished :)
-	uint16_t dummy1; // always 0x00 0x01
-	uint8_t var1; //0x0a - 0x0f || 0x11 - 0x13
-	uint16_t dummy2; // always 0x00 0x01
-	uint8_t var2; // 0x07 - 0x0e
-	uint16_t dummy3; // always 0x00 0x01
-	char *command; // The command itself (+CFUN, +QDAI...)
-	uint8_t fillzero[47]; // Fills 47 bytes with zeroes on _every_ command...
-	
-} __attribute__((packed));
-
-*/
 //          ctl   tid tid midmid  length  d1 v1   dum2    v2  dum3   v3  CMD                     -->0*47
 //sendto(3, "\x00\x00\x00\x20\x00\x3d\x00\x01\x0a\x00\x01\x07\x00\x00\x06\x2b\x51\x4e\x41\x4e\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 68, MSG_DONTWAIT, {sa_family=AF_IB, sa_data="\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00"}, 20) = 68
 //sendto(8, "\x00\x05\x00\x20\x00\x3d\x00\x01\x0b\x00\x01\x08\x00\x00\x06\x2b\x51\x4e\x41\x4e\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 68, MSG_DONTWAIT, {sa_family=AF_IB, sa_data="\x00\x00\x02\x39\x62\x7f\x03\x00\x00\x00\x1b\x00\x00\x00\xa0\x39\x62\x7f"}, 20) = 68
