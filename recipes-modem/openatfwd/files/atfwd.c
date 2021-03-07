@@ -72,7 +72,34 @@ static ssize_t read_data(struct qmi_device * qmid) {
   }
   return numbytes;
 }
+struct atcmd_reg_request * make_packet(int tid, const char *command) {
+  struct atcmd_reg_request *atcmd;
+  atcmd = calloc(1, sizeof(struct atcmd_reg_request)); 
 
+  int k;
+  atcmd->ctlid = 0x00;
+  atcmd->transaction_id = htole16(tid);
+  atcmd->msgid = htole16(32);
+  atcmd->dummy1 = 0x01;
+  atcmd->dummy2 = 0x0100;
+  atcmd->dummy3 = 0x00;
+  atcmd->command = calloc(sizeof(char), strlen(command)+43); //WTF DOES IT NEED 43 padding zeros!
+  strncpy(& atcmd->command, command, strlen(command));
+  atcmd->length = strlen(command)+ 36 + sizeof(struct atcmd_reg_request) ;
+  atcmd->strlength = strlen(command); 
+  /* 
+  VAR3 renamed to strlength, as it's always the length of the string being passed
+       +1 but removing the "+" sign ($QCPWRDN...)
+  VAR2:
+    When string is 4 chars, it's always 0x07,
+    When string is 8 chars, it's always 0x0a
+    When string is 3 chars, it's always 0x06 
+  VAR1 is always 3 more than VAR2
+  */
+  atcmd->var2 = strlen(command) +2; // It has to be something like this
+  atcmd->var1 = atcmd->var2 + 3;
+  return atcmd;
+}
 int main(int argc, char ** argv) {
   printf("Let's play!\n");
   int ret,pret;
@@ -89,49 +116,32 @@ int main(int argc, char ** argv) {
     fprintf(stderr, "Error opening socket \n");
     return 1;
   }
-  fprintf(stdout, "Sending sync...\n");
-  if (qmi_ctl_send_sync(qmidev) < 0) {
-    fprintf(stderr, " -- Error sending sync\n");
-  }
-  fprintf(stdout, "About to register commands....\n");
-  atcmd = malloc(sizeof(struct atcmd_reg_request)); 
 
-  atcmd->ctlid = 0x00;
-  atcmd->transaction_id = htole16(0);
-  atcmd->msgid = htole16(32);
-  atcmd->length = 0;
-  atcmd->dummy1 = 0x01;
-  atcmd->var1 = 0x0a; // these are the ones that change between commands
-  atcmd->dummy2 = 0x0100;
-  atcmd->var2 = 0x07;
-  atcmd->dummy3 = 0x00;
-  atcmd->var3 = 0x06;
-
-//          ctl   tid tid midmid  length  d1 v1   dum2    v2  dum3   v3  CMD                     -->0*47
-//sendto(3, "\x00\x00\x00\x20\x00\x3d\x00\x01\x0a\x00\x01\x07\x00\x00\x06\x2b\x51\x4e\x41\x4e\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 68, MSG_DONTWAIT, {sa_family=AF_IB, sa_data="\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00"}, 20) = 68
-//sendto(8, "\x00\x05\x00\x20\x00\x3d\x00\x01\x0b\x00\x01\x08\x00\x00\x06\x2b\x51\x4e\x41\x4e\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 68, MSG_DONTWAIT, {sa_family=AF_IB, sa_data="\x00\x00\x02\x39\x62\x7f\x03\x00\x00\x00\x1b\x00\x00\x00\xa0\x39\x62\x7f"}, 20) = 68
-
-  int tid = 0;
+  int tid = 1;
   int count = 0;
   int sckret;
-  int i,j;
-   struct timeval tv;
- tv.tv_sec = 1;
- tv.tv_usec = 0;
-//  memset(atcmd->fillzero, 0x00, 47);
-for (j = 0; j <47; j++) {
-    atcmd->fillzero[j] = 0x00;
-}
-// 
+  int i,j,k;
+  //struct atcmd_reg_request *atcmd;
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     printf("Pushing command %i: %s \n", at_commands[j].command_id, at_commands[j].cmd);
-    atcmd->command = (char*)malloc(sizeof(char)* strlen(at_commands[j].cmd)); 
-    strncpy(&atcmd->command, at_commands[j].cmd, strlen(at_commands[j].cmd));
-    atcmd->length = strlen(at_commands[j].cmd) + sizeof(struct atcmd_reg_request) - (3*sizeof(uint16_t)) - sizeof(uint8_t) -4;
-    atcmd->transaction_id = htole16(tid);
+    atcmd = make_packet(tid, at_commands[j].cmd);
     tid++;
-    sckret = sendto(qmidev -> fd, atcmd, strlen(at_commands[j].cmd) + sizeof(struct atcmd_reg_request) -4, MSG_DONTWAIT, (void * ) & qmidev -> socket, sizeof(qmidev -> socket));
+    sckret = sendto(qmidev -> fd, atcmd, strlen(at_commands[j].cmd) + sizeof(struct atcmd_reg_request) +43, MSG_DONTWAIT, (void * ) & qmidev -> socket, sizeof(qmidev -> socket));
     fprintf(stdout, "Response was %i\n", sckret);
+ //  ret =recvfrom(qmidev->fd, buf, sizeof(buf), MSG_DONTWAIT,  & qmidev -> socket, sizeof(struct sockaddr_msm_ipc));
+    ret = read(qmidev->fd, &buf, 8192);
+  // We should receive something like this "\x02\x04\x00\x20\x00\x07\x00\x02\x04\x00\x01\x00\x30\x00"
+  // But we get this: 0x02   0x6b    0x00 0x20 0x00 0x07 0x00 0x02 0x04 0x00 0x01 0x00 0x01 0x00 
+  //                  RESP  cmd id                                                      ^^  
+  //                                                                                  fails?
+  printf("Got %i bytes back: ", ret);
+  if (ret > 0) {
+    for (i=0; i < ret; i++) {
+        printf ("0x%02x ", buf[i]);
+    }
+    printf("\n");
+  }
+  //free(atcmd);
   }
 
   while (1) {
@@ -141,28 +151,19 @@ for (j = 0; j <47; j++) {
     pret = select(max_fd, &readfds, NULL, NULL, NULL);
     if (FD_ISSET(qmidev->fd, &readfds)) {
         printf("%s FD has pending data: \n", __func__);
-        //ret = recvfrom(qmidev->fd , &buf, sizeof(buf), MSG_DONTWAIT, (void*) &qmidev->socket, sizeof(qmidev->socket));
         ret = read(qmidev->fd, &buf, 8192);
-        // We should receive something like this "\x02\x04\x00\x20\x00\x07\x00\x02\x04\x00\x01\x00\x30\x00"
-        // But we get this: 0x02   0x6b    0x00 0x20 0x00 0x07 0x00 0x02 0x04 0x00 0x01 0x00 0x01 0x00 
-        //                  RESP  cmd id                                                      ^^  
-        //                                                                                  fails?
         printf("Got %i bytes back\n", ret);
         if (ret > 0) {
           for (j=0; j < ret; j++) {
               printf ("0x%02x ", buf[j]);
           }
           printf("\n");
-          printf("---------------\n");
-         // parse_qmi(buf);
-          printf("---------------\n");
           printf(" End of round %i\n", count);
         }
     }
     count++;
     //sleep(10);
-} //Do only one pass to clear
-
+} 
   close(qmidev->fd);
   return 0;
 }
