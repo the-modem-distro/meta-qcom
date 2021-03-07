@@ -7,13 +7,12 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = "file://atfwd.c \
            file://atfwd.h \
-           file://qmi_helpers.c \
            file://init_atfwd"
 
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} qmi_helpers.c atfwd.c -o atfwd
+    ${CC} ${LDFLAGS} atfwd.c -o atfwd
 }
 
 do_install() {
