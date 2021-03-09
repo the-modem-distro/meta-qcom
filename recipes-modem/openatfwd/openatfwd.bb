@@ -22,5 +22,5 @@ do_install() {
 
     install -m 0755 ${S}/atfwd ${D}${bindir}
     install -m 0755 ${S}/init_atfwd ${D}/etc/init.d/
-    ln -sf -r ${D}/etc/init.d/init_atfwd ${D}/etc/rcS.d/S30init_atfwd
+    ln -sf -r ${D}/etc/init.d/init_atfwd ${D}/etc/rcS.d/S40init_atfwd
 }

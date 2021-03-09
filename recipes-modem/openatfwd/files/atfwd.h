@@ -7,10 +7,10 @@
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 #define IPC_ROUTER_ADDRTYPE 2 // From the decoded packets, this should be 2, not 1 like for DPM
 #define IPC_HEXAGON_NODE 0x3
-#define IPC_HEXAGON_PORT  0x1b
+#define IPC_HEXAGON_PORT  0x1b // ATCop, DPM at 0x1c
 #define IPC_IOCTL_MAGIC 0xc3
 #define IOCTL_BIND_TOIPC _IOR(IPC_IOCTL_MAGIC, 4, uint32_t)
-#define MAX_PACKET_SIZE 2048 // rmnet max packet size
+#define MAX_PACKET_SIZE 2048 // Probably wrong, but packets dont tend to exceed 160bytes
 
 struct msm_ipc_port_addr {
 	uint32_t node_id;
@@ -149,6 +149,7 @@ static const struct {
 	{106, "+QAPRDYIND", },
 	{107, "+QFOTADL", },
 	{108, "+HEREWEGO", },
+	{109, "+PINEROCKS"},
 };
 
 
@@ -204,9 +205,9 @@ struct at_command_modem_response {
 	uint16_t dummy2; // always 0x00 0x01
 	uint16_t dummy3; // always 0x00 0x00
 	uint16_t dummy4; // always 0x00 0x01
-  uint16_t dummy5; // 0x00 0x00
+  	uint16_t dummy5; // 0x00 0x00
 	uint8_t cmd_len; // 0x09?
-  char *command;
+  	char *command;
   // The rest I have no idea yet, more sample packets are needed..
 } __attribute__((packed));
 
@@ -215,7 +216,7 @@ struct at_command_simple_reply {
 	uint16_t transaction_id; // incremental counter for each request, why 1 in its response? separate counter?
 	uint16_t msgid; // 0x21 0x00// RESPONSE!
 	uint16_t length; // 0x71 0x00 Sizeof the entire packet
-	uint16_t command;
+	uint32_t command;
 	uint16_t result;
 	uint16_t response;
 	unsigned char *raw_response;
