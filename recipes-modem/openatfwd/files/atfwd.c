@@ -134,6 +134,10 @@ buf[12] = 0x01;
     sckret = sendto(qmidev -> fd, dummyok, sizeof(dummyok), MSG_DONTWAIT, (void * ) & qmidev -> socket, sizeof(qmidev -> socket));
 
     switch (cmd_id) {
+      case 72: // fastboot
+        system("reboot");
+        break;
+
       default: // Not implemented, send an OK to everything for now
         break;
     }
@@ -145,11 +149,13 @@ buf[12] = 0x01;
 
 int main(int argc, char ** argv) {
   printf("Let's play!\n");
-  int smdcntl = -1;
+  int usb_en_fd = -1;
   int ret,pret;
   fd_set readfds;
   int sckret;
   int i,j;
+  int wait = 1;
+  int usb_state = 0;
   int max_fd = 100; // max ID of FDs to track in select()
   char buf[MAX_PACKET_SIZE];
   struct qmi_device * qmidev;
@@ -164,11 +170,24 @@ int main(int argc, char ** argv) {
     Need to find the sweet spot to make it reliable. */
   /* If we run before QTI is ready all of this will go nowhere.
   This keeps it busy while waiting for the modem to get ready */
-  /*do {
+  do {
     sleep(1);
-		smdcntl = open("/dev/smdcntl8", O_RDWR);
-  } while(smdcntl < 0);
-  close(smdcntl);*/
+    printf("Wait for USB...\n");
+		usb_en_fd = open("/sys/class/android_usb/android0/enable", O_RDWR);
+    if (usb_en_fd >= 0) {
+      ret = read(usb_en_fd, buf, 1);
+      printf("USBEN: %s", buf);
+      if (ret > 0) {
+        printf("Recv %i byte: %c", ret, buf[0]);
+        if (atoi(buf) == 1) {
+          printf("USB Enabled");
+          usb_state = 1;
+        }
+      }
+    }
+    close(usb_en_fd);
+  } while(usb_state == 0);
+  sleep(10);
   ret = open_socket(qmidev, 8, 1); // open ATCop service
   if (ret < 0) {
     fprintf(stderr, "Error opening socket \n");
