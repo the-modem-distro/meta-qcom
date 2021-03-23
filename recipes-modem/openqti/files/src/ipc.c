@@ -32,4 +32,21 @@ int open_ipc_socket(struct qmi_device * qmisock,
   return qmisock -> fd;
 }
 
+bool is_server_active(uint32_t node, uint32_t port) {
+  bool ret = false;
+  int fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
+  if (fd < 0) {
+    return false;
+  }
+  struct sockaddr_msm_ipc * socket;
+  socket = (struct sockaddr_msm_ipc *) calloc(1, sizeof(struct sockaddr_msm_ipc));
+  socket->address.addr.port_addr.node_id = node;
+  socket->address.addr.port_addr.port_id = port;
+  if (ioctl(fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, socket) == 0) {
+    ret = true;
+  }
+  
 
+  close(fd);
+  return ret;
+}

@@ -572,7 +572,7 @@ do {
           logger(MSG_DEBUG, "Sent but rejected (0x01) \n", ret);
         }
       /* atfwd_daemon responds 0x30 on success, but 0x00 will do too.
-        When it responds 0x02 oron byte 12 it always fail, no fucking clue
+        When it responds 0x02 or 0x01 byte 12 it always fail, no fucking clue
         why */
     } else {
       printf("UNKNOWN RESPONSE\n");
@@ -679,7 +679,7 @@ int main(int argc, char ** argv) {
   altsocket = calloc(1, sizeof(struct qmi_device));
   logger(MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
 
-while ((ret = getopt (argc, argv, "adbu")) != -1)
+  while ((ret = getopt (argc, argv, "adbu")) != -1)
 		switch (ret) {
 		case 'a':
 			fprintf(stdout,"Dump audio mixer data \n");
@@ -704,10 +704,15 @@ while ((ret = getopt (argc, argv, "adbu")) != -1)
 			debug_to_stdout = false;
 			break;
 		}
-if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
+  if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
       logger(MSG_ERROR, "[%s] Error setting up governor in performance mode\n", __func__);
-    }
+  }
   
+
+  do {
+    logger(MSG_DEBUG, "[%s] Waiting for ADSP init...\n", __func__);
+  } while (!is_server_active(IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT));
+
   logger(MSG_DEBUG, "[%s] Init: IPC Security settings\n", __func__);
   if (setup_ipc_security() != 0) {
     logger(MSG_ERROR, "[%s] Error setting up MSM IPC Security!\n", __func__);
@@ -750,12 +755,12 @@ if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
   }
   logger(MSG_DEBUG, "[%s] Modem ready!\n", __func__);
 
+  if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "[%s] Error setting up governor in powersave mode\n", __func__);
+  }
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
-if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
-      logger(MSG_ERROR, "[%s] Error setting up governor in powersave mode\n", __func__);
-    }
   printf(" Modem ready, looping... \n");
   while (1) {
 			FD_ZERO(&readfds);

@@ -207,4 +207,7 @@ int open_ipc_socket(struct qmi_device * qmisock,
 					 uint32_t node, uint32_t port,
 					 uint32_t service, uint32_t instance,
 					 unsigned char address_type);
+
+bool is_server_active(uint32_t node, uint32_t port);
+
 #endif
