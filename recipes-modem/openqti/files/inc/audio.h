@@ -146,4 +146,5 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
 struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
 int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val);
 
+
 #endif

@@ -5,17 +5,22 @@ RPROVIDES_${PN} = "openqti"
 PR = "r7"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = "file://openqti.c \
-           file://openqti.h \
-           file://audio.h \
-           file://mixer.c \
-           file://pcm.c \
+SRC_URI = "file://inc/openqti.h \
+           file://inc/ipc.h \
+           file://inc/ipc_security.h \
+           file://inc/devices.h \
+           file://inc/audio.h \
+           file://inc/atfwd.h \
+           file://src/ipc.c \
+           file://src/openqti.c \
+           file://src/mixer.c \
+           file://src/pcm.c \
            file://init_openqti"
 
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} mixer.c pcm.c openqti.c -o openqti
+    ${CC} ${LDFLAGS} src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
 }
 
 do_install() {

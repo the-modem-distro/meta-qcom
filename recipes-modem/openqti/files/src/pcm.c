@@ -31,7 +31,7 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 #include <sound/compress_params.h>
-#include "audio.h"
+#include "../inc/audio.h"
 
 
 static inline int param_is_mask(int p)
@@ -220,6 +220,7 @@ int set_params(struct pcm *pcm, int path)
     return 0;
 }
 
+/*
 static int enable_timer(struct pcm *pcm) {
 
     pcm->timer_fd = open("/dev/snd/timer", O_RDWR | O_NONBLOCK);
@@ -271,13 +272,13 @@ static int disable_timer(struct pcm *pcm) {
      if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_STOP) < 0)
          printf("SNDRV_TIMER_IOCTL_STOP failed\n");
      return close(pcm->timer_fd);
-}
+}*/
 
 int pcm_close(struct pcm *pcm)
 {
     if (pcm == -1)
         return 0;
-
+/*
     if (pcm->flags & PCM_MMAP) {
         disable_timer(pcm);
         if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_DROP) < 0) {
@@ -290,7 +291,7 @@ int pcm_close(struct pcm *pcm)
         if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_FREE) < 0) {
             printf("HW_FREE failed\n");
         }
-    }
+    }*/
 
     if (pcm->fd >= 0)
         close(pcm->fd);
@@ -353,9 +354,9 @@ struct pcm *pcm_open(unsigned flags, char *device)
         printf("failed to change the flag, errno %d", errno);
         return -1;
     }
-
+/*
     if (pcm->flags & PCM_MMAP)
-        enable_timer(pcm);
+        enable_timer(pcm);*/
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_INFO, &info)) {
         printf("cannot get info - %s", dname);

@@ -31,7 +31,7 @@
 #include <sound/asound.h>
 #include <sound/tlv.h>
 
-#include "audio.h"
+#include "../inc/audio.h"
 
 #define check_range(val, min, max) \
         (((val < min) ? (min) : (val > max) ? (max) : (val)))
@@ -481,7 +481,7 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 			min = 0;
 		}
                 percent = check_range(percent, min, max);
-                printf("tlv db linear: %d %d %d\n", percent, min, max);
+                printf("tlv db linear: %d %ld %ld\n", percent, min, max);
                 volume = 1;
                 break;
             default:
