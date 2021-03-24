@@ -689,7 +689,13 @@ int main(int argc, char ** argv) {
 			fprintf(stdout,"Debug mode\n");
 			debug_to_stdout = true;
 			break;
-
+    case 'u':
+      for (i= 1; i < 4098; i++) { //4097 is diag, 0 is CTL
+      find_and_connect_to(altsocket, 2, i, 0);
+      close(altsocket ->fd);
+      }
+      return 0;
+      break;
 	/*	case 'u':
 			fprintf(stdout,"Restart USB on start\n");
 			reset_usb = true;

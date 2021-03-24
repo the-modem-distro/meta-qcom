@@ -45,9 +45,12 @@ IPC_ROUTER_IOCTL_MAGIC
 	_IOR(IPC_ROUTER_IOCTL_MAGIC, 5, struct config_sec_rules_args)
 
 */
-/*
-Services from the adsp 
 
+static const struct {
+	unsigned int service;
+	unsigned int ifilter;
+	const char *name;
+} common_names[] = {
 	{ 0, 0, "Control service" },
 	{ 1, 0, "Wireless Data Service" },
 	{ 2, 0, "Device Management Service" },
@@ -104,8 +107,8 @@ Services from the adsp
 	{ 769, 0, "SLIMbus control service" },
 	{ 771, 0, "Peripheral Access Control Manager service" },
 	{ 4096, 0, "TFTP" },
-	{ DIAG_SERVICE, 0, "DIAG service" },
-	*/
+	{ 4097, 0, "DIAG service" },
+};
 
 struct msm_ipc_port_addr {
 	uint32_t node_id;
@@ -201,6 +204,22 @@ struct portmapper_open_request {
 	uint8_t is_valid_sw_list;
 	uint32_t sw_list_length;
 } __attribute__((packed));
+
+// linux uapi
+struct msm_ipc_server_info {
+	uint32_t node_id;
+	uint32_t port_id;
+	uint32_t service;
+	uint32_t instance;
+};
+
+struct server_lookup_args {
+	struct msm_ipc_port_name port_name;
+	int num_entries_in_array;
+	int num_entries_found;
+	uint32_t lookup_mask;
+	struct msm_ipc_server_info srv_info[0];
+};
 
 
 int open_ipc_socket(struct qmi_device * qmisock,

@@ -46,7 +46,54 @@ bool is_server_active(uint32_t node, uint32_t port) {
     ret = true;
   }
   
-
   close(fd);
   return ret;
+}
+
+int find_and_connect_to(struct qmi_device *qmidev,uint32_t address_type, uint32_t service, uint32_t instance) {
+  struct server_lookup_args *lookup;
+  lookup = (struct server_lookup_args *)calloc(1, sizeof(struct server_lookup_args));
+  int i,j;
+  //struct qmi_device * qmidev;
+  qmidev = (struct qmi_device *)calloc(1, sizeof(struct qmi_device));
+
+  qmidev -> fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
+  lookup->port_name.service = service;
+  lookup->port_name.instance = instance;
+  lookup->lookup_mask = 0;
+  lookup->num_entries_in_array = 1;
+  lookup->num_entries_found = 0;
+  if (ioctl(qmidev->fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) < 0) {
+    printf("ioctl failed\n");
+    return -EINVAL;
+  }
+  qmidev -> service = service;
+  qmidev -> transaction_id = 1;
+  qmidev -> socket.family = IPC_ROUTER;
+  qmidev -> socket.address.addrtype = address_type; //except for DPM, ADDRTYPE seems to be always 2
+  qmidev -> socket.address.addr.port_name.service = service;
+  qmidev -> socket.address.addr.port_name.instance = instance;
+  qmidev -> socket.address.addr.port_addr.node_id =  0;
+  qmidev -> socket.address.addr.port_addr.port_id =  0;
+    
+  for (i = 0; i < lookup->num_entries_in_array; i++ ) {
+    if (lookup->srv_info[i].node_id != 41) {
+    printf("looking for service %i: ", service);
+    for (j = 0; j < (sizeof(common_names) / sizeof(common_names[0]));j++ ) {
+      if (common_names[j].service == service) {
+        printf("-> %s", common_names[j].name);
+      }
+    }
+    printf(": Node %i, Port %.2x\n", lookup->srv_info[i].node_id, lookup->srv_info[i].port_id);
+    qmidev -> socket.address.addr.port_addr.node_id =  lookup->srv_info[i].node_id;
+    qmidev -> socket.address.addr.port_addr.port_id =  lookup->srv_info[i].port_id;
+    if (i > 0) {
+      printf("Hey we have more than one port for the same service or what?\n");
+    }
+    } else {
+      return -EINVAL;
+    }
+
+  }
+  return 0;
 }
