@@ -229,4 +229,6 @@ int open_ipc_socket(struct qmi_device * qmisock,
 
 bool is_server_active(uint32_t node, uint32_t port);
 
+struct msm_ipc_port_addr get_node_port(uint32_t address_type, uint32_t service, uint32_t instance);
+
 #endif

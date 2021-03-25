@@ -448,7 +448,7 @@ char *make_packet(int tid, char *command) {
    This is currently not working
 
 */
-int init_atfwd(struct qmi_device *qmidev, struct qmi_device *altsocket) {
+int init_atfwd(struct qmi_device *qmidev) {
   int i,j, ret;
   ssize_t pktsize;
   char *atcmd;
@@ -458,73 +458,14 @@ int init_atfwd(struct qmi_device *qmidev, struct qmi_device *altsocket) {
   tv.tv_usec = 0;
   socklen_t addrlen = sizeof(struct sockaddr_msm_ipc);
   char buf[MAX_PACKET_SIZE];
+  uint32_t node_id, port_id;
+  struct msm_ipc_port_addr at_port;
+  at_port = get_node_port(2,8,1);
 
 
-
-
-  printf("------\n");
-  logger(MSG_DEBUG, "[%s] Secondary socket... \n",__func__);
-  ret = open_ipc_socket(altsocket, IPC_HEXAGON_NODE, IPC_HEXAGON_ATFWD_PORT, IPC_HEXAGON_NODE, IPC_HEXAGON_ATFWD_PORT, IPC_ROUTER_AT_ADDRTYPE); // open DPM service
-  if (ret < 0) {
-    logger(MSG_ERROR, "[%s] Error opening socket \n",__func__);
-    return -EINVAL;
-  }
-  if (ioctl(altsocket -> fd, IOCTL_BIND_TOIPC, 0) < 0) {
-    logger(MSG_ERROR, "IOCTL to the ALT socket failed \n");
-  }
-  ret = setsockopt(altsocket -> fd, SOL_SOCKET, SO_RCVTIMEO, & tv, sizeof(tv));
-  if (ret) {
-    logger(MSG_ERROR, "Error setting socket options \n");
-  }
-  printf("------\n");
-
-/*
-  if (ioctl(qmidev -> fd, IOCTL_BIND_TOIPC, NULL) < 0) {
-    logger(MSG_ERROR, "IOCTL to the PRI socket failed \n");
-  }*/
-/*
-  ret = ioctl(qmidev -> fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, qmidev->socket);
-  if (ret < 0) {
-    logger(MSG_ERROR, "Failed to lookup server %i\n", ret);
-  }*/
-  for (i = 0; i<5; i++) {
-  ret = ioctl(altsocket -> fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, &altsocket->socket);
-  if (ret < 0) {
-    logger(MSG_ERROR, "Failed to lookup server %i\n", ret);
-  }
-  printf("SOCKET REPORT FROM IOCTL\n");
-  printf("0x%.2x \n", altsocket -> socket.family);
-  printf("0x%.2x \n", altsocket -> socket.address.addrtype);
-  printf("0x%.2x \n", altsocket -> socket.address.addr.port_addr.node_id);
-  printf("0x%.2x \n", altsocket -> socket.address.addr.port_addr.port_id);
-  printf("0x%.2x \n", altsocket -> socket.address.addr.port_name.service);
-  printf("0x%.2x \n", altsocket -> socket.address.addr.port_name.instance);
-  printf("SOCKET REPORT FROM IOCTL END\n");
-  }
-  /*
-    ret = ioctl(altsocket -> fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, qmidev->socket);
-  if (ret < 0) {
-    logger(MSG_ERROR, "Failed to lookup server %i\n", ret);
-  }
-
-*/
-/* You cannot bind here or it faults when registering commands
-  if (ioctl(qmidev -> fd, IOCTL_BIND_TOIPC, 0) < 0) {
-    logger(MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
-  }
-*/
-
-printf ("Drain alstocket \n");
-do {
-  printf(" draining...\n");
-  ret = recvfrom(altsocket -> fd, buf, sizeof(buf), 0, (struct sockaddr*) &altsocket->socket, &addrlen);
-  for (i = 0; i < ret; i++) {
-    printf ("0x%.2x ", buf[i]);
-  }
-  printf("\n");
-} while(ret > 0);
+  printf("Node: %i, Port: %i\n", at_port.node_id, at_port.port_id);
   logger(MSG_DEBUG, "[%s] Connecting to IPC... \n",__func__);
-  ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_ATFWD_PORT, 3, 0x1b, IPC_ROUTER_AT_ADDRTYPE); // open DPM service
+  ret = open_ipc_socket(qmidev, at_port.node_id, at_port.port_id, 8, 1, IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
   if (ret < 0) {
     logger(MSG_ERROR, "[%s] Error opening socket \n",__func__);
     return -EINVAL;
@@ -534,17 +475,7 @@ do {
   if (ret) {
     logger(MSG_ERROR, "Error setting socket options \n");
   }
-  /*
-printf ("Drain the pipes \n");
-do {
-  printf(" draining...\n");
-  ret = recvfrom(qmidev -> fd, buf, sizeof(buf), 0, (struct sockaddr*) &qmidev->socket, &addrlen);
-  for (i = 0; i < ret; i++) {
-    printf ("0x%.2x ", buf[i]);
-  }
-  printf("\n");
-} while(ret > 0);*/
-//  sleep(1);
+
 
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     logger(MSG_DEBUG, "[%s] --> CMD %i: %s ",__func__, at_commands[j].command_id, at_commands[j].cmd);
@@ -673,10 +604,8 @@ int main(int argc, char ** argv) {
   char buf[MAX_PACKET_SIZE];
   struct qmi_device * portmapper_qmi_dev;
   struct qmi_device * at_qmi_dev;
-  struct qmi_device *altsocket;
   portmapper_qmi_dev = calloc(1, sizeof(struct qmi_device));
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
-  altsocket = calloc(1, sizeof(struct qmi_device));
   logger(MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
 
   while ((ret = getopt (argc, argv, "adbu")) != -1)
@@ -690,10 +619,8 @@ int main(int argc, char ** argv) {
 			debug_to_stdout = true;
 			break;
     case 'u':
-      for (i= 1; i < 4098; i++) { //4097 is diag, 0 is CTL
-      find_and_connect_to(altsocket, 2, i, 0);
-      close(altsocket ->fd);
-      }
+      find_services(2);
+
       return 0;
       break;
 	/*	case 'u':
@@ -730,7 +657,7 @@ int main(int argc, char ** argv) {
   }
   
   logger(MSG_DEBUG, "[%s] Init: AT Command forwarder \n", __func__);
-  if (init_atfwd(at_qmi_dev, altsocket) < 0) {
+  if (init_atfwd(at_qmi_dev) < 0) {
     logger(MSG_ERROR, "[%s] Error setting up ATFWD!\n", __func__);
   }
 
@@ -774,7 +701,6 @@ int main(int argc, char ** argv) {
 			FD_SET(node.rmnet_ctrl, &readfds);
 		 	FD_SET(node.smd_ctrl, &readfds);
       FD_SET(at_qmi_dev->fd, &readfds);
-      FD_SET(altsocket->fd, &readfds);
 			pret = select(max_fd, &readfds, NULL, NULL, NULL);
 			if (FD_ISSET(node.rmnet_ctrl, &readfds)) {
 				ret = read(node.rmnet_ctrl, &buf, MAX_PACKET_SIZE);
@@ -796,13 +722,7 @@ int main(int argc, char ** argv) {
 				if (ret > 0)	{
           handle_atfwd_response(at_qmi_dev, buf, ret);
 				}
-			} else if (FD_ISSET(altsocket->fd, &readfds)) {
-        printf("-->ALT ATFWD PACKET\n");
-				ret = read(altsocket->fd, &buf, MAX_PACKET_SIZE);
-				if (ret > 0)	{
-          handle_atfwd_response(altsocket, buf, ret);
-				}
-      }
+			}
 		}	
 
 }
