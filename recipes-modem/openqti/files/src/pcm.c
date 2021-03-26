@@ -265,7 +265,7 @@ static int disable_timer(struct pcm *pcm) {
 }*/
 
 int pcm_close(struct pcm *pcm) {
-  if (pcm == -1)
+  if (pcm == NULL)
     return 0;
   /*
       if (pcm->flags & PCM_MMAP) {
@@ -309,7 +309,7 @@ struct pcm *pcm_open(unsigned flags, char *device) {
 
   pcm = calloc(1, sizeof(struct pcm));
   if (!pcm)
-    return -1;
+    return NULL;
 
   strncpy(dname, device, sizeof(dname));
 
@@ -322,7 +322,7 @@ struct pcm *pcm_open(unsigned flags, char *device) {
   pcm->sync_ptr = calloc(1, sizeof(struct snd_pcm_sync_ptr));
   if (!pcm->sync_ptr) {
     free(pcm);
-    return -1;
+    return NULL;
   }
   pcm->flags = flags;
 
@@ -331,7 +331,7 @@ struct pcm *pcm_open(unsigned flags, char *device) {
     free(pcm->sync_ptr);
     free(pcm);
     printf("cannot open device '%s', errno %d", dname, errno);
-    return -1;
+    return NULL;
   }
 
   if (fcntl(pcm->fd, F_SETFL, fcntl(pcm->fd, F_GETFL) & ~O_NONBLOCK) < 0) {
@@ -339,7 +339,7 @@ struct pcm *pcm_open(unsigned flags, char *device) {
     free(pcm->sync_ptr);
     free(pcm);
     printf("failed to change the flag, errno %d", errno);
-    return -1;
+    return NULL;
   }
   /*
       if (pcm->flags & PCM_MMAP)

@@ -193,7 +193,9 @@ int stop_audio() {
     logger(MSG_ERROR, "%s: No call in progress \n", __func__);
     return 1;
   }
-
+  if (pcm_tx == NULL || pcm_rx == NULL) {
+    logger(MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n",__func__);
+  }
   if (pcm_tx->fd >= 0)
     pcm_close(pcm_tx);
   if (pcm_rx->fd >= 0)
