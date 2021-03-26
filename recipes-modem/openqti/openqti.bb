@@ -20,7 +20,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
+    ${CC} ${LDFLAGS} -O2 src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
 }
 
 do_install() {

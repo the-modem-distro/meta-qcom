@@ -1,11 +1,12 @@
 #ifndef _ATFWD_H_
 #define _ATFWD_H_
 #include <stdbool.h>
+#include <stdint.h>
 
 
 static const struct {
 	unsigned int command_id;
-	char *cmd;
+	const char *cmd;
 } at_commands[] = {
 	{0, "+QNAND", },
 	{1, "+QPRTPARA", },
