@@ -1,13 +1,15 @@
+// SPDX-License-Identifier: MIT
+
 #include "../inc/openqti.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
 #include "../inc/ipc.h"
 #include "../inc/ipc_security.h"
+#include "../inc/logger.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -19,7 +21,6 @@
 #include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
-
 /*
   OpenQTI reworked.
   Attempt 2
@@ -38,46 +39,6 @@ struct {
   int smd_ctrl;
 } node;
 
-void logger(uint8_t level, char *format, ...) {
-  FILE *fd;
-  va_list args;
-  if (debug_to_stdout) {
-    fd = stdout;
-  } else {
-    fd = fopen("/var/log/openqti.log", "a");
-    if (fd < 0) {
-      logger(MSG_ERROR, "[%s] Error opening logfile \n", __func__);
-      fd = stdout;
-    }
-  }
-  switch (level) {
-  case 0:
-    fprintf(fd, "[DBG]");
-    break;
-  case 1:
-    fprintf(fd, "[WRN]");
-    break;
-  default:
-    fprintf(fd, "[ERR]");
-    break;
-  }
-  va_start(args, format);
-  vfprintf(fd, format, args);
-  va_end(args);
-  fflush(fd);
-  if (fd != stdout) {
-    fclose(fd);
-  }
-}
-
-void dump_packet(char *direction, char *buf) {
-  int i;
-  logger(MSG_DEBUG, "%s :", direction);
-  for (i = 0; i < sizeof(buf); i++) {
-    logger(MSG_DEBUG, "0x%02x ", buf[i]);
-  }
-  logger(MSG_DEBUG, "\n");
-}
 
 int write_to(const char *path, const char *val, int flags) {
   int ret;
@@ -101,10 +62,10 @@ int setup_ipc_security() {
   struct irsc_rule *cur_rule;
   int ret = 0;
   int ipc_categories = 511;
-  logger(MSG_DEBUG, "[%s] Setting up MSM IPC Router security...\n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Setting up MSM IPC Router security...\n", __func__);
   fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   if (!fd) {
-    logger(MSG_ERROR, " Error opening socket \n");
+    logger(debug_to_stdout, MSG_ERROR, " Error opening socket \n");
     return -1;
   }
   for (i = 0; i < ipc_categories; i++) {
@@ -114,7 +75,7 @@ int setup_ipc_security() {
     cur_rule->instance = 4294967295; // all instances
     cur_rule->group_id[0] = 54;
     if (ioctl(fd, IOCTL_RULES, cur_rule) < 0) {
-      logger(MSG_ERROR, "[%s] Error serring rule %i \n", __func__, i);
+      logger(debug_to_stdout, MSG_ERROR, "[%s] Error serring rule %i \n", __func__, i);
       ret = 2;
       break;
     }
@@ -122,9 +83,9 @@ int setup_ipc_security() {
 
   close(fd);
   if (ret != 0) {
-    logger(MSG_ERROR, "[%s] Error uploading rules (%i) \n", __func__, ret);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error uploading rules (%i) \n", __func__, ret);
   } else {
-    logger(MSG_DEBUG, "[%s] Upload finished. \n", __func__);
+    logger(debug_to_stdout, MSG_DEBUG, "[%s] Upload finished. \n", __func__);
   }
 
   return ret;
@@ -148,26 +109,26 @@ void handle_pkt_action(char *pkt, int from) {
     if (pkt[0] == 0x1) {
       switch (pkt[1]) {
       case 0x40:
-        logger(MSG_DEBUG, "Outgoing Call start: VoLTE\n");
+        logger(debug_to_stdout, MSG_DEBUG, "Outgoing Call start: VoLTE\n");
         start_audio(CALL_MODE_VOLTE);
         break;
       case 0x38:
-        logger(MSG_DEBUG, "Outgoing Call start: CS Voice\n");
+        logger(debug_to_stdout, MSG_DEBUG, "Outgoing Call start: CS Voice\n");
         start_audio(CALL_MODE_CS);
         break;
       case 0x46:
-        logger(MSG_DEBUG, "Incoming Call start : CS Voice\n");
+        logger(debug_to_stdout, MSG_DEBUG, "Incoming Call start : CS Voice\n");
         start_audio(CALL_MODE_CS); // why did I set this to VoLTE previously?
         break;
       case 0x3c: // or 0x42
       case 0x42: // 0x4a too?
-        logger(MSG_DEBUG, "Incoming Call start : VoLTE\n");
+        logger(debug_to_stdout, MSG_DEBUG, "Incoming Call start : VoLTE\n");
         start_audio(CALL_MODE_VOLTE);
         break;
       case 0x41:
       case 0x69: // Hangup from CSVoice
       case 0x5f: // Hangup from LTE?
-        logger(MSG_DEBUG, "Hang up! \n");
+        logger(debug_to_stdout, MSG_DEBUG, "Hang up! \n");
         stop_audio();
         break;
       }
@@ -182,7 +143,7 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 
   r = mixer_ctl_set_value(ctl, 1, value);
   if (r < 0) {
-    logger(MSG_ERROR, "%s: Setting %s to value %i failed \n", __func__, name,
+    logger(debug_to_stdout, MSG_ERROR, "%s: Setting %s to value %i failed \n", __func__, name,
            value);
   }
   return 0;
@@ -190,11 +151,11 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 
 int stop_audio() {
   if (current_call_state == 0) {
-    logger(MSG_ERROR, "%s: No call in progress \n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "%s: No call in progress \n", __func__);
     return 1;
   }
   if (pcm_tx == NULL || pcm_rx == NULL) {
-    logger(MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n",__func__);
+    logger(debug_to_stdout, MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n",__func__);
   }
   if (pcm_tx->fd >= 0)
     pcm_close(pcm_tx);
@@ -203,7 +164,7 @@ int stop_audio() {
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger(MSG_ERROR, "error opening mixer! %s: %d\n", strerror(errno),
+    logger(debug_to_stdout, MSG_ERROR, "error opening mixer! %s: %d\n", strerror(errno),
            __LINE__);
     return 0;
   }
@@ -232,31 +193,31 @@ int start_audio(int type) {
   int i;
   char pcm_device[18];
   if (current_call_state > 0) {
-    logger(MSG_ERROR, "%s: Audio already active, restarting... \n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "%s: Audio already active, restarting... \n", __func__);
     stop_audio();
   }
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return 0;
   }
 
   switch (type) {
   case 1:
-    logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
+    logger(debug_to_stdout, MSG_DEBUG, "Call in progress: Circuit Switch\n");
     set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
     set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
     strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
     break;
   case 2:
-    logger(MSG_DEBUG, "Call in progress: VoLTE\n");
+    logger(debug_to_stdout, MSG_DEBUG, "Call in progress: VoLTE\n");
     set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
     set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
     strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
     break;
   default:
-    logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n", __func__,
+    logger(debug_to_stdout, MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n", __func__,
            type);
     return -EINVAL;
   }
@@ -273,37 +234,37 @@ int start_audio(int type) {
   pcm_tx->flags = PCM_OUT | PCM_MONO;
 
   if (set_params(pcm_rx, PCM_IN)) {
-    logger(MSG_ERROR, "Error setting RX Params\n");
+    logger(debug_to_stdout, MSG_ERROR, "Error setting RX Params\n");
     pcm_close(pcm_rx);
     return -EINVAL;
   }
 
   if (set_params(pcm_tx, PCM_OUT)) {
-    logger(MSG_ERROR, "Error setting TX Params\n");
+    logger(debug_to_stdout, MSG_ERROR, "Error setting TX Params\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
-    logger(MSG_ERROR, "Error getting RX PCM ready\n");
+    logger(debug_to_stdout, MSG_ERROR, "Error getting RX PCM ready\n");
     pcm_close(pcm_rx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
-    logger(MSG_ERROR, "Error getting TX PCM ready\n");
+    logger(debug_to_stdout, MSG_ERROR, "Error getting TX PCM ready\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-    logger(MSG_ERROR, "PCM ioctl start failed for TX\n");
+    logger(debug_to_stdout, MSG_ERROR, "PCM ioctl start failed for TX\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-    logger(MSG_ERROR, "PCM ioctl start failed for RX\n");
+    logger(debug_to_stdout, MSG_ERROR, "PCM ioctl start failed for RX\n");
     pcm_close(pcm_rx);
   }
 
@@ -319,7 +280,7 @@ int dump_audio_mixer() {
   struct mixer *mixer;
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return -1;
   }
   mixer_dump(mixer);
@@ -340,33 +301,33 @@ int init_port_mapper(struct qmi_device *qmidev) {
   ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT, 0x2f,
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
-    logger(MSG_ERROR, "[%s] Error opening IPC Socket!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening IPC Socket!\n", __func__);
     return -EINVAL;
   }
 
   if (ioctl(qmidev->fd, IOCTL_BIND_TOIPC, 0) < 0) {
-    logger(MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
+    logger(debug_to_stdout, MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
   }
 
   node.rmnet_ctrl = open(RMNET_CTL, O_RDWR);
   if (node.rmnet_ctrl < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", RMNET_CTL);
+    logger(debug_to_stdout, MSG_ERROR, "Error opening %s \n", RMNET_CTL);
     return -EINVAL;
   }
 
   node.dpm_ctrl = open(DPM_CTL, O_RDWR);
   if (node.dpm_ctrl < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    logger(debug_to_stdout, MSG_ERROR, "Error opening %s \n", DPM_CTL);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
   if (ioctl(node.dpm_ctrl, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0) {
-    logger(MSG_ERROR, "IOCTL failed: %i\n", ret);
+    logger(debug_to_stdout, MSG_ERROR, "IOCTL failed: %i\n", ret);
   }
 
   ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   if (ret) {
-    logger(MSG_ERROR, "Error setting socket options \n");
+    logger(debug_to_stdout, MSG_ERROR, "Error setting socket options \n");
   }
 
   /* Create the SMD Open request packet */
@@ -401,12 +362,12 @@ int init_port_mapper(struct qmi_device *qmidev) {
 
   do {
     sleep(1);
-    logger(MSG_ERROR,
+    logger(debug_to_stdout, MSG_ERROR,
            "[%s] Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
   } while (sendto(qmidev->fd, &dpmreq, sizeof(dpmreq), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
-  logger(MSG_DEBUG, "[%s] DPM Request completed!\n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] DPM Request completed!\n", __func__);
   do {
     ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                    (struct sockaddr *)&qmidev->socket, &addrlen);
@@ -414,7 +375,7 @@ int init_port_mapper(struct qmi_device *qmidev) {
     // Wait one second after requesting bam init...
     node.smd_ctrl = open(SMD_CNTL, O_RDWR);
     if (node.smd_ctrl < 0) {
-      logger(MSG_ERROR, "Error opening %s, retry... \n", SMD_CNTL);
+      logger(debug_to_stdout, MSG_ERROR, "Error opening %s, retry... \n", SMD_CNTL);
     }
     // Sleep 1 second just in case it needs to loop
     /* The modem needs some more time to boot the DSP
@@ -489,24 +450,37 @@ int init_atfwd(struct qmi_device *qmidev) {
   uint32_t node_id, port_id;
   struct msm_ipc_port_addr at_port;
   at_port = get_node_port(2, 29, 1);
-
+  struct qmi_device *secondary_socket;
+  secondary_socket = (struct qmi_device *) calloc(1, sizeof(struct qmi_device));
   printf("Node: 0x%.2x, Port: 0x%.2x\n", at_port.node_id, at_port.port_id);
-  logger(MSG_DEBUG, "[%s] Connecting to IPC... \n", __func__);
-  ret = open_ipc_socket(qmidev, at_port.node_id, at_port.port_id,
+/*
+  ret = open_ipc_socket(secondary_socket, at_port.node_id, at_port.port_id,
+                        at_port.node_id, at_port.port_id,
+                        IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
+  do {
+  printf("Checking if there were previous pending packets...\n");
+    ret = recvfrom(secondary_socket->fd, buf, sizeof(buf), 0,
+                   (struct sockaddr *)&secondary_socket->socket, &addrlen);
+    printf ("Numbytes: %i\n", ret);
+  } while (ret > 0);
+*/
+
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Connecting to IPC... \n", __func__);
+  ret = open_ipc_socket(qmidev, 29, 2,
                         at_port.node_id, at_port.port_id,
                         IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
   if (ret < 0) {
-    logger(MSG_ERROR, "[%s] Error opening socket \n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening socket \n", __func__);
     return -EINVAL;
   }
 
   ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   if (ret) {
-    logger(MSG_ERROR, "Error setting socket options \n");
+    logger(debug_to_stdout, MSG_ERROR, "Error setting socket options \n");
   }
 
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
-    logger(MSG_DEBUG, "[%s] --> CMD %i: %s ", __func__,
+    logger(debug_to_stdout, MSG_DEBUG, "[%s] --> CMD %i: %s ", __func__,
            at_commands[j].command_id, at_commands[j].cmd);
     atcmd = make_packet(qmidev->transaction_id, at_commands[j].cmd);
     qmidev->transaction_id++;
@@ -516,13 +490,13 @@ int init_atfwd(struct qmi_device *qmidev) {
     ret = sendto(qmidev->fd, atcmd, pktsize, MSG_DONTWAIT,
                  (void *)&qmidev->socket, sizeof(qmidev->socket));
     if (ret < 0) {
-      logger(MSG_DEBUG, "Failed (%i) \n", ret);
+      logger(debug_to_stdout, MSG_DEBUG, "Failed (%i) \n", ret);
     }
     ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                    (struct sockaddr *)&qmidev->socket, &addrlen);
     // ret = read(qmidev->fd, &buf, MAX_PACKET_SIZE);
     if (ret < 0) {
-      logger(MSG_DEBUG, "Sent but rejected (%i) \n", ret);
+      logger(debug_to_stdout, MSG_DEBUG, "Sent but rejected (%i) \n", ret);
     }
     if (ret == 14) {
       for (i = 0; i < ret; i++) {
@@ -530,9 +504,9 @@ int init_atfwd(struct qmi_device *qmidev) {
       }
       printf("\n");
       if (buf[12] == 0x00) {
-        logger(MSG_DEBUG, "Command accepted (0x00) \n", ret);
+        logger(debug_to_stdout, MSG_DEBUG, "Command accepted (0x00) \n", ret);
       } else if (buf[12] == 0x01) {
-        logger(MSG_DEBUG, "Sent but rejected (0x01) \n", ret);
+        logger(debug_to_stdout, MSG_DEBUG, "Sent but rejected (0x01) \n", ret);
       }
       /* atfwd_daemon responds 0x30 on success, but 0x00 will do too.
         When it responds 0x02 or 0x01 byte 12 it always fail, no fucking clue
@@ -562,22 +536,22 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   cmdreply = calloc(1, sizeof(struct at_command_simple_reply));
   char dummyok[] = {0x00, 0x00, 0x00, 0x22, 0x00, 0x0b, 0x00, 0x01, 0x08,
                     0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x03, 0x00, 0x00};
-  logger(MSG_DEBUG, "Handle response: not implemented \n");
+  logger(debug_to_stdout, MSG_DEBUG, "Handle response: not implemented \n");
   if (sz < 16) {
-    logger(MSG_ERROR, "Packet too small\n");
+    logger(debug_to_stdout, MSG_ERROR, "Packet too small\n");
     return 0;
   }
   if (buf[0] != 0x04) {
-    logger(MSG_ERROR, "Unknown control ID!\n");
+    logger(debug_to_stdout, MSG_ERROR, "Unknown control ID!\n");
     return 0;
   }
   if (buf[3] != 0x21) {
-    logger(MSG_ERROR, "Unknown message type!\n");
+    logger(debug_to_stdout, MSG_ERROR, "Unknown message type!\n");
     return 0;
   }
 
   packet_size = buf[5];
-  logger(MSG_DEBUG, "Packet size is %i, received total size is %i\n",
+  logger(debug_to_stdout, MSG_DEBUG, "Packet size is %i, received total size is %i\n",
          packet_size, sz);
 
   cmdsize = buf[18];
@@ -586,10 +560,10 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   parsedcmd = calloc(cmdsize + 1, sizeof(char));
   strncpy(parsedcmd, buf + 19, cmdsize);
 
-  logger(MSG_DEBUG, "Command is %s\n", parsedcmd);
+  logger(debug_to_stdout, MSG_DEBUG, "Command is %s\n", parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
-      logger(MSG_DEBUG, "Command match: %s, ID %i\n", at_commands[j].cmd,
+      logger(debug_to_stdout, MSG_DEBUG, "Command match: %s, ID %i\n", at_commands[j].cmd,
              at_commands[j].command_id);
       cmd_id = at_commands[j].command_id;
     }
@@ -611,12 +585,12 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   // lets try to just bitflip the response type
   buf[12] = 0x01;
   if (cmd_id == -1) { // Send an error
-    logger(MSG_ERROR, "Puking error as success :)\n");
+    logger(debug_to_stdout, MSG_ERROR, "Puking error as success :)\n");
     sckret = sendto(qmidev->fd, dummyok, sizeof(dummyok), MSG_DONTWAIT,
                     (void *)&qmidev->socket, sizeof(qmidev->socket));
 
   } else {
-    logger(MSG_ERROR, "Puking success as success\n");
+    logger(debug_to_stdout, MSG_ERROR, "Puking success as success\n");
     sckret = sendto(qmidev->fd, dummyok, sizeof(dummyok), MSG_DONTWAIT,
                     (void *)&qmidev->socket, sizeof(qmidev->socket));
 
@@ -629,7 +603,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
       break;
     }
   }
-  logger(MSG_DEBUG, "socket send res: %i\n", sckret);
+  logger(debug_to_stdout, MSG_DEBUG, "socket send res: %i\n", sckret);
   qmidev->transaction_id++;
   return 0;
 }
@@ -645,7 +619,7 @@ int main(int argc, char **argv) {
   struct qmi_device *at_qmi_dev;
   portmapper_qmi_dev = calloc(1, sizeof(struct qmi_device));
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
-  logger(MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
 
   while ((ret = getopt(argc, argv, "adbu")) != -1)
     switch (ret) {
@@ -679,63 +653,63 @@ int main(int argc, char **argv) {
     }
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "[%s] Error setting up governor in performance mode\n",
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up governor in performance mode\n",
            __func__);
   }
 
   do {
-    logger(MSG_DEBUG, "[%s] Waiting for ADSP init...\n", __func__);
+    logger(debug_to_stdout, MSG_DEBUG, "[%s] Waiting for ADSP init...\n", __func__);
   } while (!is_server_active(IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT));
 
-  logger(MSG_DEBUG, "[%s] Init: IPC Security settings\n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: IPC Security settings\n", __func__);
   if (setup_ipc_security() != 0) {
-    logger(MSG_ERROR, "[%s] Error setting up MSM IPC Security!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up MSM IPC Security!\n", __func__);
   }
 
-  logger(MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n", __func__);
   if (init_port_mapper(portmapper_qmi_dev) < 0) {
-    logger(MSG_ERROR, "[%s] Error setting up port mapper!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up port mapper!\n", __func__);
   }
 
-  logger(MSG_DEBUG, "[%s] Init: AT Command forwarder \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: AT Command forwarder \n", __func__);
   if (init_atfwd(at_qmi_dev) < 0) {
-    logger(MSG_ERROR, "[%s] Error setting up ATFWD!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up ATFWD!\n", __func__);
   }
 
   /* QTI gets line state, then sets modem offline and online while initializing
    */
   ret = ioctl(node.rmnet_ctrl, GET_LINE_STATE, &linestate);
   if (ret < 0)
-    logger(MSG_ERROR, "Get line  RMNET state: %i, %i \n", linestate, ret);
+    logger(debug_to_stdout, MSG_ERROR, "Get line  RMNET state: %i, %i \n", linestate, ret);
 
   printf("Linestate is %i, round \n", linestate);
 
   // Set modem OFFLINE AND ONLINE
   ret = ioctl(node.rmnet_ctrl, MODEM_OFFLINE);
   if (ret < 0)
-    logger(MSG_ERROR, "Set modem offline: %i \n", ret);
+    logger(debug_to_stdout, MSG_ERROR, "Set modem offline: %i \n", ret);
 
   ret = ioctl(node.rmnet_ctrl, MODEM_ONLINE);
   if (ret < 0)
-    logger(MSG_ERROR, "Set modem online: %i \n", ret);
+    logger(debug_to_stdout, MSG_ERROR, "Set modem online: %i \n", ret);
 
   // close(qmidev->fd); // We can get rid of this socket too
-  logger(MSG_DEBUG, "[%s] Init: Setup default I2S Audio settings \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: Setup default I2S Audio settings \n", __func__);
   for (i = 0; i < (sizeof(sysfs_value_pairs) / sizeof(sysfs_value_pairs[0]));
        i++) {
     if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value,
                  O_RDWR) < 0) {
-      logger(MSG_ERROR, "[%s] Error writing to %s\n", __func__,
+      logger(debug_to_stdout, MSG_ERROR, "[%s] Error writing to %s\n", __func__,
              sysfs_value_pairs[i].path);
     } else {
-      logger(MSG_DEBUG, "[%s]  --> Written %s to %s \n", __func__,
+      logger(debug_to_stdout, MSG_DEBUG, "[%s]  --> Written %s to %s \n", __func__,
              sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
     }
   }
-  logger(MSG_DEBUG, "[%s] Modem ready!\n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Modem ready!\n", __func__);
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "[%s] Error setting up governor in powersave mode\n",
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up governor in powersave mode\n",
            __func__);
   }
   /* This pipes messages between rmnet_ctl and smdcntl8,
@@ -754,14 +728,14 @@ int main(int argc, char **argv) {
       if (ret > 0) {
         //	handle_pkt_action(buf, FROM_HOST);
         ret = write(node.smd_ctrl, buf, ret);
-        dump_packet("rmnet_ctrl --> smdcntl8", buf);
+        dump_packet(debug_to_stdout, "rmnet_ctrl --> smdcntl8", buf);
       }
     } else if (FD_ISSET(node.smd_ctrl, &readfds)) {
       ret = read(node.smd_ctrl, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         //	 handle_pkt_action(buf, FROM_DSP);
         ret = write(node.rmnet_ctrl, buf, ret);
-        dump_packet("smdcntl8 --> rmnet_ctrl", buf);
+        dump_packet(debug_to_stdout, "smdcntl8 --> rmnet_ctrl", buf);
       }
     } else if (FD_ISSET(at_qmi_dev->fd, &readfds)) {
       printf("-->ATFWD PACKET\n");

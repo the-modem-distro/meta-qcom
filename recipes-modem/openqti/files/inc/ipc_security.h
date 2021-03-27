@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 #ifndef _IPCSECURITY_H_
 #define _IPCSECURITY_H_
 #include <stdint.h>

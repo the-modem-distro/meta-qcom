@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include "../inc/ipc.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -53,7 +55,7 @@ bool is_server_active(uint32_t service, uint32_t instance) {
     }
   }
   close(sock);
-  // free(lookup);
+  free(lookup);
   return ret;
 }
 

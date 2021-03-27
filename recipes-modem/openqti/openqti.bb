@@ -11,16 +11,18 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/devices.h \
            file://inc/audio.h \
            file://inc/atfwd.h \
+           file://inc/logger.h \
            file://src/ipc.c \
            file://src/openqti.c \
            file://src/mixer.c \
            file://src/pcm.c \
+           file://src/logger.c \
            file://init_openqti"
 
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
+    ${CC} ${LDFLAGS} -O2 src/logger.c src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
 }
 
 do_install() {

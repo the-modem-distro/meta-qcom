@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 #ifndef _IPC_H_
 #define _IPC_H_
 #include <stdbool.h>

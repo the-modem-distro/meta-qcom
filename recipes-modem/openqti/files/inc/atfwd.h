@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: MIT */
 #ifndef _ATFWD_H_
 #define _ATFWD_H_
 #include <stdbool.h>

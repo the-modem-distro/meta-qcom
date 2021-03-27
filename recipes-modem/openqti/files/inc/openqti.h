@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 #ifndef _MODEMHANDLER_H_
 #define _MODEMHANDLER_H_
 
