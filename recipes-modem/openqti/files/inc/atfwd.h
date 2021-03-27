@@ -125,6 +125,13 @@ static const struct {
 	{113, "+IPR"},
 };
 
+  /*
+  VAR3 renamed to command_length, as it's always the length of the string being
+  passed +1 but removing the "+" sign ($QCPWRDN...) VAR2: When string is 4
+  chars, it's always 0x07, When string is 8 chars, it's always 0x0a When string
+  is 3 chars, it's always 0x06 VAR1 is always 3 more than VAR2
+  */
+
 struct atcmd_reg_request {
 	// QMI Header
 	uint8_t ctlid; // 0x00

@@ -39,7 +39,6 @@ struct {
   int smd_ctrl;
 } node;
 
-
 int write_to(const char *path, const char *val, int flags) {
   int ret;
   int fd = open(path, flags);
@@ -59,23 +58,25 @@ int write_to(const char *path, const char *val, int flags) {
 int setup_ipc_security() {
   int fd;
   int i;
-  struct irsc_rule *cur_rule;
   int ret = 0;
   int ipc_categories = 511;
-  logger(debug_to_stdout, MSG_DEBUG, "[%s] Setting up MSM IPC Router security...\n", __func__);
+  struct irsc_rule *cur_rule;
+  cur_rule = calloc(1, (sizeof(struct irsc_rule) + sizeof(uint32_t)));
+  logger(debug_to_stdout, MSG_DEBUG,
+         "[%s] Setting up MSM IPC Router security...\n", __func__);
   fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   if (!fd) {
     logger(debug_to_stdout, MSG_ERROR, " Error opening socket \n");
     return -1;
   }
   for (i = 0; i < ipc_categories; i++) {
-    cur_rule = calloc(1, (sizeof(*cur_rule) + sizeof(uint32_t)));
     cur_rule->rl_no = 54;
     cur_rule->service = i;
     cur_rule->instance = 4294967295; // all instances
     cur_rule->group_id[0] = 54;
     if (ioctl(fd, IOCTL_RULES, cur_rule) < 0) {
-      logger(debug_to_stdout, MSG_ERROR, "[%s] Error serring rule %i \n", __func__, i);
+      logger(debug_to_stdout, MSG_ERROR, "[%s] Error serring rule %i \n",
+             __func__, i);
       ret = 2;
       break;
     }
@@ -83,11 +84,14 @@ int setup_ipc_security() {
 
   close(fd);
   if (ret != 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error uploading rules (%i) \n", __func__, ret);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error uploading rules (%i) \n",
+           __func__, ret);
   } else {
     logger(debug_to_stdout, MSG_DEBUG, "[%s] Upload finished. \n", __func__);
   }
 
+  free(cur_rule);
+  cur_rule = NULL;
   return ret;
 }
 
@@ -143,8 +147,8 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 
   r = mixer_ctl_set_value(ctl, 1, value);
   if (r < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "%s: Setting %s to value %i failed \n", __func__, name,
-           value);
+    logger(debug_to_stdout, MSG_ERROR, "%s: Setting %s to value %i failed \n",
+           __func__, name, value);
   }
   return 0;
 }
@@ -155,7 +159,8 @@ int stop_audio() {
     return 1;
   }
   if (pcm_tx == NULL || pcm_rx == NULL) {
-    logger(debug_to_stdout, MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n",__func__);
+    logger(debug_to_stdout, MSG_ERROR,
+           "%s: Invalid PCM, did it fail to open?\n", __func__);
   }
   if (pcm_tx->fd >= 0)
     pcm_close(pcm_tx);
@@ -164,8 +169,8 @@ int stop_audio() {
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger(debug_to_stdout, MSG_ERROR, "error opening mixer! %s: %d\n", strerror(errno),
-           __LINE__);
+    logger(debug_to_stdout, MSG_ERROR, "error opening mixer! %s: %d\n",
+           strerror(errno), __LINE__);
     return 0;
   }
 
@@ -193,7 +198,8 @@ int start_audio(int type) {
   int i;
   char pcm_device[18];
   if (current_call_state > 0) {
-    logger(debug_to_stdout, MSG_ERROR, "%s: Audio already active, restarting... \n", __func__);
+    logger(debug_to_stdout, MSG_ERROR,
+           "%s: Audio already active, restarting... \n", __func__);
     stop_audio();
   }
 
@@ -217,8 +223,8 @@ int start_audio(int type) {
     strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
     break;
   default:
-    logger(debug_to_stdout, MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n", __func__,
-           type);
+    logger(debug_to_stdout, MSG_ERROR,
+           "%s: Can't set mixers, unknown call type %i\n", __func__, type);
     return -EINVAL;
   }
   mixer_close(mixer);
@@ -301,7 +307,8 @@ int init_port_mapper(struct qmi_device *qmidev) {
   ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT, 0x2f,
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening IPC Socket!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening IPC Socket!\n",
+           __func__);
     return -EINVAL;
   }
 
@@ -375,7 +382,8 @@ int init_port_mapper(struct qmi_device *qmidev) {
     // Wait one second after requesting bam init...
     node.smd_ctrl = open(SMD_CNTL, O_RDWR);
     if (node.smd_ctrl < 0) {
-      logger(debug_to_stdout, MSG_ERROR, "Error opening %s, retry... \n", SMD_CNTL);
+      logger(debug_to_stdout, MSG_ERROR, "Error opening %s, retry... \n",
+             SMD_CNTL);
     }
     // Sleep 1 second just in case it needs to loop
     /* The modem needs some more time to boot the DSP
@@ -392,18 +400,12 @@ int init_port_mapper(struct qmi_device *qmidev) {
   return 0;
 }
 
-char *make_packet(int tid, const char *command) {
+char *make_packet(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
-  char *buf;
   int k, i;
-  ssize_t cmdsize;
-  ssize_t bufsize;
+  ssize_t cmdsize, bufsize;
   atcmd =
       (struct atcmd_reg_request *)calloc(1, sizeof(struct atcmd_reg_request));
-  // memset (atcmd,0xbb,sizeof(struct atcmd_reg_request));
-  // atcmd->command = calloc(sizeof(char), 1); //WTF DOES IT NEED 43 padding
-  // zeros!
-  // memset (atcmd->command,0x00,sizeof(atcmd->command));
   atcmd->ctlid = 0x00;
   atcmd->transaction_id = htole16(tid);
   atcmd->msgid = htole16(32);
@@ -414,22 +416,15 @@ char *make_packet(int tid, const char *command) {
   atcmd->packet_size = strlen(command) + 40 +
                        sizeof(struct atcmd_reg_request); // atcmd + command + 36
   atcmd->command_length = strlen(command);
-  // strncpy(atcmd->command, command, strlen(command));
-
-  /*
-  VAR3 renamed to strlength, as it's always the length of the string being
-  passed +1 but removing the "+" sign ($QCPWRDN...) VAR2: When string is 4
-  chars, it's always 0x07, When string is 8 chars, it's always 0x0a When string
-  is 3 chars, it's always 0x06 VAR1 is always 3 more than VAR2
-  */
   atcmd->var2 = strlen(command) + 2; // It has to be something like this
   atcmd->var1 = atcmd->var2 + 3;
   bufsize = sizeof(struct atcmd_reg_request) +
             ((strlen(command) + 43) * sizeof(char));
-  buf = calloc(256, sizeof(uint8_t));
   memcpy(buf, atcmd, sizeof(struct atcmd_reg_request));
   memcpy(buf + sizeof(struct atcmd_reg_request), command,
          (sizeof(char) * strlen(command)));
+  free(atcmd);
+  atcmd = NULL;
   return buf;
 }
 
@@ -445,44 +440,52 @@ int init_atfwd(struct qmi_device *qmidev) {
   int tmpstate = 0;
   tv.tv_sec = 1;
   tv.tv_usec = 0;
+  bool state = false;
   socklen_t addrlen = sizeof(struct sockaddr_msm_ipc);
   char buf[MAX_PACKET_SIZE];
   uint32_t node_id, port_id;
-  struct msm_ipc_port_addr at_port;
-  at_port = get_node_port(2, 29, 1);
+  struct msm_ipc_server_info at_port;
+
+  at_port =
+      get_node_port(29, 0); // Get node port for service 29, _any_ instance
+  state = is_server_active(at_port.service, at_port.instance);
   struct qmi_device *secondary_socket;
-  secondary_socket = (struct qmi_device *) calloc(1, sizeof(struct qmi_device));
+  secondary_socket = (struct qmi_device *)calloc(1, sizeof(struct qmi_device));
   printf("Node: 0x%.2x, Port: 0x%.2x\n", at_port.node_id, at_port.port_id);
-/*
-  ret = open_ipc_socket(secondary_socket, at_port.node_id, at_port.port_id,
-                        at_port.node_id, at_port.port_id,
-                        IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
-  do {
-  printf("Checking if there were previous pending packets...\n");
-    ret = recvfrom(secondary_socket->fd, buf, sizeof(buf), 0,
-                   (struct sockaddr *)&secondary_socket->socket, &addrlen);
-    printf ("Numbytes: %i\n", ret);
-  } while (ret > 0);
-*/
+  printf("Service: %i, Instance: %i \n", at_port.service, at_port.instance);
+
+  /*
+    ret = open_ipc_socket(secondary_socket, at_port.node_id, at_port.port_id,
+                          at_port.node_id, at_port.port_id,
+                          IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
+    do {
+    printf("Checking if there were previous pending packets...\n");
+      ret = recvfrom(secondary_socket->fd, buf, sizeof(buf), 0,
+                     (struct sockaddr *)&secondary_socket->socket, &addrlen);
+      printf ("Numbytes: %i\n", ret);
+    } while (ret > 0);
+  */
 
   logger(debug_to_stdout, MSG_DEBUG, "[%s] Connecting to IPC... \n", __func__);
-  ret = open_ipc_socket(qmidev, 29, 2,
+  ret = open_ipc_socket(qmidev, at_port.service, at_port.instance,
                         at_port.node_id, at_port.port_id,
                         IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
   if (ret < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening socket \n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error opening socket \n",
+           __func__);
     return -EINVAL;
   }
-
   ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   if (ret) {
     logger(debug_to_stdout, MSG_ERROR, "Error setting socket options \n");
   }
 
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
+    atcmd = calloc(256, sizeof(uint8_t));
+
     logger(debug_to_stdout, MSG_DEBUG, "[%s] --> CMD %i: %s ", __func__,
            at_commands[j].command_id, at_commands[j].cmd);
-    atcmd = make_packet(qmidev->transaction_id, at_commands[j].cmd);
+    make_packet(qmidev->transaction_id, at_commands[j].cmd, atcmd);
     qmidev->transaction_id++;
 
     pktsize = sizeof(struct atcmd_reg_request) +
@@ -494,7 +497,6 @@ int init_atfwd(struct qmi_device *qmidev) {
     }
     ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                    (struct sockaddr *)&qmidev->socket, &addrlen);
-    // ret = read(qmidev->fd, &buf, MAX_PACKET_SIZE);
     if (ret < 0) {
       logger(debug_to_stdout, MSG_DEBUG, "Sent but rejected (%i) \n", ret);
     }
@@ -518,8 +520,9 @@ int init_atfwd(struct qmi_device *qmidev) {
       }
       printf("\n");
     }
+    free(atcmd);
   }
-
+  atcmd = NULL;
   return 0;
 }
 
@@ -551,8 +554,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   }
 
   packet_size = buf[5];
-  logger(debug_to_stdout, MSG_DEBUG, "Packet size is %i, received total size is %i\n",
-         packet_size, sz);
+  logger(debug_to_stdout, MSG_DEBUG,
+         "Packet size is %i, received total size is %i\n", packet_size, sz);
 
   cmdsize = buf[18];
   cmdend = 18 + cmdsize;
@@ -563,8 +566,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   logger(debug_to_stdout, MSG_DEBUG, "Command is %s\n", parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
-      logger(debug_to_stdout, MSG_DEBUG, "Command match: %s, ID %i\n", at_commands[j].cmd,
-             at_commands[j].command_id);
+      logger(debug_to_stdout, MSG_DEBUG, "Command match: %s, ID %i\n",
+             at_commands[j].cmd, at_commands[j].command_id);
       cmd_id = at_commands[j].command_id;
     }
   }
@@ -653,48 +656,58 @@ int main(int argc, char **argv) {
     }
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up governor in performance mode\n",
-           __func__);
+    logger(debug_to_stdout, MSG_ERROR,
+           "[%s] Error setting up governor in performance mode\n", __func__);
   }
 
   do {
-    logger(debug_to_stdout, MSG_DEBUG, "[%s] Waiting for ADSP init...\n", __func__);
-  } while (!is_server_active(IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT));
+    logger(debug_to_stdout, MSG_DEBUG, "[%s] Waiting for ADSP init...\n",
+           __func__);
+  } while (!is_server_active(47, 1)); // Data Port Mapper Service
 
-  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: IPC Security settings\n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: IPC Security settings\n",
+         __func__);
   if (setup_ipc_security() != 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up MSM IPC Security!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR,
+           "[%s] Error setting up MSM IPC Security!\n", __func__);
   }
 
-  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n",
+         __func__);
   if (init_port_mapper(portmapper_qmi_dev) < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up port mapper!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up port mapper!\n",
+           __func__);
   }
 
-  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: AT Command forwarder \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: AT Command forwarder \n",
+         __func__);
   if (init_atfwd(at_qmi_dev) < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up ATFWD!\n", __func__);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up ATFWD!\n",
+           __func__);
   }
 
   /* QTI gets line state, then sets modem offline and online while initializing
    */
   ret = ioctl(node.rmnet_ctrl, GET_LINE_STATE, &linestate);
   if (ret < 0)
-    logger(debug_to_stdout, MSG_ERROR, "Get line  RMNET state: %i, %i \n", linestate, ret);
-
-  printf("Linestate is %i, round \n", linestate);
+    logger(debug_to_stdout, MSG_ERROR,
+           "[%s] Error getting line state  %i, %i \n", __func__, linestate,
+           ret);
 
   // Set modem OFFLINE AND ONLINE
   ret = ioctl(node.rmnet_ctrl, MODEM_OFFLINE);
   if (ret < 0)
-    logger(debug_to_stdout, MSG_ERROR, "Set modem offline: %i \n", ret);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Set modem offline: %i \n",
+           __func__, ret);
 
   ret = ioctl(node.rmnet_ctrl, MODEM_ONLINE);
   if (ret < 0)
-    logger(debug_to_stdout, MSG_ERROR, "Set modem online: %i \n", ret);
+    logger(debug_to_stdout, MSG_ERROR, "[%s] Set modem online: %i \n", __func__,
+           ret);
 
   // close(qmidev->fd); // We can get rid of this socket too
-  logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: Setup default I2S Audio settings \n", __func__);
+  logger(debug_to_stdout, MSG_DEBUG,
+         "[%s] Init: Setup default I2S Audio settings \n", __func__);
   for (i = 0; i < (sizeof(sysfs_value_pairs) / sizeof(sysfs_value_pairs[0]));
        i++) {
     if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value,
@@ -702,15 +715,15 @@ int main(int argc, char **argv) {
       logger(debug_to_stdout, MSG_ERROR, "[%s] Error writing to %s\n", __func__,
              sysfs_value_pairs[i].path);
     } else {
-      logger(debug_to_stdout, MSG_DEBUG, "[%s]  --> Written %s to %s \n", __func__,
-             sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
+      logger(debug_to_stdout, MSG_DEBUG, "[%s]  --> Written %s to %s \n",
+             __func__, sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
     }
   }
   logger(debug_to_stdout, MSG_DEBUG, "[%s] Modem ready!\n", __func__);
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
-    logger(debug_to_stdout, MSG_ERROR, "[%s] Error setting up governor in powersave mode\n",
-           __func__);
+    logger(debug_to_stdout, MSG_ERROR,
+           "[%s] Error setting up governor in powersave mode\n", __func__);
   }
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
@@ -745,4 +758,11 @@ int main(int argc, char **argv) {
       }
     }
   }
+  close(at_qmi_dev->fd);
+  close(portmapper_qmi_dev->fd);
+  close(node.smd_ctrl);
+  close(node.rmnet_ctrl);
+  free(at_qmi_dev);
+  free(portmapper_qmi_dev);
+  return 0;
 }

@@ -31,11 +31,11 @@ int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
 }
 
 bool is_server_active(uint32_t service, uint32_t instance) {
-  struct server_lookup_args *lookup;
   int sock, i;
   bool ret = false;
+  struct server_lookup_args *lookup;
   lookup =
-      (struct server_lookup_args *)calloc(1, sizeof(struct server_lookup_args));
+      (struct server_lookup_args *)calloc(2, sizeof(struct server_lookup_args));
 
   sock = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   lookup->port_name.service = service;
@@ -45,9 +45,12 @@ bool is_server_active(uint32_t service, uint32_t instance) {
   } else {
     lookup->lookup_mask = 0xFFFFFFFF;
   }
-  lookup->num_entries_in_array = 1;
+  lookup->num_entries_in_array =
+      1; // In reality this is the number of entries to fill
   lookup->num_entries_found = 0;
   if (ioctl(sock, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) >= 0) {
+    printf("Number of entries found: %i \n", lookup->num_entries_found);
+    printf("Number of entries in array: %i \n", lookup->num_entries_in_array);
     for (i = 0; i < lookup->num_entries_in_array; i++) {
       if (lookup->srv_info[i].node_id != 41 && i == 0) {
         ret = true;
@@ -55,18 +58,20 @@ bool is_server_active(uint32_t service, uint32_t instance) {
     }
   }
   close(sock);
+
   free(lookup);
+  lookup = NULL;
   return ret;
 }
 
 int find_services(uint32_t address_type) {
-  struct server_lookup_args *lookup;
-  lookup =
-      (struct server_lookup_args *)calloc(1, sizeof(struct server_lookup_args));
   int i, j, k, fd;
   bool name = false;
   uint32_t instance = 1;
   int ret = 0;
+  struct server_lookup_args *lookup;
+  lookup =
+      (struct server_lookup_args *)calloc(2, sizeof(struct server_lookup_args));
   printf("Service Instance Node    Port \t Name \n");
   printf("--------------------------------------------\n");
   for (k = 1; k <= 4097; k++) {
@@ -87,18 +92,18 @@ int find_services(uint32_t address_type) {
       lookup->lookup_mask = 0xFFFFFFFF;
     }
     if (ioctl(fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) < 0) {
+
       printf("ioctl failed\n");
       close(fd);
       //  free(lookup);
       return -EINVAL;
     }
+
     for (i = 0; i < lookup->num_entries_in_array; i++) {
       if (lookup->srv_info[i].port_id != 0x0e &&
           lookup->srv_info[i].port_id != 0x0b) {
         printf("%i \t %i \t 0x%.2x \t 0x%.2x \t", k, instance,
                lookup->srv_info[i].node_id, lookup->srv_info[i].port_id);
-
-        //   printf("looking for service %i: ", k);
         for (j = 0; j < (sizeof(common_names) / sizeof(common_names[0])); j++) {
           if (common_names[j].service == k) {
             printf(" %s\n", common_names[j].name);
@@ -108,37 +113,33 @@ int find_services(uint32_t address_type) {
         if (!name) {
           printf(" Unknown service \n");
         }
-        //  printf(": Node 0x%.2x, Port 0x%.2x\n", lookup->srv_info[i].node_id,
-        //         lookup->srv_info[i].port_id);
         if (i > 0) {
           printf(
               "Hey we have more than one port for the same service or what?\n");
         }
-      } /*else {
-        printf(" Not found\n");
-      }*/
+      }
     }
     close(fd);
   }
 
   free(lookup);
+  lookup = NULL;
   return 0;
 }
 
-struct msm_ipc_port_addr get_node_port(uint32_t address_type, uint32_t service,
-                                       uint32_t instance) {
+struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance) {
   struct server_lookup_args *lookup;
 
   int sock, i;
   bool ret = false;
-  struct msm_ipc_port_addr port_combo;
+  struct msm_ipc_server_info port_combo;
 
   port_combo.node_id = 0;
   port_combo.port_id = 0;
   printf("Get node port\n");
   sock = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   lookup =
-      (struct server_lookup_args *)calloc(3, sizeof(struct server_lookup_args));
+      (struct server_lookup_args *)calloc(2, sizeof(struct server_lookup_args));
   lookup->port_name.service = service;
   lookup->port_name.instance = instance;
   lookup->num_entries_in_array = 1;
@@ -156,6 +157,9 @@ struct msm_ipc_port_addr get_node_port(uint32_t address_type, uint32_t service,
       if (lookup->srv_info[0].node_id != 41) {
         port_combo.node_id = lookup->srv_info[0].node_id;
         port_combo.port_id = lookup->srv_info[0].port_id;
+        port_combo.service = lookup->srv_info[0].service;
+        port_combo.instance = lookup->srv_info[0].instance;
+
         ret = true;
       }
     }
@@ -163,5 +167,6 @@ struct msm_ipc_port_addr get_node_port(uint32_t address_type, uint32_t service,
 
   free(lookup);
   close(sock);
+  lookup = NULL;
   return port_combo;
 }

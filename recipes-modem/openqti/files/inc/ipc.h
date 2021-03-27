@@ -232,7 +232,7 @@ int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
 
 bool is_server_active(uint32_t node, uint32_t port);
 
-struct msm_ipc_port_addr get_node_port(uint32_t address_type, uint32_t service,
+struct msm_ipc_server_info get_node_port(uint32_t service,
                                        uint32_t instance);
 int find_services(uint32_t address_type);
 
