@@ -376,9 +376,9 @@ int init_port_mapper(struct qmi_device *qmidev) {
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
   logger(debug_to_stdout, MSG_DEBUG, "[%s] DPM Request completed!\n", __func__);
   do {
-    ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
+  /*  ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                    (struct sockaddr *)&qmidev->socket, &addrlen);
-
+*/
     // Wait one second after requesting bam init...
     node.smd_ctrl = open(SMD_CNTL, O_RDWR);
     if (node.smd_ctrl < 0) {
@@ -400,7 +400,7 @@ int init_port_mapper(struct qmi_device *qmidev) {
   return 0;
 }
 
-char *make_packet(int tid, const char *command, char *buf) {
+void make_packet(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
   int k, i;
   ssize_t cmdsize, bufsize;
@@ -425,7 +425,6 @@ char *make_packet(int tid, const char *command, char *buf) {
          (sizeof(char) * strlen(command)));
   free(atcmd);
   atcmd = NULL;
-  return buf;
 }
 
 /* Register AT commands into the DSP
@@ -447,7 +446,7 @@ int init_atfwd(struct qmi_device *qmidev) {
   struct msm_ipc_server_info at_port;
 
   at_port =
-      get_node_port(29, 0); // Get node port for service 29, _any_ instance
+      get_node_port(8, 0); // Get node port for AT Service, _any_ instance
   state = is_server_active(at_port.service, at_port.instance);
   struct qmi_device *secondary_socket;
   secondary_socket = (struct qmi_device *)calloc(1, sizeof(struct qmi_device));
@@ -663,7 +662,9 @@ int main(int argc, char **argv) {
   do {
     logger(debug_to_stdout, MSG_DEBUG, "[%s] Waiting for ADSP init...\n",
            __func__);
-  } while (!is_server_active(47, 1)); // Data Port Mapper Service
+  } while (!is_server_active(33, 1));
+  // For whatever reason, the DPM Service port appears is the IMS Application service
+  // I trust more qrtr sources than I do trust Qualcomm and the ADSP firmware in here
 
   logger(debug_to_stdout, MSG_DEBUG, "[%s] Init: IPC Security settings\n",
          __func__);
