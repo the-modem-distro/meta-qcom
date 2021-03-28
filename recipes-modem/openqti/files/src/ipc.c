@@ -49,8 +49,6 @@ bool is_server_active(uint32_t service, uint32_t instance) {
       1; // In reality this is the number of entries to fill
   lookup->num_entries_found = 0;
   if (ioctl(sock, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) >= 0) {
-    printf("Number of entries found: %i \n", lookup->num_entries_found);
-    printf("Number of entries in array: %i \n", lookup->num_entries_in_array);
     for (i = 0; i < lookup->num_entries_in_array; i++) {
       if (lookup->srv_info[i].node_id != 41 && i == 0) {
         ret = true;
@@ -64,7 +62,7 @@ bool is_server_active(uint32_t service, uint32_t instance) {
   return ret;
 }
 
-int find_services(uint32_t address_type) {
+int find_services() {
   int i, j, k, fd;
   bool name = false;
   uint32_t instance = 1;
@@ -72,16 +70,15 @@ int find_services(uint32_t address_type) {
   struct server_lookup_args *lookup;
   lookup =
       (struct server_lookup_args *)calloc(2, sizeof(struct server_lookup_args));
-  printf("Service Instance Node    Port \t Name \n");
-  printf("--------------------------------------------\n");
+  fprintf(stdout, "Service Instance Node    Port \t Name \n");
+  fprintf(stdout, "--------------------------------------------\n");
   for (k = 1; k <= 4097; k++) {
     name = false;
     fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
     if (fd < 0) {
-      printf("Error opening socket\n");
+      fprintf(stdout, "Error opening socket\n");
       return -EINVAL;
     }
-    //  printf("loop\n");
     lookup->port_name.service = k;
     lookup->port_name.instance = instance;
     lookup->num_entries_in_array = 1;
@@ -93,28 +90,28 @@ int find_services(uint32_t address_type) {
     }
     if (ioctl(fd, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) < 0) {
 
-      printf("ioctl failed\n");
+      fprintf(stdout, "ioctl failed\n");
       close(fd);
-      //  free(lookup);
+      free(lookup);
       return -EINVAL;
     }
 
     for (i = 0; i < lookup->num_entries_in_array; i++) {
       if (lookup->srv_info[i].port_id != 0x0e &&
           lookup->srv_info[i].port_id != 0x0b) {
-        printf("%i \t %i \t 0x%.2x \t 0x%.2x \t", k, instance,
+        fprintf(stdout, "%i \t %i \t 0x%.2x \t 0x%.2x \t", k, instance,
                lookup->srv_info[i].node_id, lookup->srv_info[i].port_id);
         for (j = 0; j < (sizeof(common_names) / sizeof(common_names[0])); j++) {
           if (common_names[j].service == k) {
-            printf(" %s\n", common_names[j].name);
+            fprintf(stdout, " %s\n", common_names[j].name);
             name = true;
           }
         }
         if (!name) {
-          printf(" Unknown service \n");
+          fprintf(stdout, " Unknown service \n");
         }
         if (i > 0) {
-          printf(
+          fprintf(stdout, 
               "Hey we have more than one port for the same service or what?\n");
         }
       }
@@ -136,7 +133,6 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance) {
 
   port_combo.node_id = 0;
   port_combo.port_id = 0;
-  printf("Get node port\n");
   sock = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   lookup =
       (struct server_lookup_args *)calloc(2, sizeof(struct server_lookup_args));
@@ -151,8 +147,6 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance) {
   }
 
   if (ioctl(sock, IPC_ROUTER_IOCTL_LOOKUP_SERVER, lookup) >= 0) {
-    printf("Number of entries found: %i \n", lookup->num_entries_found);
-    printf("Number of entries in array: %i \n", lookup->num_entries_in_array);
     if (lookup->num_entries_in_array > 0) {
       if (lookup->srv_info[0].node_id != 41) {
         port_combo.node_id = lookup->srv_info[0].node_id;

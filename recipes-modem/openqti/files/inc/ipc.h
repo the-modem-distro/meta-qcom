@@ -234,6 +234,6 @@ bool is_server_active(uint32_t node, uint32_t port);
 
 struct msm_ipc_server_info get_node_port(uint32_t service,
                                        uint32_t instance);
-int find_services(uint32_t address_type);
+int find_services();
 
 #endif

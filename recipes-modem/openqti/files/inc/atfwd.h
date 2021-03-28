@@ -117,12 +117,15 @@ static const struct {
 	{105, "+QWIFICFG", },
 	{106, "+QAPRDYIND", },
 	{107, "+QFOTADL", },
-	{108, "+HEREWEGO", },
-	{109, "+PINEROCKS"},
+	{108, "+PINE64SUCKS", },
+	{109, "+PINE64ROCKS"},
 	{110, "+CFUN"},
 	{111, "$QCPWRDN"},
 	{112, "+CMUX"},
 	{113, "+IPR"},
+	{114, "+ADBON"},
+	{115, "+ADBOFF"},
+	{116, "+RESETUSB"},
 };
 
   /*
@@ -171,14 +174,15 @@ struct at_command_modem_response {
 } __attribute__((packed));
 
 struct at_command_simple_reply {
-	uint8_t ctlid; // 0x04
+	uint8_t ctlid; // 0x00 Control message
 	uint16_t transaction_id; // incremental counter for each request, why 1 in its response? separate counter?
-	uint16_t msgid; // 0x21 0x00// RESPONSE!
-	uint16_t length; // 0x71 0x00 Sizeof the entire packet
-	uint32_t command;
-	uint16_t result;
-	uint16_t response;
-	unsigned char *raw_response;
-};
+	uint16_t msgid; // 0x22 0x00// RESPONSE!
+	uint16_t length; // 0x0b 0x00 Sizeof the entire packet
+	uint32_t handle;
+	unsigned char command[3];  // 3?
+	uint8_t result;
+	uint8_t response;
+	unsigned char raw_response[2]; // 2?
+} __attribute__((packed));
 
 #endif

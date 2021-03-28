@@ -6,7 +6,8 @@
 #include <stdio.h>
 #include "../inc/openqti.h"
 
-void logger(bool debug_to_stdout, uint8_t level, char *format, ...);
-void dump_packet(bool debug_to_stdout, char *direction, char *buf);
-
+void logger(uint8_t level, char *format, ...);
+void dump_packet( char *direction, char *buf);
+void set_log_level(uint8_t level);
+void set_log_method(bool ttyout);
 #endif
