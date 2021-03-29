@@ -62,11 +62,10 @@ int setup_ipc_security() {
   int ipc_categories = 511;
   struct irsc_rule *cur_rule;
   cur_rule = calloc(1, (sizeof(struct irsc_rule) + sizeof(uint32_t)));
-  logger( MSG_DEBUG,
-         "[%s] Setting up MSM IPC Router security...\n", __func__);
+  logger(MSG_DEBUG, "[%s] Setting up MSM IPC Router security...\n", __func__);
   fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   if (!fd) {
-    logger( MSG_ERROR, " Error opening socket \n");
+    logger(MSG_ERROR, " Error opening socket \n");
     return -1;
   }
   for (i = 0; i < ipc_categories; i++) {
@@ -75,8 +74,7 @@ int setup_ipc_security() {
     cur_rule->instance = 4294967295; // all instances
     cur_rule->group_id[0] = 54;
     if (ioctl(fd, IOCTL_RULES, cur_rule) < 0) {
-      logger( MSG_ERROR, "[%s] Error serring rule %i \n",
-             __func__, i);
+      logger(MSG_ERROR, "[%s] Error serring rule %i \n", __func__, i);
       ret = 2;
       break;
     }
@@ -84,10 +82,9 @@ int setup_ipc_security() {
 
   close(fd);
   if (ret != 0) {
-    logger( MSG_ERROR, "[%s] Error uploading rules (%i) \n",
-           __func__, ret);
+    logger(MSG_ERROR, "[%s] Error uploading rules (%i) \n", __func__, ret);
   } else {
-    logger( MSG_DEBUG, "[%s] Upload finished. \n", __func__);
+    logger(MSG_DEBUG, "[%s] Upload finished. \n", __func__);
   }
 
   free(cur_rule);
@@ -95,47 +92,37 @@ int setup_ipc_security() {
   return ret;
 }
 
-/* This needs to go. It's a horrible way of finding there's a call
-    I haven't found a way to actually do this right yet. Tried
-    with ATFWD too but it doesn't get ATDT / ATA events*/
-void handle_pkt_action(char *pkt, int from) {
-  /* All packets passing between rmnet_ctl and smdcntl8 seem to be 4 byte long
-   */
-  /* This is messy and doesn't work correctly. Sometimes there's a flood and
-     this gets hit leaving audio on for no reason, need to find a reliable way
-     of knowing if there's an actual call */
-  /* All calls report these codes from the DSP, usually preceeded by a 0x10.
-          Problem is depending on modem status, the packets don't really arrive
-          one after the other and you have some other stuff in between. Maybe
-     keeping track of last 4 or 8 bytes is enough to track if it's a call or
-     something else */
-  if (sizeof(pkt) > 3 && from == FROM_DSP) {
-    if (pkt[0] == 0x1) {
+/* Be careful when logging this as phone numbers will leak if you turn on 
+   debugging */
+void handle_pkt_action(uint8_t *pkt, int from, int sz) {
+  if (sz > 16 && from == FROM_DSP) {
+    if (pkt[0] == 0x1 && pkt[2] == 0x00 && pkt[3] == 0x80 && pkt[4] == 0x09) {
       switch (pkt[1]) {
-      case 0x40:
-        logger( MSG_DEBUG, "Outgoing Call start: VoLTE\n");
-        start_audio(CALL_MODE_VOLTE);
-        break;
-      case 0x38:
-        logger( MSG_DEBUG, "Outgoing Call start: CS Voice\n");
-        start_audio(CALL_MODE_CS);
-        break;
-      case 0x46:
-        logger( MSG_DEBUG, "Incoming Call start : CS Voice\n");
-        start_audio(CALL_MODE_CS); // why did I set this to VoLTE previously?
-        break;
-      case 0x3c: // or 0x42
-      case 0x42: // 0x4a too?
-        logger( MSG_DEBUG, "Incoming Call start : VoLTE\n");
-        start_audio(CALL_MODE_VOLTE);
-        break;
-      case 0x41:
-      case 0x69: // Hangup from CSVoice
-      case 0x5f: // Hangup from LTE?
-        logger( MSG_DEBUG, "Hang up! \n");
-        stop_audio();
-        break;
-      }
+        case 0x38:
+          logger(MSG_WARN, "[%s] Outgoing Call start: CS Voice\n", __func__);
+          start_audio(CALL_MODE_CS);
+          break;
+        case 0x3c: // or 0x42
+          logger(MSG_WARN, "[%s] Incoming Call start : VoLTE\n", __func__);
+          start_audio(CALL_MODE_VOLTE);
+          break;
+        case 0x40:
+          logger(MSG_WARN, "[%s] Outgoing Call start: VoLTE\n", __func__);
+          start_audio(CALL_MODE_VOLTE);
+          break;
+        case 0x46:
+          logger(MSG_WARN, "[%s] Incoming Call start : CS Voice\n", __func__);
+          start_audio(CALL_MODE_CS); // why did I set this to VoLTE previously?
+          break;
+        case 0x41:
+        case 0x43: // VoLTE Hangup in HD Voice
+        case 0x5f: // Hangup from LTE?
+        case 0x63: // Hangup unanswered (NO CARRIER)
+        case 0x69: // Hangup from CSVoice
+          logger(MSG_WARN, "[%s] Call finished \n", __func__);
+          stop_audio();
+          break;
+        }
     }
   }
 }
@@ -147,20 +134,19 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 
   r = mixer_ctl_set_value(ctl, 1, value);
   if (r < 0) {
-    logger( MSG_ERROR, "%s: Setting %s to value %i failed \n",
-           __func__, name, value);
+    logger(MSG_ERROR, "%s: Setting %s to value %i failed \n", __func__, name,
+           value);
   }
   return 0;
 }
 
 int stop_audio() {
   if (current_call_state == 0) {
-    logger( MSG_ERROR, "%s: No call in progress \n", __func__);
+    logger(MSG_ERROR, "%s: No call in progress \n", __func__);
     return 1;
   }
   if (pcm_tx == NULL || pcm_rx == NULL) {
-    logger( MSG_ERROR,
-           "%s: Invalid PCM, did it fail to open?\n", __func__);
+    logger(MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n", __func__);
   }
   if (pcm_tx->fd >= 0)
     pcm_close(pcm_tx);
@@ -169,8 +155,8 @@ int stop_audio() {
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger( MSG_ERROR, "error opening mixer! %s: %d\n",
-           strerror(errno), __LINE__);
+    logger(MSG_ERROR, "error opening mixer! %s: %d\n", strerror(errno),
+           __LINE__);
     return 0;
   }
 
@@ -198,33 +184,32 @@ int start_audio(int type) {
   int i;
   char pcm_device[18];
   if (current_call_state > 0) {
-    logger( MSG_ERROR,
-           "%s: Audio already active, restarting... \n", __func__);
+    logger(MSG_ERROR, "%s: Audio already active, restarting... \n", __func__);
     stop_audio();
   }
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger( MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return 0;
   }
 
   switch (type) {
   case 1:
-    logger( MSG_DEBUG, "Call in progress: Circuit Switch\n");
+    logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
     set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
     set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
     strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
     break;
   case 2:
-    logger( MSG_DEBUG, "Call in progress: VoLTE\n");
+    logger(MSG_DEBUG, "Call in progress: VoLTE\n");
     set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
     set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
     strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
     break;
   default:
-    logger( MSG_ERROR,
-           "%s: Can't set mixers, unknown call type %i\n", __func__, type);
+    logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n", __func__,
+           type);
     return -EINVAL;
   }
   mixer_close(mixer);
@@ -240,37 +225,37 @@ int start_audio(int type) {
   pcm_tx->flags = PCM_OUT | PCM_MONO;
 
   if (set_params(pcm_rx, PCM_IN)) {
-    logger( MSG_ERROR, "Error setting RX Params\n");
+    logger(MSG_ERROR, "Error setting RX Params\n");
     pcm_close(pcm_rx);
     return -EINVAL;
   }
 
   if (set_params(pcm_tx, PCM_OUT)) {
-    logger( MSG_ERROR, "Error setting TX Params\n");
+    logger(MSG_ERROR, "Error setting TX Params\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
-    logger( MSG_ERROR, "Error getting RX PCM ready\n");
+    logger(MSG_ERROR, "Error getting RX PCM ready\n");
     pcm_close(pcm_rx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_PREPARE)) {
-    logger( MSG_ERROR, "Error getting TX PCM ready\n");
+    logger(MSG_ERROR, "Error getting TX PCM ready\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_tx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-    logger( MSG_ERROR, "PCM ioctl start failed for TX\n");
+    logger(MSG_ERROR, "PCM ioctl start failed for TX\n");
     pcm_close(pcm_tx);
     return -EINVAL;
   }
 
   if (ioctl(pcm_rx->fd, SNDRV_PCM_IOCTL_START) < 0) {
-    logger( MSG_ERROR, "PCM ioctl start failed for RX\n");
+    logger(MSG_ERROR, "PCM ioctl start failed for RX\n");
     pcm_close(pcm_rx);
   }
 
@@ -286,7 +271,7 @@ int dump_audio_mixer() {
   struct mixer *mixer;
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
-    logger( MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return -1;
   }
   mixer_dump(mixer);
@@ -307,34 +292,33 @@ int init_port_mapper(struct qmi_device *qmidev) {
   ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT, 0x2f,
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
-    logger( MSG_ERROR, "[%s] Error opening IPC Socket!\n",
-           __func__);
+    logger(MSG_ERROR, "[%s] Error opening IPC Socket!\n", __func__);
     return -EINVAL;
   }
 
   if (ioctl(qmidev->fd, IOCTL_BIND_TOIPC, 0) < 0) {
-    logger( MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
+    logger(MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
   }
 
   node.rmnet_ctrl = open(RMNET_CTL, O_RDWR);
   if (node.rmnet_ctrl < 0) {
-    logger( MSG_ERROR, "Error opening %s \n", RMNET_CTL);
+    logger(MSG_ERROR, "Error opening %s \n", RMNET_CTL);
     return -EINVAL;
   }
 
   node.dpm_ctrl = open(DPM_CTL, O_RDWR);
   if (node.dpm_ctrl < 0) {
-    logger( MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
   if (ioctl(node.dpm_ctrl, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0) {
-    logger( MSG_ERROR, "IOCTL failed: %i\n", ret);
+    logger(MSG_ERROR, "IOCTL failed: %i\n", ret);
   }
 
   ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   if (ret) {
-    logger( MSG_ERROR, "Error setting socket options \n");
+    logger(MSG_ERROR, "Error setting socket options \n");
   }
 
   /* Create the SMD Open request packet */
@@ -369,12 +353,12 @@ int init_port_mapper(struct qmi_device *qmidev) {
 
   do {
     sleep(1);
-    logger( MSG_ERROR,
+    logger(MSG_ERROR,
            "[%s] Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
   } while (sendto(qmidev->fd, &dpmreq, sizeof(dpmreq), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
-  logger( MSG_DEBUG, "[%s] DPM Request completed!\n", __func__);
+  logger(MSG_DEBUG, "[%s] DPM Request completed!\n", __func__);
   do {
     /*  ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                      (struct sockaddr *)&qmidev->socket, &addrlen);
@@ -382,8 +366,7 @@ int init_port_mapper(struct qmi_device *qmidev) {
     // Wait one second after requesting bam init...
     node.smd_ctrl = open(SMD_CNTL, O_RDWR);
     if (node.smd_ctrl < 0) {
-      logger( MSG_ERROR, "Error opening %s, retry... \n",
-             SMD_CNTL);
+      logger(MSG_ERROR, "Error opening %s, retry... \n", SMD_CNTL);
     }
     // Sleep 1 second just in case it needs to loop
     /* The modem needs some more time to boot the DSP
@@ -447,24 +430,23 @@ int init_atfwd(struct qmi_device *qmidev) {
 
   at_port = get_node_port(8, 0); // Get node port for AT Service, _any_ instance
 
-  logger( MSG_DEBUG, "[%s] Connecting to IPC... \n", __func__);
+  logger(MSG_DEBUG, "[%s] Connecting to IPC... \n", __func__);
   ret = open_ipc_socket(qmidev, at_port.service, at_port.instance,
                         at_port.node_id, at_port.port_id,
                         IPC_ROUTER_AT_ADDRTYPE); // open ATFWD service
   if (ret < 0) {
-    logger( MSG_ERROR, "[%s] Error opening socket \n",
-           __func__);
+    logger(MSG_ERROR, "[%s] Error opening socket \n", __func__);
     return -EINVAL;
   }
   ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
   if (ret) {
-    logger( MSG_ERROR, "[%s] Error setting socket options \n",__func__);
+    logger(MSG_ERROR, "[%s] Error setting socket options \n", __func__);
   }
 
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     atcmd = calloc(256, sizeof(uint8_t));
 
-    logger( MSG_DEBUG, "[%s] --> CMD %i: %s ", __func__,
+    logger(MSG_DEBUG, "[%s] --> CMD %i: %s ", __func__,
            at_commands[j].command_id, at_commands[j].cmd);
     build_atcommand_reg_request(qmidev->transaction_id, at_commands[j].cmd,
                                 atcmd);
@@ -475,25 +457,24 @@ int init_atfwd(struct qmi_device *qmidev) {
     ret = sendto(qmidev->fd, atcmd, pktsize, MSG_DONTWAIT,
                  (void *)&qmidev->socket, sizeof(qmidev->socket));
     if (ret < 0) {
-      logger( MSG_DEBUG, "[%s] Failed (%i) \n", __func__, ret);
+      logger(MSG_DEBUG, "[%s] Failed (%i) \n", __func__, ret);
     }
     ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
                    (struct sockaddr *)&qmidev->socket, &addrlen);
     if (ret < 0) {
-      logger( MSG_DEBUG, "[%s] Sent but rejected (%i) \n", __func__, ret);
+      logger(MSG_DEBUG, "[%s] Sent but rejected (%i) \n", __func__, ret);
     }
     if (ret == 14) {
       if (buf[12] == 0x00) {
-        logger( MSG_DEBUG, "[%s] Command accepted (0x00) \n", __func__, ret);
+        logger(MSG_DEBUG, "[%s] Command accepted (0x00) \n", __func__, ret);
       } else if (buf[12] == 0x01) {
-        logger( MSG_DEBUG, "[%s] Sent but rejected (0x01) \n", __func__, ret);
+        logger(MSG_DEBUG, "[%s] Sent but rejected (0x01) \n", __func__, ret);
       }
       /* atfwd_daemon responds 0x30 on success, but 0x00 will do too.
         When it responds 0x02 or 0x01 byte 12 it always fail, no fucking clue
         why */
     } else {
-       logger(MSG_ERROR, "[%s] Unknown response from the DSP \n", __func__, ret);
-
+      logger(MSG_ERROR, "[%s] Unknown response from the DSP \n", __func__, ret);
     }
     free(atcmd);
   }
@@ -503,7 +484,7 @@ int init_atfwd(struct qmi_device *qmidev) {
 
 /* When a command is requested via AT interface,
    this function is used to answer to them */
-int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
+int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                           unsigned int sz) {
   int i, j, sckret;
   int packet_size;
@@ -512,54 +493,34 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
   int cmd_id = -1;
   struct at_command_simple_reply *cmdreply;
   cmdreply = calloc(1, sizeof(struct at_command_simple_reply));
+  if (sz == 14) {
+    logger(MSG_DEBUG, "[%s] Packet ACK\n", __func__);
+    return 0;
+  }
   if (sz < 16) {
-    logger( MSG_ERROR, "Packet too small: %i\n", sz);
+    logger(MSG_ERROR, "Packet too small: %i\n", sz);
     return 0;
   }
   if (buf[0] != 0x04) {
-    logger( MSG_ERROR, "Unknown control ID!\n");
+    logger(MSG_ERROR, "Unknown control ID!\n");
     return 0;
   }
   if (buf[3] != 0x21) {
-    logger( MSG_ERROR, "Unknown message type!\n");
+    logger(MSG_ERROR, "Unknown message type!\n");
     return 0;
   }
 
   packet_size = buf[5];
-  logger( MSG_DEBUG,
-         "Packet size is %i, received total size is %i\n", packet_size, sz);
+  logger(MSG_DEBUG, "Packet size is %i, received total size is %i\n",
+         packet_size, sz);
 
-  /*
-  {
-    0x00,         // Control ID
-    0x00, 0x00,   // Transaction ID
-    0x22, 0x00,   // MSG_ID htole16(0x0022)
-    0x0b, 0x00,   // Length
-    0x01, 0x08, 0x00, 0x01, // Command
-    0x00, 0x00, 0x00,
-    0x01, // 0x01 OK, 0x00 Error
-    0x03, // Means this is the last action taken or last thing we hear about for
-  this command 0x00, 0x00}; // RAW? Somewhere we need to be able to reply
-  strings
-
-  My bad responsE:
-  \x00
-  \x73\x00
-  \x22\x00
-  \x0b\x00
-  \x01\x08\x00\x01
-  \x00\x00\x00
-  \x01
-  \x03
-  \x00\x00
-  */
   cmdsize = buf[18];
   cmdend = 18 + cmdsize;
 
   parsedcmd = calloc(cmdsize + 1, sizeof(char));
-  strncpy(parsedcmd, buf + 19, cmdsize);
+  strncpy(parsedcmd, (char *)buf + 19, cmdsize);
 
-  logger( MSG_DEBUG, "[%s] Command requested is %s\n", __func__, parsedcmd);
+  logger(MSG_DEBUG, "[%s] Command requested is %s\n", __func__, parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
       cmd_id = at_commands[j].command_id; // Command matched
@@ -575,15 +536,14 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
                              (2 * (sizeof(unsigned char))));
   cmdreply->handle = 0x01000801;
   cmdreply->response = 3;
-  if ((cmd_id > 0 && cmd_id < 72) ||
-      (cmd_id > 72 && cmd_id < 108)){
+  if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 108)) {
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
   }
   switch (cmd_id) {
-  
+
   case 72: // fastboot
     cmdreply->result = 1;
     sckret =
@@ -603,10 +563,21 @@ int handle_atfwd_response(struct qmi_device *qmidev, char *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     break;
-
+  case 116:
+    if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+      logger(MSG_ERROR, "[%s] Error disabling USN \n", __func__);
+    }
+    sleep(1);
+    if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+      logger(MSG_ERROR, "[%s] Error disabling USN \n", __func__);
+    }
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    break;
   default:
-    logger( MSG_ERROR, "[%s] Unknown command requested \n",
-           __func__);
+    logger(MSG_ERROR, "[%s] Unknown command requested \n", __func__);
     cmdreply->result = 2;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
@@ -625,12 +596,12 @@ int main(int argc, char **argv) {
   int max_fd = 20;
   int linestate;
   fd_set readfds;
-  char buf[MAX_PACKET_SIZE];
+  uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *portmapper_qmi_dev;
   struct qmi_device *at_qmi_dev;
   portmapper_qmi_dev = calloc(1, sizeof(struct qmi_device));
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
-  logger( MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
+  logger(MSG_DEBUG, "Welcome to OpenQTI \n", __func__);
   set_log_method(false);
   set_log_level(1); // By default, set log level to warn
   while ((ret = getopt(argc, argv, "adbl")) != -1)
@@ -644,7 +615,7 @@ int main(int argc, char **argv) {
       fprintf(stdout, "Print logs to stdout\n");
       set_log_method(true);
       break;
-    
+
     case 'u':
       fprintf(stdout, "List enabled services through IPC\n");
       find_services();
@@ -653,6 +624,8 @@ int main(int argc, char **argv) {
 
     case 'l':
       fprintf(stdout, "Log everything (even passing packets)");
+      fprintf(stdout, "WARNING: Your logfile might contain sensitive data, "
+                      "such as phone numbers or message contents\n\n");
       set_log_level(0);
       break;
 
@@ -669,82 +642,71 @@ int main(int argc, char **argv) {
     }
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
-    logger( MSG_ERROR,
-           "[%s] Error setting up governor in performance mode\n", __func__);
+    logger(MSG_ERROR, "[%s] Error setting up governor in performance mode\n",
+           __func__);
   }
 
   do {
-    logger( MSG_DEBUG, "[%s] Waiting for ADSP init...\n",
-           __func__);
+    logger(MSG_DEBUG, "[%s] Waiting for ADSP init...\n", __func__);
   } while (!is_server_active(33, 1));
   // For whatever reason, the DPM Service port appears is the IMS Application
   // service I trust more qrtr sources than I do trust Qualcomm and the ADSP
   // firmware in here
 
-  logger( MSG_DEBUG, "[%s] Init: IPC Security settings\n",
-         __func__);
+  logger(MSG_DEBUG, "[%s] Init: IPC Security settings\n", __func__);
   if (setup_ipc_security() != 0) {
-    logger( MSG_ERROR,
-           "[%s] Error setting up MSM IPC Security!\n", __func__);
+    logger(MSG_ERROR, "[%s] Error setting up MSM IPC Security!\n", __func__);
   }
 
-  logger( MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n",
-         __func__);
+  logger(MSG_DEBUG, "[%s] Init: Dynamic Port Mapper \n", __func__);
   if (init_port_mapper(portmapper_qmi_dev) < 0) {
-    logger( MSG_ERROR, "[%s] Error setting up port mapper!\n",
-           __func__);
+    logger(MSG_ERROR, "[%s] Error setting up port mapper!\n", __func__);
   }
 
-  logger( MSG_DEBUG, "[%s] Init: AT Command forwarder \n",
-         __func__);
+  logger(MSG_DEBUG, "[%s] Init: AT Command forwarder \n", __func__);
   if (init_atfwd(at_qmi_dev) < 0) {
-    logger( MSG_ERROR, "[%s] Error setting up ATFWD!\n",
-           __func__);
+    logger(MSG_ERROR, "[%s] Error setting up ATFWD!\n", __func__);
   }
 
   /* QTI gets line state, then sets modem offline and online while initializing
    */
   ret = ioctl(node.rmnet_ctrl, GET_LINE_STATE, &linestate);
   if (ret < 0)
-    logger( MSG_ERROR,
-           "[%s] Error getting line state  %i, %i \n", __func__, linestate,
-           ret);
+    logger(MSG_ERROR, "[%s] Error getting line state  %i, %i \n", __func__,
+           linestate, ret);
 
   // Set modem OFFLINE AND ONLINE
   ret = ioctl(node.rmnet_ctrl, MODEM_OFFLINE);
   if (ret < 0)
-    logger( MSG_ERROR, "[%s] Set modem offline: %i \n",
-           __func__, ret);
+    logger(MSG_ERROR, "[%s] Set modem offline: %i \n", __func__, ret);
 
   ret = ioctl(node.rmnet_ctrl, MODEM_ONLINE);
   if (ret < 0)
-    logger( MSG_ERROR, "[%s] Set modem online: %i \n", __func__,
-           ret);
+    logger(MSG_ERROR, "[%s] Set modem online: %i \n", __func__, ret);
 
-  logger( MSG_DEBUG,
-         "[%s] Init: Setup default I2S Audio settings \n", __func__);
+  logger(MSG_DEBUG, "[%s] Init: Setup default I2S Audio settings \n", __func__);
   for (i = 0; i < (sizeof(sysfs_value_pairs) / sizeof(sysfs_value_pairs[0]));
        i++) {
     if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value,
                  O_RDWR) < 0) {
-      logger( MSG_ERROR, "[%s] Error writing to %s\n", __func__,
+      logger(MSG_ERROR, "[%s] Error writing to %s\n", __func__,
              sysfs_value_pairs[i].path);
     } else {
-      logger( MSG_DEBUG, "[%s]  --> Written %s to %s \n",
-             __func__, sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
+      logger(MSG_DEBUG, "[%s]  --> Written %s to %s \n", __func__,
+             sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
     }
   }
-  logger( MSG_DEBUG, "[%s] Modem ready!\n", __func__);
+  logger(MSG_DEBUG, "[%s] Modem ready!\n", __func__);
 
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
-    logger( MSG_ERROR,
-           "[%s] Error setting up governor in powersave mode\n", __func__);
+    logger(MSG_ERROR, "[%s] Error setting up governor in powersave mode\n",
+           __func__);
   }
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
-    logger( MSG_WARN, "[%s] Modem ready\n", __func__);
-      while (1) {
+  logger(MSG_WARN, "[%s] Modem ready\n", __func__);
+  while (1) {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(node.rmnet_ctrl, &readfds);
@@ -754,21 +716,21 @@ int main(int argc, char **argv) {
     if (FD_ISSET(node.rmnet_ctrl, &readfds)) {
       ret = read(node.rmnet_ctrl, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
-        //	handle_pkt_action(buf, FROM_HOST);
+        handle_pkt_action(buf, FROM_HOST, ret);
+        dump_packet("rmnet_ctrl --> smdcntl8", buf, ret);
         ret = write(node.smd_ctrl, buf, ret);
-        dump_packet("rmnet_ctrl --> smdcntl8", buf);
       }
     } else if (FD_ISSET(node.smd_ctrl, &readfds)) {
       ret = read(node.smd_ctrl, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
-        //	 handle_pkt_action(buf, FROM_DSP);
+        handle_pkt_action(buf, FROM_DSP, ret);
+        dump_packet("smdcntl8 --> rmnet_ctrl", buf, ret);
         ret = write(node.rmnet_ctrl, buf, ret);
-        dump_packet("smdcntl8 --> rmnet_ctrl", buf);
       }
     } else if (FD_ISSET(at_qmi_dev->fd, &readfds)) {
       ret = read(at_qmi_dev->fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
-        dump_packet("ATPort --> OpenQTI", buf);
+        dump_packet("ATPort --> OpenQTI", buf, ret);
         handle_atfwd_response(at_qmi_dev, buf, ret);
       }
     }

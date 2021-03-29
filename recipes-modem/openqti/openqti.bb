@@ -32,5 +32,5 @@ do_install() {
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
-    ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S20init_openqti
+    ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }

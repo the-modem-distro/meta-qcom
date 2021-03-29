@@ -54,7 +54,7 @@ void logger(uint8_t level, char *format, ...) {
   }
 }
 
-void dump_packet(char *direction, char *buf) {
+void dump_packet(char *direction, uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
   if (log_level == 0) {
@@ -68,7 +68,7 @@ void dump_packet(char *direction, char *buf) {
       }
     }
     fprintf(fd, "%s :", direction);
-    for (i = 0; i < sizeof(buf); i++) {
+    for (i = 0; i < pktsize; i++) {
       fprintf(fd, "0x%02x ", buf[i]);
     }
     fprintf(fd, "\n");
