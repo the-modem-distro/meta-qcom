@@ -183,9 +183,12 @@ int stop_audio() {
 int start_audio(int type) {
   int i;
   char pcm_device[18];
-  if (current_call_state > 0) {
-    logger(MSG_ERROR, "%s: Audio already active, restarting... \n", __func__);
+  if (current_call_state > 0 && type != current_call_state) {
+    logger(MSG_ERROR, "%s: Audio already active for other profile, restarting... \n", __func__);
     stop_audio();
+  } else if (current_call_state > 0 && type == current_call_state) {
+    logger(MSG_WARN, "[%s] Call already setup and enabled, nothing to do\n", __func__);
+    return 0;
   }
 
   mixer = mixer_open(SND_CTL);
