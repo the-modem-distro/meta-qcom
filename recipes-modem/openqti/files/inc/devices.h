@@ -17,5 +17,8 @@
   "/dev/snd/pcmC0D2" // Normal Voice calls use CS - Circuit Switch, device #2
 #define PCM_DEV_VOLTE "/dev/snd/pcmC0D4" // VoLTE uses PCM device #4
 
+#define USB_SERIAL_TRANSPORTS_PATH "/sys/class/android_usb/android0/f_serial/transports"
+#define USB_FUNC_PATH "/sys/class/android_usb/android0/functions"
+#define USB_EN_PATH "/sys/class/android_usb/android0/enable"
 #define USB_EN_PATH "/sys/class/android_usb/android0/enable"
 #endif

@@ -40,6 +40,12 @@ static const struct {
     {"/sys/devices/soc:sound/quec_auxpcm_rate", "8000"},
 };
 
+// LK Control messages:
+struct fastboot_command {
+	char command[32];
+	char status[32];
+};
+
 int start_audio(int type);
 int stop_audio();
 #endif

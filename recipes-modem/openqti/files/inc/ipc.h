@@ -33,26 +33,6 @@
 
 #define MAX_PACKET_SIZE 4096 // rmnet max packet size
 
-/* Kernel IOCTLs for the IPC driver
-#define IPC_ROUTER_IOCTL_GET_VERSION \
-        _IOR(, 0, unsigned int)
-
-#define IPC_ROUTER_IOCTL_GET_MTU \
-        _IOR(IPC_ROUTER_IOCTL_MAGIC, 1, unsigned int)
-
-#define IPC_ROUTER_IOCTL_LOOKUP_SERVER \
-        _IOWR(IPC_ROUTER_IOCTL_MAGIC, 2, struct sockaddr_msm_ipc)
-IPC_ROUTER_IOCTL_MAGIC
-#define IPC_ROUTER_IOCTL_GET_CURR_PKT_SIZE \
-        _IOR(IPC_ROUTER_IOCTL_MAGIC, 3, unsigned int)
-
-#define IPC_ROUTER_IOCTL_BIND_CONTROL_PORT \
-        _IOR(IPC_ROUTER_IOCTL_MAGIC, 4, unsigned int)
-
-#define IPC_ROUTER_IOCTL_CONFIG_SEC_RULES \
-        _IOR(IPC_ROUTER_IOCTL_MAGIC, 5, struct config_sec_rules_args)
-
-*/
 
 static const struct {
   uint32_t service;

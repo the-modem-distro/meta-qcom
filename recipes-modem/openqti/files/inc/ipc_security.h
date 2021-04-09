@@ -14,5 +14,5 @@ struct irsc_rule {
 };
 
 #define IOCTL_RULES _IOR(0xC3, 5, struct irsc_rule)
-
+#define IRSC_INSTANCE_ALL 4294967295
 #endif

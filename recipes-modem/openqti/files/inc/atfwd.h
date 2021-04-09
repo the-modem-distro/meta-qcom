@@ -4,6 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+static const struct {
+  bool adb_en;
+  const char *serial_transports;
+  const char *functions;
+
+} usb_modes[] = {
+    {true, "tty,smd,smd", "diag,serial,rmnet,ffs"}, // With ADB
+    {false, "tty,smd,smd", "diag,serial,rmnet"}, // Without ADB
+};
 
 static const struct {
 	unsigned int command_id;
@@ -89,7 +98,7 @@ static const struct {
 	{77, "+QSUBSYSVER", },
 	{78, "+QTEMPDBG", },
 	{79, "+QTEMP", },
-	{80, "+QTEMPDBGLVL", },
+	{80, "AT+QTEMPDBGLVL", },
 	{81, "+QDIAGPORT", },
 	{82, "+QLPMCFG", },
 	{83, "+QSGMIICFG", },
@@ -117,15 +126,16 @@ static const struct {
 	{105, "+QWIFICFG", },
 	{106, "+QAPRDYIND", },
 	{107, "+QFOTADL", },
-	{108, "+PINE64SUCKS", },
-	{109, "+PINE64ROCKS"},
-	{110, "+CFUN"},
-	{111, "$QCPWRDN"},
-	{112, "+CMUX"},
-	{113, "+IPR"},
-	{114, "+ADBON"},
-	{115, "+ADBOFF"},
-	{116, "+RESETUSB"},
+	{108, "+CFUN"},
+	{109, "+CMUX"},
+	{110, "+IPR"},
+	// New commands start here
+	{111, "+PWRDN"},
+	{112, "+ADBON"},
+	{113, "+ADBOFF"},
+	{114, "+RESETUSB"},
+	{115, "+REBOOT_REC"},
+	{116, "+PINE64ROCKS"}
 };
 
   /*
