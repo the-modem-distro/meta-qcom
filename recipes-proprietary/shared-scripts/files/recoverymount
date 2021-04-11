@@ -1,6 +1,0 @@
-#!/bin/sh
-# Mount the recovery partition in /tmp/recovery
-mkdir -p /tmp/recovery
-ubiattach -m 13 -d 13 /dev/ubi_ctrl 
-sleep 1
-mount -t ubifs /dev/ubi13_0 /tmp/recovery
