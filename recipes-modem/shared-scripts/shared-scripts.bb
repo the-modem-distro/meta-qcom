@@ -28,7 +28,6 @@ do_install() {
       install -d ${D}/cache
 
       install -m 0755 ${S}/adbd ${D}/etc/init.d/
-      install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
       install -m 0755  ${S}/recoverymount ${D}/bin
       install -m 0755  ${S}/rootfsmount ${D}/bin
       
