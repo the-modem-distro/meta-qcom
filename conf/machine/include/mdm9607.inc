@@ -16,19 +16,6 @@ QCOM_BOOTIMG_PAGE_SIZE ?= "2048"
 # meta-yocto). For maximum compatibility, leave this disabled.
 #DEFAULTTUNE ?= "cortexa8hf-neon"
 
-
-
-MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += " \
-    pd-mapper \
-    qrtr \
-    rmtfs \
-    tqftpserv \
-"
-
-MACHINE_EXTRA_RRECOMMENDS += " \
-    fastrpc \
-"
-
 # Image Generation
 # Make ubi filesystem and then pack it in a ubi container, as stock
 IMAGE_FSTYPES ?= "ubi multiubi"
