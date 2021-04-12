@@ -1,3 +1,0 @@
-#!/bin/sh
-# start_quec_pcm_daemon
-/usr/bin/quectel_pcm_daemon >> /data/runtime_log.log 2>&1

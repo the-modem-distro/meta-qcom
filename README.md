@@ -2,7 +2,8 @@
 
 ## Introduction
 
-OpenEmbedded/Yocto Project layer for Qualcomm based platforms.
+OpenEmbedded/Yocto Project layer for Qualcomm MDM9x07 based platforms. 
+This repo has been forked from https://github.com/ndechesne/meta-qcom and modified for this specific platform
 
 This layer depends on:
 
@@ -30,25 +31,8 @@ for the implementation details.
 ## Contributing
 
 If you want to contribute changes, you can send Github pull requests at
-https://github.com/ndechesne/meta-qcom/pulls.
-
-Alternatively you can send patches to openembedded@lists.linaro.org, in which
-case, please: 
-
-* When creating patches, please use something like:
-
-`git format-patch -s --subject-prefix='meta-qcom][PATCH' origin`
-
-* When sending patches, please use something like:
-
-`git send-email --to openembedded@lists.linaro.org <generated patch>`
-
-You can discuss about this layer, on `#linaro` on FreeNode IRC network.
+https://github.com/biktorgj/meta-qcom/pulls.
 
 ## Reporting issues
 
-Please report any issue on https://github.com/ndechesne/meta-qcom/issues
-
-## Maintainer(s)
-
-Nicolas Dechesne <nicolas.dechesne@linaro.org>
+Please report any issue on https://github.com/biktorgj/meta-qcom/issues
