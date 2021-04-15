@@ -16,23 +16,14 @@
 */
 
 /** Pieces of alsa_pcm.c **/
-#include "../inc/audio.h"
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/ioctl.h>
-#include <linux/types.h>
-#include <sound/compress_params.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/poll.h>
-#include <sys/time.h>
 #include <unistd.h>
 
+#include "../inc/audio.h"
 static inline int param_is_mask(int p) {
   return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
          (p <= SNDRV_PCM_HW_PARAM_LAST_MASK);

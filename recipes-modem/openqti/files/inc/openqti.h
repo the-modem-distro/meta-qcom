@@ -9,8 +9,9 @@
 #define MSG_DEBUG 0
 #define MSG_WARN 1
 #define MSG_ERROR 2
+#define MAX_FD 50
 
-#define SMDCTLPORTNAME "DATA40_CNTL"
+#define LOCKFILE "/tmp/openqti.lock"
 #define CPUFREQ_PATH "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
 #define CPUFREQ_PERF "performance"
 #define CPUFREQ_PS "powersave"
@@ -42,8 +43,18 @@ static const struct {
 
 // LK Control messages:
 struct fastboot_command {
-	char command[32];
-	char status[32];
+  char command[32];
+  char status[32];
+};
+
+// For proxy threads
+struct node_def {
+  int fd;
+  char name[16];
+};
+struct node_pair {
+  struct node_def node1;
+  struct node_def node2;
 };
 
 int start_audio(int type);

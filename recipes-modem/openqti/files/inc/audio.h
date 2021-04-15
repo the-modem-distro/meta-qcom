@@ -4,6 +4,7 @@
 #define _AUDIO_H_
 
 #include <sound/asound.h>
+#include <stdint.h>
 
 /* VoLTE calls use these mixers */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
@@ -149,4 +150,11 @@ struct pcm *pcm_open(unsigned flags, char *device);
 int pcm_close(struct pcm *pcm);
 int set_params(struct pcm *pcm, int path);
 
+/* OpenQTI audio setting helpers */
+int set_mixer_ctl(struct mixer *mixer, char *name, int value);
+int stop_audio();
+int start_audio(int type);
+int dump_audio_mixer();
+void handle_call_pkt(uint8_t *pkt, int from, int sz);
+int set_audio_defaults();
 #endif

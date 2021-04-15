@@ -7,12 +7,15 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = "file://inc/openqti.h \
            file://inc/ipc.h \
-           file://inc/ipc_security.h \
            file://inc/devices.h \
            file://inc/audio.h \
            file://inc/atfwd.h \
            file://inc/logger.h \
+           file://inc/helpers.h \
+           file://src/helpers.c \
+           file://src/atfwd.c \
            file://src/ipc.c \
+           file://src/audio.c \
            file://src/openqti.c \
            file://src/mixer.c \
            file://src/pcm.c \
@@ -22,7 +25,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/logger.c src/ipc.c src/mixer.c src/pcm.c src/openqti.c -o openqti
+    ${CC} ${LDFLAGS} -O2 src/helpers.c src/atfwd.c src/logger.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
 }
 
 do_install() {

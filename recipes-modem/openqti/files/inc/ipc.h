@@ -4,19 +4,22 @@
 #define _IPC_H_
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #define IPC_ROUTER 27             // AF_IB
 #define IPC_ROUTER_ADDR 2         // Kernel IPC driver address
-#define IPC_ROUTER_DPM_ADDRTYPE 1 // As specified in the kernel
-#define IPC_ROUTER_AT_ADDRTYPE                                                 \
-  2 // From the decoded packets, this should be 2, not 1 like for DPM
+
+// As specified in the kernel
+#define IPC_ROUTER_DPM_ADDRTYPE 1 
+// From the decoded packets, this should be 2, not 1 like for DPM
+#define IPC_ROUTER_AT_ADDRTYPE  2
 
 #define IPC_HEXAGON_NODE 0x3
 #define IPC_HEXAGON_DPM_PORT 0x1c
 #define IPC_HEXAGON_ATFWD_PORT 0x1b
-/* Other interesting ports (in order of calling in blobs):
 
-14, 13, 25, c, 17, 19, 5, 17, 47, 16 */
+#define SMDCTLPORTNAME "DATA40_CNTL"
+
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
 #define IOCTL_BIND_TOIPC _IOR(IPC_IOCTL_MAGIC, 4, uint32_t)
@@ -32,8 +35,19 @@
 #define MODEM_ONLINE _IO(QTI_IOCTL_MAGIC, 5)
 
 #define MAX_PACKET_SIZE 4096 // rmnet max packet size
+// IPC Port security rules
+#define IOCTL_RULES _IOR(0xC3, 5, struct irsc_rule)
+#define IRSC_INSTANCE_ALL 4294967295
 
+struct irsc_rule {
+  int rl_no;
+  uint32_t service;
+  uint32_t instance;
+  unsigned dummy;
+  gid_t group_id[0];
+};
 
+// Port names
 static const struct {
   uint32_t service;
   uint32_t instance;
@@ -212,8 +226,9 @@ int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
 
 bool is_server_active(uint32_t node, uint32_t port);
 
-struct msm_ipc_server_info get_node_port(uint32_t service,
-                                       uint32_t instance);
+struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance);
 int find_services();
+int init_port_mapper();
+int setup_ipc_security();
 
 #endif
