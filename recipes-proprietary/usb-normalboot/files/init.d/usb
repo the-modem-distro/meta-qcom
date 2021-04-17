@@ -41,7 +41,6 @@ case "$1" in
         else
             socplatform=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
         fi
-        echo "soc:" $socplatform
         
         # find serialno from cmdline
         cmdline=`cat /proc/cmdline` 2> /dev/null
@@ -54,7 +53,6 @@ case "$1" in
             echo "serialno not found with cmdline, use default"
             serialno="12345678"
         fi
-        echo "serialno:" $serialno
         
         msm_serial=`cat /sys/devices/soc0/serial_number`
         msm_serial_hex=`printf %08X $msm_serial`
