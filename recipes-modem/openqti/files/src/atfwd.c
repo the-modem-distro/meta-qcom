@@ -107,6 +107,7 @@ int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
                       uint8_t format, uint8_t sample, uint8_t num_slots,
                       uint8_t slot) {
   uint8_t ret = 0;
+  return ret;
   /* We know we don't have an analog codec here,
      so EINVAL if anything other than Digital PCM (i2s) */
   logger(MSG_ERROR,
