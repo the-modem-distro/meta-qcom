@@ -38,86 +38,79 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
        logger(MSG_ERROR, "%s: Unknown call direction! \n", __func__);
       }
 
-      logger(MSG_ERROR, "%s: Call state is 0x%.2x\n", __func__, pkt[18]);
-
       switch (pkt[18]) { // Call state
       case 0x01:
         logger(MSG_WARN, "%s: State: originating\n", __func__);
         needs_setting_up_paths = true;
         break;
       case 0x02:
-        logger(MSG_WARN, "%s: Incoming, ringing!\n", __func__);
+        logger(MSG_WARN, "%s: State: Ringing\n", __func__);
         needs_setting_up_paths = true;
         break;
       case 0x03:
-        logger(MSG_WARN, "%s: CALL IN PROGRESS\n", __func__);
+        logger(MSG_WARN, "%s: State: Call in progress \n", __func__);
         needs_setting_up_paths = true;
 
         break;
       case 0x04:
-        logger(MSG_WARN, "%s: Trying to call...\n", __func__);
+        logger(MSG_WARN, "%s: State: Trying to call...\n", __func__);
         needs_setting_up_paths = true;
-
         break;
       case 0x05:
-        logger(MSG_WARN, "%s: Ringing?\n", __func__);
+        logger(MSG_WARN, "%s: State: Ringing?\n", __func__);
         break;
       case 0x06:
-        logger(MSG_WARN, "%s: Hold\n", __func__);
+        logger(MSG_WARN, "%s: State: Hold\n", __func__);
         break;
       case 0x07:
-        logger(MSG_WARN, "%s: Waiting?\n", __func__);
+        logger(MSG_WARN, "%s: State: Waiting?\n", __func__);
         break;
       case 0x08:
-        logger(MSG_WARN, "%s: Disconnecting call\n", __func__);
+        logger(MSG_WARN, "%s: State: Disconnecting call\n", __func__);
         stop_audio();
         break;
       case 0x09:
-        logger(MSG_WARN, "%s: Hang up! \n", __func__);
+        logger(MSG_WARN, "%s: State: Hang up! \n", __func__);
         break;
       case 0x0a:
-        logger(MSG_WARN, "%s: Preparing for outgoing... \n", __func__);
+        logger(MSG_WARN, "%s: State: Preparing for outgoing... \n", __func__);
         break;
       default:
-        logger(MSG_WARN, "%s: Unknown pkt 0x%.2x", __func__, pkt[18]);
+        logger(MSG_WARN, "%s: State: Unknown pkt 0x%.2x", __func__, pkt[18]);
         break;
       } // end of call state
 
-      if (!needs_setting_up_paths) {
-        logger(MSG_WARN, "%s: AUDIO DOESNT NEED SETTING UP \n", __func__);
-      }
       if (needs_setting_up_paths) {
-          logger(MSG_WARN, "%s: AUDIO NEEDS SETTING UP \n", __func__);
         switch (pkt[21]) {
         case 0x00:
-          logger(MSG_WARN, "%s: Calling with no network? \n", __func__);
+          logger(MSG_WARN, "%s: Set audio paths: No network? Try with CS... \n", __func__);
           start_audio(CALL_MODE_CS);
 
           break;
         case 0x01:
-          logger(MSG_WARN, "%s: Unknown mode? Trying with CS \n", __func__);
+          logger(MSG_WARN, "%s:  Set audio paths: Unknown mode, Try with CS... \n", __func__);
           start_audio(CALL_MODE_CS);
 
           break;
         case 0x02:
-          logger(MSG_WARN, "%s: GSM \n", __func__);
+          logger(MSG_WARN, "%s:  Set audio paths: GSM Call mode \n", __func__);
           start_audio(CALL_MODE_CS);
 
           break;
         case 0x03:
-          logger(MSG_WARN, "%s: UMTS \n", __func__);
+          logger(MSG_WARN, "%s:  Set audio paths:  UMTS Call mode \n", __func__);
           start_audio(CALL_MODE_CS);
 
           break;
         case 0x04:
-          logger(MSG_WARN, "%s: VoLTE \n", __func__);
+          logger(MSG_WARN, "%s:  Set audio paths: VoLTE Call mode \n", __func__);
           start_audio(CALL_MODE_VOLTE);
           break;
         case 0x05:
-          logger(MSG_WARN, "%s: No network? \n", __func__);
+          logger(MSG_WARN, "%s: Set audio paths: Can't call with no network!\n", __func__);
           break;
         default:
-          logger(MSG_WARN, "%s: Can't guess call type! \n", __func__);
+          logger(MSG_WARN, "%s: Set audio paths: Can't guess call type! \n", __func__);
           break;
         } // end of call method
       } // if needs setting up paths
