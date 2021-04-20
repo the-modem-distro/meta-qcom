@@ -47,11 +47,7 @@ SRC_URI = " \
     file://android-tools-adbd.service \
     file://build/0001-Riscv-Add-risc-v-Android-config-header.patch;patchdir=build \
     file://gitignore \
-    file://adb.mk;subdir=${BPN} \
     file://adbd.mk;subdir=${BPN} \
-    file://ext4_utils.mk;subdir=${BPN} \
-    file://fastboot.mk;subdir=${BPN} \
-    file://mkbootimg.mk;subdir=${BPN} \
 "
 
 
@@ -74,7 +70,7 @@ SYSTEMD_SERVICE_${PN} = "android-tools-adbd.service"
 CC_append_class-native = " -I${STAGING_INCDIR}"
 CC_append_class-nativesdk = " -I${STAGING_INCDIR}"
 
-TOOLS = "adb adbd"
+TOOLS = "adbd"
 
 # Adb needs sys/capability.h, which is not available for native*
 TOOLS_class-native = "fastboot ext4_utils mkbootimg"
@@ -121,56 +117,14 @@ do_compile() {
 }
 
 do_install() {
-    if echo ${TOOLS} | grep -q "ext4_utils" ; then
-        install -D -p -m0755 ${S}/system/core/libsparse/simg_dump.py ${D}${bindir}/simg_dump
-        install -D -p -m0755 ${S}/system/extras/ext4_utils/mkuserimg.sh ${D}${bindir}/mkuserimg
-
-        install -m0755 ${B}/ext4_utils/ext2simg ${D}${bindir}
-        install -m0755 ${B}/ext4_utils/ext4fixup ${D}${bindir}
-        install -m0755 ${B}/ext4_utils/img2simg ${D}${bindir}
-        install -m0755 ${B}/ext4_utils/make_ext4fs ${D}${bindir}
-        install -m0755 ${B}/ext4_utils/simg2img ${D}${bindir}
-        install -m0755 ${B}/ext4_utils/simg2simg ${D}${bindir}
-    fi
-
-    if echo ${TOOLS} | grep -q "adb " ; then
-        install -d ${D}${bindir}
-        install -m0755 ${B}/adb/adb ${D}${bindir}
-    fi
-
     if echo ${TOOLS} | grep -q "adbd" ; then
         install -d ${D}${bindir}
         install -m0755 ${B}/adbd/adbd ${D}${bindir}
-    fi
-
-    # Outside the if statement to avoid errors during do_package
-    install -D -p -m0644 ${WORKDIR}/android-tools-adbd.service \
-      ${D}${systemd_unitdir}/system/android-tools-adbd.service
-
-    if echo ${TOOLS} | grep -q "fastboot" ; then
-        install -d ${D}${bindir}
-        install -m0755 ${B}/fastboot/fastboot ${D}${bindir}
-    fi
-
-    if echo ${TOOLS} | grep -q "mkbootimg" ; then
-        install -d ${D}${bindir}
-        install -m0755 ${B}/mkbootimg/mkbootimg ${D}${bindir}
     fi
 }
 
 PACKAGES += "${PN}-fstools"
 
 RDEPENDS_${BPN} = "bash"
-
-FILES_${PN}-fstools = "\
-    ${bindir}/ext2simg \
-    ${bindir}/ext4fixup \
-    ${bindir}/img2simg \
-    ${bindir}/make_ext4fs \
-    ${bindir}/simg2img \
-    ${bindir}/simg2simg \
-    ${bindir}/simg_dump \
-    ${bindir}/mkuserimg \
-"
 
 BBCLASSEXTEND = "native"
