@@ -135,7 +135,9 @@ static const struct {
 	{113, "+ADBOFF"},
 	{114, "+RESETUSB"},
 	{115, "+REBOOT_REC"},
-	{116, "+PINE64ROCKS"}
+	{116, "+PINE64ROCKS"},
+	{117, "+EN_PCM16K"},
+	{118, "+DIS_PCM16K"}
 };
 
   /*

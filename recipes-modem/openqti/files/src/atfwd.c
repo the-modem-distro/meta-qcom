@@ -10,12 +10,12 @@
 #include <unistd.h>
 
 #include "../inc/atfwd.h"
+#include "../inc/audio.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
-#include "../inc/audio.h"
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
@@ -317,7 +317,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   case 40: // QDAI
     if (sz > 60) {
       sckret = set_audio_profile(buf[30], buf[35], buf[40], buf[45], buf[50],
-                           buf[55], buf[60], buf[65]);
+                                 buf[55], buf[60], buf[65]);
       if (sckret < 0) {
         cmdreply->result = 2;
       }
@@ -383,7 +383,21 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     break;
+  case 117: // enable PCM16k
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    enable_volte_hd_audio(true);
+    break;
+  case 118: // disable PCM16k
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
+    enable_volte_hd_audio(false);
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 108)) {

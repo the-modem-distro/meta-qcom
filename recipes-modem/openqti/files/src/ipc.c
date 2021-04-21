@@ -276,7 +276,7 @@ int init_port_mapper() {
 
   do {
     sleep(1);
-    logger(MSG_ERROR,
+    logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
   } while (sendto(qmidev->fd, &dpmreq, sizeof(dpmreq), MSG_DONTWAIT,

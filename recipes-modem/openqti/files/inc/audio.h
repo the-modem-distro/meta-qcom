@@ -5,6 +5,7 @@
 
 #include <sound/asound.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 /* VoLTE calls use these mixers */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
@@ -157,4 +158,6 @@ int start_audio(int type);
 int dump_audio_mixer();
 void handle_call_pkt(uint8_t *pkt, int from, int sz);
 int set_audio_defaults();
+void enable_volte_hd_audio(bool en);
+
 #endif
