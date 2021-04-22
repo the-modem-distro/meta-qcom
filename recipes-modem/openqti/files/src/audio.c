@@ -12,16 +12,21 @@ struct mixer *mixer;
 struct pcm *pcm_tx;
 struct pcm *pcm_rx;
 uint8_t current_call_state;
-bool enable_pcm16k_support = false;
+bool volte_hd_audio_mode = 0;
 
-void enable_volte_hd_audio(bool en) {
-  enable_pcm16k_support = en;
-  if (en) {
+void enable_volte_hd_audio(uint8_t mode) {
+  volte_hd_audio_mode = mode;
+  if (mode == 1) {
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__,
              sysfs_value_pairs[6].path);
     }
-  } else {
+  } else if (mode == 2) {
+    if (write_to(sysfs_value_pairs[6].path, "48000", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__,
+             sysfs_value_pairs[6].path);
+    }
+  }else {
     set_audio_defaults();
   }
   // If in call, restart audio
@@ -30,6 +35,7 @@ void enable_volte_hd_audio(bool en) {
     start_audio(CALL_MODE_VOLTE);
   }
 }
+
 /* Be careful when logging this as phone numbers will leak if you turn on
    debugging */
 void handle_call_pkt(uint8_t *pkt, int from, int sz) {
@@ -244,9 +250,15 @@ int start_audio(int type) {
   pcm_tx->rate = 8000;
   pcm_tx->flags = PCM_OUT | PCM_MONO;
 
-  if (type == 2 && enable_pcm16k_support) {
+  if (volte_hd_audio_mode == 1) {
     pcm_rx->rate = 16000;
     pcm_tx->rate = 16000;
+  } else if (volte_hd_audio_mode == 2) {
+    pcm_rx->rate = 48000;
+    pcm_tx->rate = 48000;
+  } else {
+    pcm_rx->rate = 8000;
+    pcm_tx->rate = 8000;
   }
 
   if (set_params(pcm_rx, PCM_IN)) {

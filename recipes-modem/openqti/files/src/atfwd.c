@@ -388,15 +388,23 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    enable_volte_hd_audio(true);
+    enable_volte_hd_audio(1);
     break;
-  case 118: // disable PCM16k
+  case 118: // PCM48K
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
-    enable_volte_hd_audio(false);
+    enable_volte_hd_audio(2);
+    break;
+    case 119: // disable PCM HI
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+
+    enable_volte_hd_audio(0);
     break;
   default:
     // Fallback for dummy commands that arent implemented

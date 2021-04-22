@@ -158,6 +158,6 @@ int start_audio(int type);
 int dump_audio_mixer();
 void handle_call_pkt(uint8_t *pkt, int from, int sz);
 int set_audio_defaults();
-void enable_volte_hd_audio(bool en);
+void enable_volte_hd_audio(uint8_t mode);
 
 #endif
