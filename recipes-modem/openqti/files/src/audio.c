@@ -81,9 +81,11 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
         break;
       case 0x05:
         logger(MSG_WARN, "%s: State: Ringing?\n", __func__);
+        needs_setting_up_paths = true;
         break;
       case 0x06:
         logger(MSG_WARN, "%s: State: Hold\n", __func__);
+        needs_setting_up_paths = true;
         break;
       case 0x07:
         logger(MSG_WARN, "%s: State: Waiting?\n", __func__);
@@ -94,9 +96,11 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
         break;
       case 0x09:
         logger(MSG_WARN, "%s: State: Hang up! \n", __func__);
+        stop_audio();
         break;
       case 0x0a:
         logger(MSG_WARN, "%s: State: Preparing for outgoing... \n", __func__);
+        needs_setting_up_paths = true;
         break;
       default:
         logger(MSG_WARN, "%s: State: Unknown pkt 0x%.2x", __func__, pkt[18]);
@@ -209,8 +213,6 @@ int start_audio(int type) {
            __func__);
     stop_audio();
   } else if (current_call_state > 0 && type == current_call_state) {
-    logger(MSG_WARN, "%s: Call already setup and enabled, nothing to do\n",
-           __func__);
     return 0;
   }
 

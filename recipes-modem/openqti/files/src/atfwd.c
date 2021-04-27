@@ -398,7 +398,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
 
     enable_volte_hd_audio(2);
     break;
-    case 119: // disable PCM HI
+    case 119: // disable PCM HI EN_PCM8K
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),

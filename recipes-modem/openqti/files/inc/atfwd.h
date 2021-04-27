@@ -138,7 +138,7 @@ static const struct {
 	{116, "+PINE64ROCKS"},
 	{117, "+EN_PCM16K"},
 	{118, "+EN_PCM48K"},
-	{119, "+DIS_PCM16K"}
+	{119, "+EN_PCM8K"}
 };
 
   /*
