@@ -98,7 +98,7 @@ static const struct {
 	{77, "+QSUBSYSVER", },
 	{78, "+QTEMPDBG", },
 	{79, "+QTEMP", },
-	{80, "AT+QTEMPDBGLVL", },
+	{80, "+QTEMPDBGLVL", },
 	{81, "+QDIAGPORT", },
 	{82, "+QLPMCFG", },
 	{83, "+QSGMIICFG", },
@@ -154,7 +154,7 @@ struct atcmd_reg_request {
 	uint16_t transaction_id; // incremental counter for each request
 	uint16_t msgid; // 0x20 0x00
     uint16_t packet_size; // Sizeof the entire packet
-	
+
 	// the request packet itself
 	// Obviously unfinished :)
 	uint8_t dummy1; // always 0x00 0x01

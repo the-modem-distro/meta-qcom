@@ -141,7 +141,6 @@ int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
       ret = -EINVAL;
     }
     break;
-    break;
   default:
     ret = -EINVAL;
     break;
@@ -234,6 +233,7 @@ int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
              sysfs_value_pairs[3].path);
       ret = -EINVAL;
     }
+    break;
   case 0x31: // 16k
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
@@ -301,6 +301,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       cmd_id = at_commands[j].command_id; // Command matched
     }
   }
+  free(parsedcmd);
 
   cmdreply->ctlid = 0x00;
   cmdreply->transaction_id = htole16(qmidev->transaction_id);
@@ -398,7 +399,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
 
     enable_volte_hd_audio(2);
     break;
-    case 119: // disable PCM HI EN_PCM8K
+  case 119: // disable PCM HI EN_PCM8K
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
