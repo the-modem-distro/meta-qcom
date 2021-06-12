@@ -17,6 +17,9 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 
+/* Used to keep track of the enabled USB composite configuration */
+int current_usb_mode = 0;
+
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
   int k, i;
@@ -70,30 +73,48 @@ void set_next_fastboot_mode(int flag) {
 }
 
 void switch_adb(bool en) {
+  if (en == true && (current_usb_mode == 0 || current_usb_mode == 2)) {
+    logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
+    return;
+  }
+  if (en == false && (current_usb_mode == 1 || current_usb_mode == 3)) {
+    logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
+    return;
+  }
+  /* First we shut down the usb port to be able to modify Sysfs */
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
   }
+
+  if (write_to(USB_SERIAL_TRANSPORTS_PATH, usb_modes[0].serial_transports,
+                O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error setting serial transports \n", __func__);
+  }
   if (en) {
     // setup ADB
-    if (write_to(USB_SERIAL_TRANSPORTS_PATH, usb_modes[0].serial_transports,
-                 O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting serial transports \n", __func__);
+    if (current_usb_mode == 1 &&
+        write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error enabling ADB functions \n", __func__);
+    } else if (current_usb_mode == 3 &&
+               write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
     }
-    if (write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting USB functions \n", __func__);
-    }
-    system("/etc/init.d/adbd start");
 
+    system("/etc/init.d/adbd start");
+    current_usb_mode--; // ADB ON profiles are always one less than the "off"
+                        // ones
   } else {
     // setup ADB
     system("/etc/init.d/adbd stop");
-    if (write_to(USB_SERIAL_TRANSPORTS_PATH, usb_modes[1].serial_transports,
-                 O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting serial transports \n", __func__);
+    if (current_usb_mode == 0 &&
+        write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
+    } else if (current_usb_mode == 2 &&
+               write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
     }
-    if (write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting USB functions \n", __func__);
-    }
+
+    current_usb_mode++; // ADB OFF profiles are always one more
   }
 
   sleep(1);
@@ -102,6 +123,49 @@ void switch_adb(bool en) {
   }
 }
 
+void switch_usb_audio(bool en) {
+ if (en == true && (current_usb_mode == 2 || current_usb_mode == 3)) {
+    logger(MSG_ERROR, "%s: USB Audio is already enabled \n", __func__);
+    return;
+  }
+  if (en == false && (current_usb_mode == 0 || current_usb_mode == 1)) {
+    logger(MSG_ERROR, "%s: USB Audio is already disabled \n", __func__);
+    return;
+  }
+  /* First we shut down the usb port to be able to modify Sysfs */
+  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
+  }
+
+  if (en) {
+    // setup USB audio
+    if (current_usb_mode == 0 &&
+        write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
+    } else if (current_usb_mode == 1 &&
+               write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error enabling AUDIO functions \n", __func__);
+    }
+
+    current_usb_mode = current_usb_mode + 2; // Audio profile is +2
+  } else {
+    // Disable USB audio
+    if (current_usb_mode == 2 &&
+        write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
+    } else if (current_usb_mode == 3 &&
+               write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
+    }
+
+    current_usb_mode = current_usb_mode -2; // USB Audio off profiles are -2
+  }
+
+  sleep(1);
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+}
 // AT+QDAI=1,1,0,1,0,0,1,1
 int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
                       uint8_t format, uint8_t sample, uint8_t num_slots,
@@ -389,7 +453,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    enable_volte_hd_audio(1);
+    set_auxpcm_sampling_rate(1);
     break;
   case 118: // PCM48K
     cmdreply->result = 1;
@@ -397,7 +461,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
-    enable_volte_hd_audio(2);
+    set_auxpcm_sampling_rate(2);
     break;
   case 119: // disable PCM HI EN_PCM8K
     cmdreply->result = 1;
@@ -405,7 +469,23 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
-    enable_volte_hd_audio(0);
+    set_auxpcm_sampling_rate(0);
+    break;
+  case 120: // Fallback to 8K and enable USB_AUDIO
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+
+    switch_usb_audio(true);
+    break;
+      case 121: // Fallback to 8K and enable USB_AUDIO
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+
+    switch_usb_audio(false);
     break;
   default:
     // Fallback for dummy commands that arent implemented

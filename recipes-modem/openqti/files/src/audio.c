@@ -12,9 +12,9 @@ struct mixer *mixer;
 struct pcm *pcm_tx;
 struct pcm *pcm_rx;
 uint8_t current_call_state;
-bool volte_hd_audio_mode = 0;
+uint8_t volte_hd_audio_mode = 0;
 
-void enable_volte_hd_audio(uint8_t mode) {
+void set_auxpcm_sampling_rate(uint8_t mode) {
   volte_hd_audio_mode = mode;
   if (mode == 1) {
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
@@ -26,13 +26,19 @@ void enable_volte_hd_audio(uint8_t mode) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__,
              sysfs_value_pairs[6].path);
     }
-  }else {
-    set_audio_defaults();
+  } else {
+    if (write_to(sysfs_value_pairs[6].path, "8000", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 8k\n", __func__,
+             sysfs_value_pairs[6].path);
+    }
   }
   // If in call, restart audio
   if (current_call_state == CALL_MODE_VOLTE) {
     stop_audio();
     start_audio(CALL_MODE_VOLTE);
+  } else if (current_call_state == CALL_MODE_CS) {
+    stop_audio();
+    start_audio(CALL_MODE_CS);
   }
 }
 

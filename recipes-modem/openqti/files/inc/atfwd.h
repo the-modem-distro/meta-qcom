@@ -8,10 +8,11 @@ static const struct {
   bool adb_en;
   const char *serial_transports;
   const char *functions;
-
 } usb_modes[] = {
     {true, "tty,smd,smd", "diag,serial,rmnet,ffs"}, // With ADB
     {false, "tty,smd,smd", "diag,serial,rmnet"}, // Without ADB
+    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,audio"}, // USB audio + ADB
+    {false, "tty,smd,smd", "diag,serial,rmnet,audio"}, // USB audio without ADB
 };
 
 static const struct {
@@ -138,7 +139,9 @@ static const struct {
 	{116, "+PINE64ROCKS"},
 	{117, "+EN_PCM16K"},
 	{118, "+EN_PCM48K"},
-	{119, "+EN_PCM8K"}
+	{119, "+EN_PCM8K"},
+	{120, "+EN_USBAUD"},
+	{121, "+DIS_USBAUD"},
 };
 
   /*
