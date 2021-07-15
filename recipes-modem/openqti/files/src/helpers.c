@@ -76,6 +76,7 @@ void *rmnet_proxy(void *node_data) {
       ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         handle_call_pkt(buf, FROM_HOST, ret);
+        track_client_count(buf, FROM_HOST, ret);
         dump_packet(node1_to_2, buf, ret);
         ret = write(nodes->node2.fd, buf, ret);
       }
@@ -83,6 +84,7 @@ void *rmnet_proxy(void *node_data) {
       ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         handle_call_pkt(buf, FROM_DSP, ret);
+        track_client_count(buf, FROM_DSP, ret);
         dump_packet(node2_to_1, buf, ret);
         ret = write(nodes->node1.fd, buf, ret);
       }

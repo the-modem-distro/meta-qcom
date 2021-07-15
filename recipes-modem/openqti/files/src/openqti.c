@@ -24,6 +24,7 @@
  */
 
 bool debug_to_stdout;
+int connected_clients = 0;
 
 int main(int argc, char **argv) {
   int i, ret, lockfile;

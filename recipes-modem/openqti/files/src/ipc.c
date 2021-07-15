@@ -8,8 +8,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../inc/ipc.h"
 #include "../inc/devices.h"
+#include "../inc/ipc.h"
 #include "../inc/logger.h"
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
@@ -288,4 +288,87 @@ int init_port_mapper() {
   free(qmidev);
   // All the rest is moved away from here and into the init
   return 0;
+}
+void track_client_count(uint8_t *pkt, int from, int sz) {
+  int msglength;
+  /* mm -> dsp: 0x01 0x0f 0x00 0x00 0x00 0x00 0x00 0x02 0x22 0x00 0x04 0x00 0x01
+   * 0x01 0x00 0x1a  */
+  /* response: 0x01 0x17 0x00 0x80 0x00 0x00 0x01 0x02 0x22 0x00 0x0c 0x00 0x02
+   * 0x04 0x00 0x00 0x00 0x00 0x00 0x01 0x02 0x00 0x1a 0x01 */
+  if (pkt[0] != 0x01 || sz < 12 || pkt[9] != 0x00) {
+    //  logger(MSG_WARN, "%s: Don't care about this packet\n", __func__);
+    return;
+  }
+  switch (pkt[8]) {
+  case 0x22:
+    logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
+    msglength = pkt[10];
+    switch (from) {
+    case FROM_DSP:
+      logger(MSG_WARN, "%s: Assigned instance ID 0x%.2x to service 0x%.2x \n",
+             __func__, pkt[msglength], pkt[msglength - 1]);
+      break;
+    case FROM_HOST:
+      if (pkt[10] == 0x04) {
+        logger(MSG_WARN, "%s: Request for service 0x%.2x with any instance \n",
+               __func__, pkt[15]);
+
+      } else if (pkt[10] == 0x05) {
+        logger(MSG_WARN,
+               "%s: Request for service 0x%.2x with instance 0x%.2x\n",
+               __func__, pkt[15], pkt[16]);
+      }
+      break;
+    }
+    break;
+  case 0x23:
+    logger(MSG_WARN, "%s: QMI Client Release request\n", __func__);
+    if (pkt[10] == 0x05) {
+      logger(MSG_WARN, "%s: Request for service 0x%.2x with instance 0x%.2x\n",
+             __func__, pkt[15], pkt[16]);
+    }
+    switch (from) {
+    case FROM_DSP:
+      logger(MSG_WARN, "%s: QMI Client Release from DSP\n", __func__);
+
+      break;
+    case FROM_HOST:
+      logger(MSG_WARN, "%s: ModemManager/oFono request client release\n",
+             __func__);
+
+      break;
+    }
+    break;
+  default:
+    break;
+  }
+}
+
+void force_close_qmi() {
+  int service = 0;
+  int client_id = 0;
+  int ret;
+  struct qmi_device *qmidev;
+  struct timeval tv;
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+  qmidev = calloc(1, sizeof(struct qmi_device));
+  struct msm_ipc_server_info ipc_port;
+
+  logger(MSG_WARN, "%s: Closing all active QMI connections\n", __func__);
+  ipc_port =
+      get_node_port(0, 0); // Get node port for control Service, _any_ instance
+  ret = open_ipc_socket(qmidev, ipc_port.service, ipc_port.instance,
+                        ipc_port.node_id, ipc_port.port_id,
+                        IPC_ROUTER_AT_ADDRTYPE);
+  if (ret < 0) {
+    logger(MSG_ERROR, "%s: Error opening socket \n", __func__);
+    return;
+  }
+  ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  if (ret) {
+    logger(MSG_ERROR, "%s: Error setting socket options \n", __func__);
+  }
+
+  close(qmidev->fd);
 }

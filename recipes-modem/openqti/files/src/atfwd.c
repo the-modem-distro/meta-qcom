@@ -72,6 +72,27 @@ void set_next_fastboot_mode(int flag) {
   close(fd);
 }
 
+void store_adb_setting(bool en) {
+  char buff[32];
+  int fd;
+  if (en) { // Store the magic string in the second block of the misc partition
+    logger(MSG_WARN, "Enabling persistent ADB\n");
+    strncpy(buff, PERSIST_ADB_ON_MAGIC, sizeof(PERSIST_ADB_ON_MAGIC));
+  } else {
+    logger(MSG_WARN, "Disabling persistent ADB\n");
+    strncpy(buff, PERSIST_ADB_OFF_MAGIC, sizeof(PERSIST_ADB_OFF_MAGIC));
+  }
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening misc partition to set adb flag \n",
+           __func__);
+    return;
+  }
+  lseek(fd, 64, SEEK_SET);
+  write(fd, &buff, sizeof(buff));
+  close(fd);
+}
+
 void switch_adb(bool en) {
   if (en == true && (current_usb_mode == 0 || current_usb_mode == 2)) {
     logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
@@ -87,7 +108,7 @@ void switch_adb(bool en) {
   }
 
   if (write_to(USB_SERIAL_TRANSPORTS_PATH, usb_modes[0].serial_transports,
-                O_RDWR) < 0) {
+               O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error setting serial transports \n", __func__);
   }
   if (en) {
@@ -124,7 +145,7 @@ void switch_adb(bool en) {
 }
 
 void switch_usb_audio(bool en) {
- if (en == true && (current_usb_mode == 2 || current_usb_mode == 3)) {
+  if (en == true && (current_usb_mode == 2 || current_usb_mode == 3)) {
     logger(MSG_ERROR, "%s: USB Audio is already enabled \n", __func__);
     return;
   }
@@ -158,7 +179,7 @@ void switch_usb_audio(bool en) {
       logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
     }
 
-    current_usb_mode = current_usb_mode -2; // USB Audio off profiles are -2
+    current_usb_mode = current_usb_mode - 2; // USB Audio off profiles are -2
   }
 
   sleep(1);
@@ -416,12 +437,14 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     switch_adb(true);
+    store_adb_setting(true);
     break;
   case 113: // ADB OFF // First respond to avoid locking the AT IF
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     switch_adb(false);
+    store_adb_setting(false);
     break;
   case 114:
     if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
@@ -479,7 +502,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
 
     switch_usb_audio(true);
     break;
-      case 121: // Fallback to 8K and enable USB_AUDIO
+  case 121: // Fallback to 8K and enable USB_AUDIO
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),

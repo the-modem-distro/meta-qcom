@@ -6,13 +6,13 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define IPC_ROUTER 27             // AF_IB
-#define IPC_ROUTER_ADDR 2         // Kernel IPC driver address
+#define IPC_ROUTER 27     // AF_IB
+#define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 
 // As specified in the kernel
-#define IPC_ROUTER_DPM_ADDRTYPE 1 
+#define IPC_ROUTER_DPM_ADDRTYPE 1
 // From the decoded packets, this should be 2, not 1 like for DPM
-#define IPC_ROUTER_AT_ADDRTYPE  2
+#define IPC_ROUTER_AT_ADDRTYPE 2
 
 #define IPC_HEXAGON_NODE 0x3
 #define IPC_HEXAGON_DPM_PORT 0x1c
@@ -38,6 +38,9 @@
 // IPC Port security rules
 #define IOCTL_RULES _IOR(0xC3, 5, struct irsc_rule)
 #define IRSC_INSTANCE_ALL 4294967295
+
+// Client release command request
+#define QMI_MESSAGE_CTL_RELEASE_CID 0x0023
 
 struct irsc_rule {
   int rl_no;
@@ -220,6 +223,19 @@ struct server_lookup_args {
   struct msm_ipc_server_info srv_info[0];
 };
 
+#define CMD_SET_INSTANCE_ID 0x0020
+#define CMD_GET_VERSION_INFO 0x0021
+#define CMD_GET_CLIENT_ID 0x0022
+#define CMD_RELEASE_CLIENT 0x00023
+
+struct client_handle_track {
+  uint8_t service;
+  uint8_t instance;
+  uint32_t regtime;
+  bool state;
+  bool active;
+};
+
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
                     unsigned char address_type);
@@ -230,9 +246,13 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance);
 int find_services();
 int init_port_mapper();
 int setup_ipc_security();
-
+void force_close_qmi();
+void track_client_count(uint8_t *pkt, int from, int sz);
 /*
 
-  char qmi_msg_01[] = { 0x00, 0x01, 0x00, 0x21, 0x00, 0x1c, 0x00, 0x10, 0x0d, 0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54, 0x4c, 0x11, 0x09, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00 };
+  char qmi_msg_01[] = { 0x00, 0x01, 0x00, 0x21, 0x00, 0x1c, 0x00, 0x10, 0x0d,
+  0x00, 0x01, 0x0b, 0x44, 0x41, 0x54, 0x41, 0x34, 0x30, 0x5f, 0x43, 0x4e, 0x54,
+  0x4c, 0x11, 0x09, 0x00, 0x01, 0x05, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00
+  };
   */
 #endif
