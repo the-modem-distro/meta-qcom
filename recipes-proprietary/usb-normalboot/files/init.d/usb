@@ -53,8 +53,9 @@
 
 # Starts the USB Android Gadget.
 
-# Set variable adb_setting to one, to test this script for now
-adb_setting=1
+# Run adbcheck and store return value in adb_setting for use in shell script
+/usr/bin/adbcheck
+adb_setting=$(echo $?)
 
 if [ ! "$adb_setting" = "1" ];
 then
