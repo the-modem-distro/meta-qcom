@@ -30,7 +30,7 @@
 /usr/bin/adbcheck
 adb_setting=$(echo $?)
 
-if [ ! "$adb_setting" = "1" ];
+if [ "$adb_setting" = "0" ];
 then
     wait_for_data_mount() {
         while ! [ -d /data/usb ]
@@ -42,7 +42,7 @@ fi
 
 KERNEL=$(uname -r) 
 export KERNEL
-if [ ! "$adb_setting" = "1" ];
+if [ "$adb_setting" = "0" ];
 then
     export SOFTAP_W_DUN="N"
 fi
@@ -114,7 +114,7 @@ case "$1" in
         echo adb > /sys/class/android_usb/android0/f_ffs/aliases
         echo ffs > /sys/class/android_usb/android0/functions
         
-        if [ ! "$adb_setting" = "1" ];
+        if [ "$adb_setting" = "0" ];
         then
             # enable concurrent SoftAP and DUN
             if [ -f /data/usb/softap_w_dun ]
