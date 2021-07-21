@@ -107,7 +107,7 @@ case "$1" in
         echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
         echo 1 > /sys/class/android_usb/android0/remote_wakeup
         echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
-        sleep 10 # Wait 10 seconds here to give time to openqti to settle
+        #sleep 10 # Wait 10 seconds here to give time to openqti to settle
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
         echo 1 > /sys/class/android_usb/android0/enable
