@@ -11,6 +11,13 @@
 #include "../inc/devices.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
+#include "../inc/helpers.h"
+struct {
+  uint8_t services[32];
+  uint8_t last_active;
+  uint32_t regtime;
+} client_handle_track;
+
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
@@ -289,24 +296,46 @@ int init_port_mapper() {
   // All the rest is moved away from here and into the init
   return 0;
 }
-void track_client_count(uint8_t *pkt, int from, int sz) {
+
+void drain_client_tracking() {
+  int i;
+  client_handle_track.regtime = 0;
+  client_handle_track.last_active = 0;
+  for (i = 0; i <32 ; i++) {
+    client_handle_track.services[i] = 0;
+  }
+}
+int track_client_count(uint8_t *pkt, int from, int sz) {
   int msglength;
+  // get_curr_timestamp
   /* mm -> dsp: 0x01 0x0f 0x00 0x00 0x00 0x00 0x00 0x02 0x22 0x00 0x04 0x00 0x01
    * 0x01 0x00 0x1a  */
   /* response: 0x01 0x17 0x00 0x80 0x00 0x00 0x01 0x02 0x22 0x00 0x0c 0x00 0x02
    * 0x04 0x00 0x00 0x00 0x00 0x00 0x01 0x02 0x00 0x1a 0x01 */
   if (pkt[0] != 0x01 || sz < 12 || pkt[9] != 0x00) {
     //  logger(MSG_WARN, "%s: Don't care about this packet\n", __func__);
-    return;
+    return 0;
   }
+
+
   switch (pkt[8]) {
   case 0x22:
     logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
-    msglength = pkt[10];
+    if (client_handle_track.regtime == 0) {
+      client_handle_track.regtime = get_curr_timestamp();
+    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 25000) {
+      //Needs a force reset
+     logger(MSG_WARN, "%s: It seems we need a reset \n", __func__ );
+     return 1;
+     //force_close_qmi();
+    }
+    msglength = pkt[10] + 10;
     switch (from) {
     case FROM_DSP:
       logger(MSG_WARN, "%s: Assigned instance ID 0x%.2x to service 0x%.2x \n",
-             __func__, pkt[msglength], pkt[msglength - 1]);
+             __func__, pkt[msglength+1], pkt[msglength]);
+      client_handle_track.services[client_handle_track.last_active] = pkt[msglength];
+      client_handle_track.last_active++;
       break;
     case FROM_HOST:
       if (pkt[10] == 0x04) {
@@ -342,33 +371,31 @@ void track_client_count(uint8_t *pkt, int from, int sz) {
   default:
     break;
   }
+  return 0;
 }
 
-void force_close_qmi() {
-  int service = 0;
-  int client_id = 0;
-  int ret;
-  struct qmi_device *qmidev;
-  struct timeval tv;
-  tv.tv_sec = 1;
-  tv.tv_usec = 0;
-  qmidev = calloc(1, sizeof(struct qmi_device));
-  struct msm_ipc_server_info ipc_port;
-
+void force_close_qmi(int fd) {
+  int transaction_id = 1;
+  int ret,i, instance;
+  uint8_t release_prototype[] = {0x01, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x23, 0x00, 0x05, 0x00, 0x01, 0x02, 0x00, 0x1a, 0x01};
   logger(MSG_WARN, "%s: Closing all active QMI connections\n", __func__);
-  ipc_port =
-      get_node_port(0, 0); // Get node port for control Service, _any_ instance
-  ret = open_ipc_socket(qmidev, ipc_port.service, ipc_port.instance,
-                        ipc_port.node_id, ipc_port.port_id,
-                        IPC_ROUTER_AT_ADDRTYPE);
-  if (ret < 0) {
-    logger(MSG_ERROR, "%s: Error opening socket \n", __func__);
-    return;
-  }
-  ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-  if (ret) {
-    logger(MSG_ERROR, "%s: Error setting socket options \n", __func__);
+  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
   }
 
-  close(qmidev->fd);
+  for (i = 0; i < client_handle_track.last_active; i++) {
+    for (instance = 0; instance <= 0x05; instance++ ) {
+      release_prototype[1] = transaction_id;
+      transaction_id++;
+      release_prototype[15] = client_handle_track.services[i];
+      release_prototype[16] = instance;
+
+      ret = write(fd, release_prototype, sizeof(release_prototype));
+      logger(MSG_WARN, "%s: Closing connection to service %.2x, instance %i, bytes written: %i \n", __func__, client_handle_track.services[i], instance, ret);
+    } 
+  }
+  drain_client_tracking();
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
+  }
 }

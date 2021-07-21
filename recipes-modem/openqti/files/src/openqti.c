@@ -36,6 +36,8 @@ int main(int argc, char **argv) {
 
   struct node_pair gps_nodes;
   struct node_pair rmnet_nodes;
+  // To track thread exits
+  void *retgps, *retrmnet, *retatfwd;
 
   /* Set the names */
   strncpy(gps_nodes.node1.name, "Modem GPS", sizeof("Modem GPS"));
@@ -163,7 +165,8 @@ int main(int argc, char **argv) {
 
   logger(MSG_DEBUG, "%s: Init: Setup default I2S Audio settings \n", __func__);
   if (set_audio_defaults() < 0) {
-    logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n", __func__);
+    logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
+           __func__);
   }
 
   logger(MSG_DEBUG, "%s: Switching to powersave mode\n", __func__);
@@ -198,10 +201,31 @@ int main(int argc, char **argv) {
      and reads the IPC socket in case there's a pending
      AT command to answer to */
   logger(MSG_WARN, "%s: Modem ready\n", __func__);
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+  pthread_join(gps_proxy_thread, &retgps);
+  pthread_join(rmnet_proxy_thread, &retrmnet);
+  pthread_join(atfwd_thread, &retatfwd);
+  if (retgps == 0 || retrmnet == 0 ||  retatfwd == 0) {
+    logger(MSG_WARN, "%s: One of our threads died, killing myself now!\n",
+           __func__);
+    // Close GPS nodes
+    close(gps_nodes.node1.fd);
+    close(gps_nodes.node2.fd);
 
-  pthread_join(gps_proxy_thread, NULL);
-  pthread_join(rmnet_proxy_thread, NULL);
-  pthread_join(atfwd_thread, NULL);
+    // Close RMNET nodes
+    close(rmnet_nodes.node2.fd);
+    close(rmnet_nodes.node1.fd);
+    flock(lockfile, LOCK_UN);
+    close(lockfile);
+    unlink(LOCKFILE);
+  /*  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
+    }*/
+    return 0;
+  }
+  /* If rmnet proxy thread dies, we should fork ourselves and exit here */
 
   // Close GPS nodes
   close(gps_nodes.node1.fd);
