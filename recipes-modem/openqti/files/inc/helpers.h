@@ -7,7 +7,7 @@
 
 int write_to(const char *path, const char *val, int flags);
 
-void *two_way_proxy(void *node_data);
+void *gps_proxy();
 void *rmnet_proxy(void *node_data);
 uint32_t get_curr_timestamp();
 

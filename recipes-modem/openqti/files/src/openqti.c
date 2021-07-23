@@ -34,14 +34,13 @@ int main(int argc, char **argv) {
   pthread_t rmnet_proxy_thread;
   pthread_t atfwd_thread;
 
-  struct node_pair gps_nodes;
   struct node_pair rmnet_nodes;
+  rmnet_nodes.allow_exit = false;
+
   // To track thread exits
   void *retgps, *retrmnet, *retatfwd;
 
-  /* Set the names */
-  strncpy(gps_nodes.node1.name, "Modem GPS", sizeof("Modem GPS"));
-  strncpy(gps_nodes.node2.name, "USB-GPS", sizeof("USB-GPS"));
+
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
@@ -175,20 +174,8 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
            __func__);
   }
-  gps_nodes.node1.fd = open(SMD_GPS, O_RDWR);
-  if (gps_nodes.node1.fd < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
-    return -EINVAL;
-  }
-
-  gps_nodes.node2.fd = open(USB_GPS, O_RDWR);
-  if (gps_nodes.node2.fd < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", USB_GPS);
-    return -EINVAL;
-  }
-
-  if ((ret = pthread_create(&gps_proxy_thread, NULL, &two_way_proxy,
-                            (void *)&gps_nodes))) {
+  if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy,
+                            NULL))) {
     logger(MSG_ERROR, "%s: Error creating GPS proxy thread\n", __func__);
   }
 
@@ -200,40 +187,12 @@ int main(int argc, char **argv) {
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
-  logger(MSG_WARN, "%s: Modem ready\n", __func__);
-  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
-  }
-  pthread_join(gps_proxy_thread, &retgps);
-  pthread_join(rmnet_proxy_thread, &retrmnet);
-  pthread_join(atfwd_thread, &retatfwd);
-  if (retgps == 0 || retrmnet == 0 ||  retatfwd == 0) {
-    logger(MSG_WARN, "%s: One of our threads died, killing myself now!\n",
-           __func__);
-    // Close GPS nodes
-    close(gps_nodes.node1.fd);
-    close(gps_nodes.node2.fd);
-
-    // Close RMNET nodes
-    close(rmnet_nodes.node2.fd);
-    close(rmnet_nodes.node1.fd);
-    flock(lockfile, LOCK_UN);
-    close(lockfile);
-    unlink(LOCKFILE);
-  /*  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-    }*/
-    return 0;
-  }
+  pthread_join(gps_proxy_thread, NULL);
+  pthread_join(rmnet_proxy_thread, NULL);
+  pthread_join(atfwd_thread, NULL);
   /* If rmnet proxy thread dies, we should fork ourselves and exit here */
 
-  // Close GPS nodes
-  close(gps_nodes.node1.fd);
-  close(gps_nodes.node2.fd);
 
-  // Close RMNET nodes
-  close(rmnet_nodes.node2.fd);
-  close(rmnet_nodes.node1.fd);
   flock(lockfile, LOCK_UN);
   close(lockfile);
   unlink(LOCKFILE);

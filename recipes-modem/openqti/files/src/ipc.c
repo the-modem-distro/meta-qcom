@@ -323,11 +323,16 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
     logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
     if (client_handle_track.regtime == 0) {
       client_handle_track.regtime = get_curr_timestamp();
-    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 25000) {
+    /*
+     * We need some headroom for mm/ofono here. Some services are registered
+     * only after the user has entered the PIN, so wait at least 240 seconds
+     * to trigger a client release. I'll make this better at some point when
+     * I find all the services triggered from the PIN entry
+     */
+    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 240000) {
       //Needs a force reset
      logger(MSG_WARN, "%s: It seems we need a reset \n", __func__ );
      return 1;
-     //force_close_qmi();
     }
     msglength = pkt[10] + 10;
     switch (from) {
@@ -351,41 +356,28 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
     }
     break;
   case 0x23:
-    logger(MSG_WARN, "%s: QMI Client Release request\n", __func__);
-    if (pkt[10] == 0x05) {
-      logger(MSG_WARN, "%s: Request for service 0x%.2x with instance 0x%.2x\n",
-             __func__, pkt[15], pkt[16]);
-    }
     switch (from) {
     case FROM_DSP:
       logger(MSG_WARN, "%s: QMI Client Release from DSP\n", __func__);
 
       break;
     case FROM_HOST:
-      logger(MSG_WARN, "%s: ModemManager/oFono request client release\n",
-             __func__);
-
+      logger(MSG_WARN, "%s: QMI Client Release from HOST\n", __func__);
       break;
     }
-    break;
-  default:
     break;
   }
   return 0;
 }
 
 void force_close_qmi(int fd) {
-  int transaction_id = 1;
+  int transaction_id = 0;
   int ret,i, instance;
   uint8_t release_prototype[] = {0x01, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x23, 0x00, 0x05, 0x00, 0x01, 0x02, 0x00, 0x1a, 0x01};
   logger(MSG_WARN, "%s: Closing all active QMI connections\n", __func__);
-  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-  }
-
   for (i = 0; i < client_handle_track.last_active; i++) {
     for (instance = 0; instance <= 0x05; instance++ ) {
-      release_prototype[1] = transaction_id;
+      release_prototype[7] = transaction_id;
       transaction_id++;
       release_prototype[15] = client_handle_track.services[i];
       release_prototype[16] = instance;
@@ -395,7 +387,4 @@ void force_close_qmi(int fd) {
     } 
   }
   drain_client_tracking();
-  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-  }
 }
