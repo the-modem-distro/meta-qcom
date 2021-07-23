@@ -608,6 +608,7 @@ void *start_atfwd_thread() {
   uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *at_qmi_dev;
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
+  logger(MSG_DEBUG, "%s: Initialize AT forwarding thread.\n", __func__);
   ret = init_atfwd(at_qmi_dev);
   if (ret < 0) {
     logger(MSG_ERROR, "%s: Error setting up ATFWD!\n", __func__);

@@ -37,3 +37,13 @@ do_install() {
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
     ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }
+
+#  If debugging, make sure you add '-l' to openqti command line inside inittab
+#  Otherwise remove it to not fill the ramdisk with garbage logs you are not 
+#  going to look at
+#
+# pkg_postinst_${PN}() {
+#    #!/bin/sh
+#    # echo "OQ:12345:respawn:/usr/bin/openqti -l" >> $D/etc/inittab
+#    echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab
+# }

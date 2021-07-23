@@ -55,6 +55,7 @@ struct node_def {
 struct node_pair {
   struct node_def node1;
   struct node_def node2;
+  bool allow_exit;
 };
 
 int start_audio(int type);

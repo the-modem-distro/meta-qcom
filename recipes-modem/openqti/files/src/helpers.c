@@ -2,13 +2,15 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
-#include "../inc/helpers.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
+#include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
@@ -24,17 +26,40 @@ int write_to(const char *path, const char *val, int flags) {
   return ret;
 }
 
-void *two_way_proxy(void *node_data) {
-  struct node_pair *nodes = (struct node_pair *)node_data;
+void *gps_proxy() {
+  struct node_pair *nodes;
+  nodes = calloc(1, sizeof(struct node_pair));
   int pret, ret;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
-  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name, nodes->node2.name);
-  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name, nodes->node2.name);
-
   while (1) {
+  logger(MSG_DEBUG, "%s: Initialize GPS proxy thread.\n", __func__);
+
+  /* Set the names */
+  strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
+  strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
+
+  nodes->node1.fd = open(SMD_GPS, O_RDWR);
+  if (nodes->node1.fd < 0) {
+    logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
+    return NULL;
+  }
+
+  nodes->node2.fd = open(USB_GPS, O_RDWR);
+  if (nodes->node2.fd < 0) {
+    logger(MSG_ERROR, "Error opening %s \n", USB_GPS);
+    return NULL;
+  }
+  nodes->allow_exit = false;
+
+  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
+           nodes->node2.name);
+  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
+           nodes->node2.name);
+
+  while (!nodes->allow_exit) {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(nodes->node1.fd, &readfds);
@@ -45,28 +70,42 @@ void *two_way_proxy(void *node_data) {
       if (ret > 0) {
         dump_packet(node1_to_2, buf, ret);
         ret = write(nodes->node2.fd, buf, ret);
+      } else {
+        logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n", __func__);
+        nodes->allow_exit = true;
       }
     } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
       ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         dump_packet(node2_to_1, buf, ret);
         ret = write(nodes->node1.fd, buf, ret);
+      } else {
+        logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n", __func__);
+        nodes->allow_exit = true;
       }
     }
+  }
+  logger(MSG_ERROR, "%s: One of the descriptors was closed, restarting the thread \n", __func__);
+  close(nodes->node1.fd);
+  close(nodes->node2.fd);
   }
 }
 
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;
   int pret, ret;
+  bool looped = true;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
-  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name, nodes->node2.name);
-  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name, nodes->node2.name);
+  logger(MSG_DEBUG, "%s: Initialize RMNET proxy thread.\n", __func__);
+  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
+           nodes->node2.name);
+  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
+           nodes->node2.name);
 
-  while (1) {
+  while (!nodes->allow_exit) {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(nodes->node1.fd, &readfds);
@@ -76,7 +115,10 @@ void *rmnet_proxy(void *node_data) {
       ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         handle_call_pkt(buf, FROM_HOST, ret);
-        track_client_count(buf, FROM_HOST, ret);
+        if (track_client_count(buf, FROM_HOST, ret)) {
+          force_close_qmi(nodes->node2.fd);
+          // nodes->allow_exit = true;
+        }
         dump_packet(node1_to_2, buf, ret);
         ret = write(nodes->node2.fd, buf, ret);
       }
@@ -84,10 +126,26 @@ void *rmnet_proxy(void *node_data) {
       ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         handle_call_pkt(buf, FROM_DSP, ret);
-        track_client_count(buf, FROM_DSP, ret);
+        if (track_client_count(buf, FROM_DSP, ret)) {
+          force_close_qmi(nodes->node2.fd);
+          // nodes->allow_exit = true;
+        }
         dump_packet(node2_to_1, buf, ret);
         ret = write(nodes->node1.fd, buf, ret);
       }
     }
   }
+
+  close(nodes->node1.fd);
+  close(nodes->node2.fd);
+  pthread_exit((void *)0);
+}
+
+uint32_t get_curr_timestamp() {
+  struct timeval te;
+  gettimeofday(&te, NULL); // get current time
+  uint32_t milliseconds =
+      te.tv_sec * 1000LL + te.tv_usec / 1000; // calculate milliseconds
+  // printf("milliseconds: %lld\n", milliseconds);
+  return milliseconds;
 }

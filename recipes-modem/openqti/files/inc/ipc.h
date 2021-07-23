@@ -228,14 +228,6 @@ struct server_lookup_args {
 #define CMD_GET_CLIENT_ID 0x0022
 #define CMD_RELEASE_CLIENT 0x00023
 
-struct client_handle_track {
-  uint8_t service;
-  uint8_t instance;
-  uint32_t regtime;
-  bool state;
-  bool active;
-};
-
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
                     unsigned char address_type);
@@ -246,8 +238,8 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance);
 int find_services();
 int init_port_mapper();
 int setup_ipc_security();
-void force_close_qmi();
-void track_client_count(uint8_t *pkt, int from, int sz);
+void force_close_qmi(int fd);
+int track_client_count(uint8_t *pkt, int from, int sz);
 /*
 
   char qmi_msg_01[] = { 0x00, 0x01, 0x00, 0x21, 0x00, 0x1c, 0x00, 0x10, 0x0d,
