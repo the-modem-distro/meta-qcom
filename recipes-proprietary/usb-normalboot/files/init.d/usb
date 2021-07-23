@@ -25,7 +25,13 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Starts the USB Android Gadget.
-export KERNEL=`uname -r`
+
+# Run adbcheck and store return value in adb_setting for use in shell script
+/usr/bin/adbcheck
+adb_setting=$(echo $?)
+
+KERNEL=$(uname -r) 
+export KERNEL
 
 case "$1" in
     start)
@@ -36,14 +42,14 @@ case "$1" in
         
         # get soc platform to update product related information
         if [ -f /sys/devices/soc0/hw_platform ]; then
-            socplatform=`cat /sys/devices/soc0/machine` 2> /dev/null
-            soc_hwplatform=`cat /sys/devices/soc0/hw_platform`
+            socplatform=$(cat /sys/devices/soc0/machine) 2> /dev/null
+            soc_hwplatform=$(cat /sys/devices/soc0/hw_platform)
         else
-            socplatform=`cat /sys/devices/system/soc/soc0/machine` 2> /dev/null
+            socplatform=$(cat /sys/devices/system/soc/soc0/machine) 2> /dev/null
         fi
         
         # find serialno from cmdline
-        cmdline=`cat /proc/cmdline` 2> /dev/null
+        cmdline=$(cat /proc/cmdline) 2> /dev/null
         strsearch="androidboot.serialno="
         if echo "$cmdline" | grep -q "$strsearch"; then
             startsearch=${cmdline#*$strsearch}
@@ -54,17 +60,17 @@ case "$1" in
             serialno="12345678"
         fi
         
-        msm_serial=`cat /sys/devices/soc0/serial_number`
-        msm_serial_hex=`printf %08X $msm_serial`
+        msm_serial=$(cat /sys/devices/soc0/serial_number)
+        msm_serial_hex=$(printf %08X "$msm_serial")
         product_string="$socplatform-$soc_hwplatform _SN:$msm_serial_hex"
         
         # try to mount configfs, and create instance of USB functions if it goes through
         mount -t configfs none /sys/kernel/config
         if [ -d /sys/kernel/config/usb_gadget ]; then
             echo "Configuring the USB gadget using ConfigFS..."
-            cd /sys/kernel/config/usb_gadget
+            cd /sys/kernel/config/usb_gadget || ! echo "Path '/sys/kernel/config/usb_gadget' not found"
             mkdir g1
-            cd g1
+            cd g1 || ! echo "Failed to create 'g1' in previous step"
             mkdir strings/0x409
             mkdir configs/b.1
             mkdir configs/b.1/strings/0x409
@@ -104,13 +110,19 @@ case "$1" in
         echo tty,smd,smd > /sys/class/android_usb/android0/f_serial/transports
         echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
         echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
-        echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
+        if [ "$adb_setting" = "0" ];
+        then 
+            echo diag,serial,rmnet > /sys/class/android_usb/android0/functions
+        else
+            echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
+        fi        
         echo 1 > /sys/class/android_usb/android0/remote_wakeup
         echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
         #sleep 10 # Wait 10 seconds here to give time to openqti to settle
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
         echo 1 > /sys/class/android_usb/android0/enable
+        fi    
     ;;
     
     stop)
@@ -126,4 +138,3 @@ case "$1" in
         exit 1
     ;;
 esac
-
