@@ -18,7 +18,7 @@
 #include "../inc/openqti.h"
 
 /* Used to keep track of the enabled USB composite configuration */
-int current_usb_mode = 0;
+int current_usb_mode = 1;
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
