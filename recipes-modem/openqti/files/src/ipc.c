@@ -309,7 +309,6 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
   if (pkt[0] != 0x01 || sz < 12 || pkt[9] != 0x00) {
     return 0;
   }
-
   switch (pkt[8]) {
   case 0x22:
     logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
@@ -324,6 +323,11 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
     } else if ((get_curr_timestamp() - client_handle_track.regtime) > 240000) {
       // Needs a force reset
       logger(MSG_WARN, "%s: It seems we need a reset \n", __func__);
+      return 1;
+    } else if (client_handle_track.last_active > 32) {
+      // Needs a force reset
+      logger(MSG_WARN, "%s: It seems we need a reset, too many clients \n",
+             __func__);
       return 1;
     }
     msglength = pkt[10] + 10;

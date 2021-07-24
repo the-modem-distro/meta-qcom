@@ -112,41 +112,61 @@ void *rmnet_proxy(void *node_data) {
            nodes->node2.name);
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
-
-  while (!nodes->allow_exit) {
-    FD_ZERO(&readfds);
-    memset(buf, 0, sizeof(buf));
-    FD_SET(nodes->node1.fd, &readfds);
-    FD_SET(nodes->node2.fd, &readfds);
-    pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-    if (FD_ISSET(nodes->node1.fd, &readfds)) {
-      ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        handle_call_pkt(buf, FROM_HOST, ret);
-        if (track_client_count(buf, FROM_HOST, ret)) {
-          force_close_qmi(nodes->node2.fd);
-          // nodes->allow_exit = true;
-        }
-        dump_packet(node1_to_2, buf, ret);
-        ret = write(nodes->node2.fd, buf, ret);
+  while (1) {
+    if (nodes->node1.fd < 0) {
+      nodes->node1.fd = open(RMNET_CTL, O_RDWR);
+      if (nodes->node1.fd < 0) {
+        logger(MSG_ERROR, "Error opening %s \n", RMNET_CTL);
       }
-    } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-      ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        handle_call_pkt(buf, FROM_DSP, ret);
-        if (track_client_count(buf, FROM_DSP, ret)) {
-          force_close_qmi(nodes->node2.fd);
-          // nodes->allow_exit = true;
+      if (nodes->node2.fd < 0) {
+        nodes->node2.fd = open(SMD_CNTL, O_RDWR);
+        if (nodes->node2.fd < 0) {
+          logger(MSG_ERROR, "Error opening %s \n", SMD_CNTL);
         }
-        dump_packet(node2_to_1, buf, ret);
-        ret = write(nodes->node1.fd, buf, ret);
       }
     }
-  }
+    if (nodes->node1.fd >= 0 && nodes->node2.fd >= 0) {
+      nodes->allow_exit = false;
+    } else {
+      logger(MSG_ERROR, "One of the descriptors isn't ready\n");
+      nodes->allow_exit = true;
+      sleep(2);
+    }
+    while (!nodes->allow_exit) {
+      FD_ZERO(&readfds);
+      memset(buf, 0, sizeof(buf));
+      FD_SET(nodes->node1.fd, &readfds);
+      FD_SET(nodes->node2.fd, &readfds);
+      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+      if (FD_ISSET(nodes->node1.fd, &readfds)) {
+        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          handle_call_pkt(buf, FROM_HOST, ret);
+          if (track_client_count(buf, FROM_HOST, ret)) {
+            force_close_qmi(nodes->node2.fd);
+            nodes->allow_exit = true;
+          }
+          dump_packet(node1_to_2, buf, ret);
+          ret = write(nodes->node2.fd, buf, ret);
+        }
+      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          handle_call_pkt(buf, FROM_DSP, ret);
+          if (track_client_count(buf, FROM_DSP, ret)) {
+            force_close_qmi(nodes->node2.fd);
+            nodes->allow_exit = true;
+          }
+          dump_packet(node2_to_1, buf, ret);
+          ret = write(nodes->node1.fd, buf, ret);
+        }
+      }
+    }
 
-  close(nodes->node1.fd);
-  close(nodes->node2.fd);
-  pthread_exit((void *)0);
+    close(nodes->node1.fd);
+    close(nodes->node2.fd);
+
+  }
 }
 
 uint32_t get_curr_timestamp() {
