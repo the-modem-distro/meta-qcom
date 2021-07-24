@@ -72,6 +72,26 @@ void set_next_fastboot_mode(int flag) {
   close(fd);
 }
 
+int is_adb_enabled() {
+  int fd;
+  char buff[32];
+  fd = open("/dev/mtdblock12", O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
+    return -EINVAL;
+  }
+  lseek(fd, 64, SEEK_SET);
+  read(fd, buff, sizeof(PERSIST_ADB_ON_MAGIC));
+  close(fd);
+  if (strcmp(buff, PERSIST_ADB_ON_MAGIC) == 0) {
+    logger(MSG_DEBUG, "%s: Persistent ADB is enabled\n", __func__);
+    return 1;
+  }
+
+  logger(MSG_DEBUG, "%s: Persistent ADB is disabled \n", __func__);
+  return 0;
+}
+
 void store_adb_setting(bool en) {
   char buff[32];
   int fd;
@@ -436,15 +456,15 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    switch_adb(true);
     store_adb_setting(true);
+    switch_adb(true);
     break;
   case 113: // ADB OFF // First respond to avoid locking the AT IF
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    switch_adb(false);
     store_adb_setting(false);
+    switch_adb(false);
     break;
   case 114:
     if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
