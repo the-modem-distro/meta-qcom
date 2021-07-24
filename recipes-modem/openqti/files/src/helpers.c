@@ -35,7 +35,7 @@ void *gps_proxy() {
   char node1_to_2[32];
   char node2_to_1[32];
   while (1) {
-    logger(MSG_DEBUG, "%s: Initialize GPS proxy thread.\n", __func__);
+    logger(MSG_ERROR, "%s: Initialize GPS proxy thread.\n", __func__);
 
     /* Set the names */
     strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
@@ -107,12 +107,12 @@ void *rmnet_proxy(void *node_data) {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
-  logger(MSG_DEBUG, "%s: Initialize RMNET proxy thread.\n", __func__);
   snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
            nodes->node2.name);
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
   while (1) {
+  logger(MSG_ERROR, "%s: Initialize RMNET proxy thread.\n", __func__);
     if (nodes->node1.fd < 0) {
       nodes->node1.fd = open(RMNET_CTL, O_RDWR);
       if (nodes->node1.fd < 0) {
@@ -144,10 +144,13 @@ void *rmnet_proxy(void *node_data) {
           handle_call_pkt(buf, FROM_HOST, ret);
           if (track_client_count(buf, FROM_HOST, ret)) {
             force_close_qmi(nodes->node2.fd);
-            nodes->allow_exit = true;
           }
           dump_packet(node1_to_2, buf, ret);
           ret = write(nodes->node2.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n",
+                 __func__);
+       //   nodes->allow_exit = true;
         }
       } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
         ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
@@ -155,14 +158,17 @@ void *rmnet_proxy(void *node_data) {
           handle_call_pkt(buf, FROM_DSP, ret);
           if (track_client_count(buf, FROM_DSP, ret)) {
             force_close_qmi(nodes->node2.fd);
-            nodes->allow_exit = true;
           }
           dump_packet(node2_to_1, buf, ret);
           ret = write(nodes->node1.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n",
+                 __func__);
+         // nodes->allow_exit = true;
         }
       }
     }
-
+    logger(MSG_ERROR, "We got out of the loop, restarting now.\n");
     close(nodes->node1.fd);
     close(nodes->node2.fd);
 

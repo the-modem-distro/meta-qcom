@@ -384,7 +384,8 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
 
 void force_close_qmi(int fd) {
   int transaction_id = 0;
-  int ret, i, instance;
+  int ret, i, instance, service;
+  bool nuke_everything = false;
   uint8_t release_prototype[] = {0x01, 0x10, 0x00, 0x00, 0x00, 0x00,
                                  0x00, 0x04, 0x23, 0x00, 0x05, 0x00,
                                  0x01, 0x02, 0x00, 0x1a, 0x01};
@@ -395,12 +396,33 @@ void force_close_qmi(int fd) {
       transaction_id++;
       release_prototype[15] = client_handle_track.services[i];
       release_prototype[16] = instance;
-
       ret = write(fd, release_prototype, sizeof(release_prototype));
       logger(MSG_DEBUG,
              "%s: Closing connection to service %.2x, instance %i, bytes "
              "written: %i \n",
              __func__, client_handle_track.services[i], instance, ret);
+    }
+  }
+  for (i = 0; i < 32; i++) {
+    if (client_handle_track.services[i] != 0) {
+      // There was some mismatch here so let's clean this mess
+      // to avoid problems
+      nuke_everything = true;
+    }
+  }
+  if (nuke_everything) {
+    for (service = 0xff; service >= 0x00; service--) {
+          for (instance = 0; instance <= 0x05; instance++) {
+      release_prototype[7] = transaction_id;
+      transaction_id++;
+      release_prototype[15] = service;
+      release_prototype[16] = instance;
+      ret = write(fd, release_prototype, sizeof(release_prototype));
+      logger(MSG_ERROR,
+             "%s: Nuke connection to service %.2x, instance %i, bytes "
+             "written: %i \n",
+             __func__, client_handle_track.services[i], instance, ret);
+    }
     }
   }
   drain_client_tracking();
