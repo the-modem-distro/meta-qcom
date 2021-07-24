@@ -619,6 +619,10 @@ int init_atfwd(struct qmi_device *qmidev) {
     free(atcmd);
   }
   atcmd = NULL;
+
+  if (!is_adb_enabled()) {
+    current_usb_mode = 1;
+  }
   return 0;
 }
 
