@@ -35,59 +35,67 @@ void *gps_proxy() {
   char node1_to_2[32];
   char node2_to_1[32];
   while (1) {
-  logger(MSG_DEBUG, "%s: Initialize GPS proxy thread.\n", __func__);
+    logger(MSG_DEBUG, "%s: Initialize GPS proxy thread.\n", __func__);
 
-  /* Set the names */
-  strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
-  strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
+    /* Set the names */
+    strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
+    strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
+    snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
+             nodes->node2.name);
+    snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
+             nodes->node2.name);
 
-  nodes->node1.fd = open(SMD_GPS, O_RDWR);
-  if (nodes->node1.fd < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
-    return NULL;
-  }
+    nodes->node1.fd = open(SMD_GPS, O_RDWR);
+    if (nodes->node1.fd < 0) {
+      logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
+    }
 
-  nodes->node2.fd = open(USB_GPS, O_RDWR);
-  if (nodes->node2.fd < 0) {
-    logger(MSG_ERROR, "Error opening %s \n", USB_GPS);
-    return NULL;
-  }
-  nodes->allow_exit = false;
+    nodes->node2.fd = open(USB_GPS, O_RDWR);
+    if (nodes->node2.fd < 0) {
+      logger(MSG_ERROR, "Error opening %s \n", USB_GPS);
+    }
 
-  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
-           nodes->node2.name);
-  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
-           nodes->node2.name);
+    if (nodes->node1.fd >= 0 && nodes->node2.fd >= 0) {
+      nodes->allow_exit = false;
+    } else {
+      logger(MSG_ERROR, "One of the descriptors isn't ready\n");
+      nodes->allow_exit = true;
+      sleep(2);
+    }
 
-  while (!nodes->allow_exit) {
-    FD_ZERO(&readfds);
-    memset(buf, 0, sizeof(buf));
-    FD_SET(nodes->node1.fd, &readfds);
-    FD_SET(nodes->node2.fd, &readfds);
-    pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-    if (FD_ISSET(nodes->node1.fd, &readfds)) {
-      ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        dump_packet(node1_to_2, buf, ret);
-        ret = write(nodes->node2.fd, buf, ret);
-      } else {
-        logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n", __func__);
-        nodes->allow_exit = true;
-      }
-    } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-      ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        dump_packet(node2_to_1, buf, ret);
-        ret = write(nodes->node1.fd, buf, ret);
-      } else {
-        logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n", __func__);
-        nodes->allow_exit = true;
+    while (!nodes->allow_exit) {
+      FD_ZERO(&readfds);
+      memset(buf, 0, sizeof(buf));
+      FD_SET(nodes->node1.fd, &readfds);
+      FD_SET(nodes->node2.fd, &readfds);
+      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+      if (FD_ISSET(nodes->node1.fd, &readfds)) {
+        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          dump_packet(node1_to_2, buf, ret);
+          ret = write(nodes->node2.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n",
+                 __func__);
+          nodes->allow_exit = true;
+        }
+      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          dump_packet(node2_to_1, buf, ret);
+          ret = write(nodes->node1.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n",
+                 __func__);
+          nodes->allow_exit = true;
+        }
       }
     }
-  }
-  logger(MSG_ERROR, "%s: One of the descriptors was closed, restarting the thread \n", __func__);
-  close(nodes->node1.fd);
-  close(nodes->node2.fd);
+    logger(MSG_ERROR,
+           "%s: One of the descriptors was closed, restarting the thread \n",
+           __func__);
+    close(nodes->node1.fd);
+    close(nodes->node2.fd);
   }
 }
 

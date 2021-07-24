@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
   // To track thread exits
   void *retgps, *retrmnet, *retatfwd;
 
-
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
@@ -174,8 +173,7 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
            __func__);
   }
-  if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy,
-                            NULL))) {
+  if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy, NULL))) {
     logger(MSG_ERROR, "%s: Error creating GPS proxy thread\n", __func__);
   }
 
@@ -191,7 +189,6 @@ int main(int argc, char **argv) {
   pthread_join(rmnet_proxy_thread, NULL);
   pthread_join(atfwd_thread, NULL);
   /* If rmnet proxy thread dies, we should fork ourselves and exit here */
-
 
   flock(lockfile, LOCK_UN);
   close(lockfile);
