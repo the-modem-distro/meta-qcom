@@ -529,9 +529,6 @@ struct at_command_simple_reply {
 } __attribute__((packed));
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf);
-void set_next_fastboot_mode(int flag);
-void store_adb_setting(bool en);
-void switch_adb(bool en);
 int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
                       uint8_t format, uint8_t sample, uint8_t num_slots,
                       uint8_t slot);

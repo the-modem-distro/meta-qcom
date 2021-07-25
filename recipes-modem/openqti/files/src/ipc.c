@@ -310,18 +310,23 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
     return 0;
   }
   switch (pkt[8]) {
-  case 0x22:
+  case CLIENT_REGISTER_REQ:
     logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
     if (client_handle_track.regtime == 0) {
       client_handle_track.regtime = get_curr_timestamp();
+    } else if (pkt[msglength] == 0x01) {
+      /* This service is registered twice (instance ID 0x02 and 0x03) 
+         after entering the PIN code. We will just let this pass, since 
+         the user might forget to enter the code just after it has booted 
+         and we don't want to punish anyone here for taking too long */
+      logger(MSG_DEBUG, "%s: Registered to service 0x01... \n", __func__);
+    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 240000) {
       /*
        * We need some headroom for mm/ofono here. Some services are registered
        * only after the user has entered the PIN, so wait at least 240 seconds
        * to trigger a client release. I'll make this better at some point when
        * I find all the services triggered from the PIN entry
        */
-    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 240000) {
-      // Needs a force reset
       logger(MSG_WARN, "%s: It seems we need a reset \n", __func__);
       return 1;
     } else if (client_handle_track.last_active > 32) {
@@ -352,13 +357,10 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
       break;
     }
     break;
-  case 0x23:
-    switch (from) {
-    case FROM_DSP:
-      logger(MSG_WARN, "%s: QMI Client Release from DSP\n", __func__);
-      break;
-    case FROM_HOST:
-      /* If the host removes a port free it too */
+  case CLIENT_RELEASE_REQ:
+    /* This should be normal behaviour, where the host releases itself
+       from the modem without issues */
+    if (from == FROM_HOST) {
       logger(MSG_WARN,
              "%s: QMI Client Release from HOST,S:%.2x I:%.2x, AC:%i \n",
              __func__, pkt[15], pkt[16], client_handle_track.last_active);
@@ -375,54 +377,39 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
           }
         }
       }
-      break;
     }
     break;
   }
   return 0;
 }
 
+/*
+ * This function will loop through all services, connected or not
+ * and will send a release request. It doesn't matter if it fails
+ * in some service because there was nothing attached to it, we 
+ * just need to drain the ADSP, so if there's something we didn't
+ * catch before we'll kill it anyway here. 
+ *
+ */
 void force_close_qmi(int fd) {
   int transaction_id = 0;
   int ret, i, instance, service;
-  bool nuke_everything = false;
   uint8_t release_prototype[] = {0x01, 0x10, 0x00, 0x00, 0x00, 0x00,
                                  0x00, 0x04, 0x23, 0x00, 0x05, 0x00,
                                  0x01, 0x02, 0x00, 0x1a, 0x01};
-  logger(MSG_WARN, "%s: Closing all active QMI connections\n", __func__);
-  for (i = 0; i < client_handle_track.last_active; i++) {
+  logger(MSG_WARN, "%s: Wiping any registered client to any instance\n",
+         __func__);
+  for (service = 0xff; service >= 0x00; service--) {
     for (instance = 0; instance <= 0x05; instance++) {
       release_prototype[7] = transaction_id;
-      transaction_id++;
-      release_prototype[15] = client_handle_track.services[i];
+      release_prototype[15] = service;
       release_prototype[16] = instance;
       ret = write(fd, release_prototype, sizeof(release_prototype));
       logger(MSG_DEBUG,
              "%s: Closing connection to service %.2x, instance %i, bytes "
              "written: %i \n",
              __func__, client_handle_track.services[i], instance, ret);
-    }
-  }
-  for (i = 0; i < 32; i++) {
-    if (client_handle_track.services[i] != 0) {
-      // There was some mismatch here so let's clean this mess
-      // to avoid problems
-      nuke_everything = true;
-    }
-  }
-  if (nuke_everything) {
-    for (service = 0xff; service >= 0x00; service--) {
-          for (instance = 0; instance <= 0x05; instance++) {
-      release_prototype[7] = transaction_id;
       transaction_id++;
-      release_prototype[15] = service;
-      release_prototype[16] = instance;
-      ret = write(fd, release_prototype, sizeof(release_prototype));
-      logger(MSG_ERROR,
-             "%s: Nuke connection to service %.2x, instance %i, bytes "
-             "written: %i \n",
-             __func__, client_handle_track.services[i], instance, ret);
-    }
     }
   }
   drain_client_tracking();

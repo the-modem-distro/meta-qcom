@@ -40,7 +40,8 @@
 #define IRSC_INSTANCE_ALL 4294967295
 
 // Client release command request
-#define QMI_MESSAGE_CTL_RELEASE_CID 0x0023
+#define CLIENT_REGISTER_REQ 0x22
+#define CLIENT_RELEASE_REQ 0x23
 
 struct irsc_rule {
   int rl_no;
@@ -222,11 +223,6 @@ struct server_lookup_args {
   uint32_t lookup_mask;
   struct msm_ipc_server_info srv_info[0];
 };
-
-#define CMD_SET_INSTANCE_ID 0x0020
-#define CMD_GET_VERSION_INFO 0x0021
-#define CMD_GET_CLIENT_ID 0x0022
-#define CMD_RELEASE_CLIENT 0x00023
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
