@@ -25,11 +25,6 @@ do_install() {
       install -d ${D}/firmware/image
       install -d ${D}/lib/firmware
 
-      # We might as well make the data directory
-      install -d ${D}/data_swap
-      install -d ${D}/data
-      install -d ${D}/cache
-
       install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
 
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S11find_partitions.sh

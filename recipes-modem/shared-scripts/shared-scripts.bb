@@ -22,11 +22,6 @@ do_install() {
       install -d ${D}/etc/rcS.d
       install -d ${D}/bin
 
-      # We might as well make the data directory
-      install -d ${D}/data_swap
-      install -d ${D}/data
-      install -d ${D}/cache
-
       install -m 0755 ${S}/adbd ${D}/etc/init.d/
       install -m 0755  ${S}/recoverymount ${D}/bin
       install -m 0755  ${S}/rootfsmount ${D}/bin
