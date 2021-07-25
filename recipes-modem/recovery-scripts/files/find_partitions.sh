@@ -44,10 +44,5 @@ if [ ! -d /firmware ];then
 	 mkdir -p /firmware
  	 mount -o remount,ro /
 fi
-# Attach the modem (11) and data (14) ubifs
-ubiattach -m 11 -d 1 /dev/ubi_ctrl
-# ubiattach -m 14 -d 2 /dev/ubi_ctrl
-sleep 1
-mount -t ubifs -o ro /dev/ubi1_0 /firmware
-# mount -t ubifs /dev/ubi2_0 /persist
+
 mount -t tmpfs -o size=8m tmpfs /data
