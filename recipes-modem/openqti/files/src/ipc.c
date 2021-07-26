@@ -296,46 +296,48 @@ int init_port_mapper() {
   return 0;
 }
 
-void drain_client_tracking() {
+int get_num_instances_for_service(int service) {
   int i;
-  client_handle_track.regtime = 0;
-  client_handle_track.last_active = 0;
+  int svcs = 0;
   for (i = 0; i < 32; i++) {
-    client_handle_track.services[i] = 0;
+    if (service == client_handle_track.services[i]) {
+      svcs++;
+    }
   }
+  return svcs;
 }
-int track_client_count(uint8_t *pkt, int from, int sz) {
+
+int track_client_count(uint8_t *pkt, int from, int sz, int fd) {
   int msglength, i;
   if (pkt[0] != 0x01 || sz < 12 || pkt[9] != 0x00) {
     return 0;
   }
   switch (pkt[8]) {
   case CLIENT_REGISTER_REQ:
-    logger(MSG_WARN, "%s: QMI Register client request\n", __func__);
+    msglength = pkt[10] + 10;
+
+    logger(MSG_DEBUG, "%s: QMI Register client request\n", __func__);
     if (client_handle_track.regtime == 0) {
       client_handle_track.regtime = get_curr_timestamp();
-    } else if (pkt[msglength] == 0x01) {
-      /* This service is registered twice (instance ID 0x02 and 0x03) 
-         after entering the PIN code. We will just let this pass, since 
-         the user might forget to enter the code just after it has booted 
-         and we don't want to punish anyone here for taking too long */
-      logger(MSG_DEBUG, "%s: Registered to service 0x01... \n", __func__);
-    } else if ((get_curr_timestamp() - client_handle_track.regtime) > 240000) {
-      /*
-       * We need some headroom for mm/ofono here. Some services are registered
-       * only after the user has entered the PIN, so wait at least 240 seconds
-       * to trigger a client release. I'll make this better at some point when
-       * I find all the services triggered from the PIN entry
-       */
-      logger(MSG_WARN, "%s: It seems we need a reset \n", __func__);
-      return 1;
-    } else if (client_handle_track.last_active > 32) {
-      // Needs a force reset
-      logger(MSG_WARN, "%s: It seems we need a reset, too many clients \n",
+    } else if (pkt[msglength] == 0x01 &&
+               get_num_instances_for_service(0x01) <
+                   5) { // Probably should add 0x09 too
+      /* This service is registered twice (instance ID 0x02 and 0x03)
+        after entering the PIN code. We will just let this pass, since
+        the user might forget to enter the code just after it has booted
+        and we don't want to punish anyone here for taking too long */
+      client_handle_track.regtime = get_curr_timestamp();
+      logger(MSG_WARN, "%s: Registered to service 0x01... PIN entry? \n",
              __func__);
-      return 1;
+    } else if (pkt[msglength] == 0x1a && client_handle_track.last_active > 2) {
+      logger(MSG_WARN, "%s: New client request when timed out, resetting... \n",
+             __func__);
+      force_close_qmi(fd);
+    } else if (client_handle_track.last_active > 32) {
+      logger(MSG_WARN, "%s: Too many clients, resetting... \n", __func__);
+      force_close_qmi(fd);
     }
-    msglength = pkt[10] + 10;
+
     switch (from) {
     case FROM_DSP:
       logger(MSG_WARN, "%s: Assigned instance ID 0x%.2x to service 0x%.2x \n",
@@ -343,6 +345,8 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
       client_handle_track.services[client_handle_track.last_active] =
           pkt[msglength];
       client_handle_track.last_active++;
+      client_handle_track.regtime = get_curr_timestamp();
+
       break;
     case FROM_HOST:
       if (pkt[10] == 0x04) {
@@ -350,16 +354,18 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
                __func__, pkt[15]);
 
       } else if (pkt[10] == 0x05) {
-        logger(MSG_WARN,
-               "%s: Request for service 0x%.2x with instance 0x%.2x\n",
-               __func__, pkt[15], pkt[16]);
+        logger(
+            MSG_WARN,
+            "%s: Request for service 0x%.2x with specific instance ID 0x%.2x\n",
+            __func__, pkt[15], pkt[16]);
       }
+      client_handle_track.regtime = get_curr_timestamp();
       break;
     }
     break;
   case CLIENT_RELEASE_REQ:
     /* This should be normal behaviour, where the host releases itself
-       from the modem without issues */
+      from the modem without issues */
     if (from == FROM_HOST) {
       logger(MSG_WARN,
              "%s: QMI Client Release from HOST,S:%.2x I:%.2x, AC:%i \n",
@@ -374,6 +380,8 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
                    __func__);
             client_handle_track.last_active = 0;
             client_handle_track.regtime = 0;
+          } else {
+            client_handle_track.regtime = get_curr_timestamp();
           }
         }
       }
@@ -386,10 +394,9 @@ int track_client_count(uint8_t *pkt, int from, int sz) {
 /*
  * This function will loop through all services, connected or not
  * and will send a release request. It doesn't matter if it fails
- * in some service because there was nothing attached to it, we 
+ * in some service because there was nothing attached to it, we
  * just need to drain the ADSP, so if there's something we didn't
- * catch before we'll kill it anyway here. 
- *
+ * catch before we'll kill it anyway here.
  */
 void force_close_qmi(int fd) {
   int transaction_id = 0;
@@ -412,5 +419,10 @@ void force_close_qmi(int fd) {
       transaction_id++;
     }
   }
-  drain_client_tracking();
+
+  client_handle_track.regtime = 0;
+  client_handle_track.last_active = 0;
+  for (i = 0; i < 32; i++) {
+    client_handle_track.services[i] = 0;
+  }
 }

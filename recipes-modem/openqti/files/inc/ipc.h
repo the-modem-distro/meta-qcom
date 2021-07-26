@@ -42,7 +42,7 @@
 // Client release command request
 #define CLIENT_REGISTER_REQ 0x22
 #define CLIENT_RELEASE_REQ 0x23
-
+#define CLIENT_REG_TIMEOUT 2400000
 struct irsc_rule {
   int rl_no;
   uint32_t service;
@@ -234,8 +234,10 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance);
 int find_services();
 int init_port_mapper();
 int setup_ipc_security();
+int get_num_instances_for_service(int service);
 void force_close_qmi(int fd);
-int track_client_count(uint8_t *pkt, int from, int sz);
+int track_client_count(uint8_t *pkt, int from, int sz, int fd);
+
 /*
 
   char qmi_msg_01[] = { 0x00, 0x01, 0x00, 0x21, 0x00, 0x1c, 0x00, 0x10, 0x0d,
