@@ -11,8 +11,8 @@ static const struct {
 } usb_modes[] = {
     {true, "tty,smd,smd", "diag,serial,rmnet,ffs"},       // With ADB
     {false, "tty,smd,smd", "diag,serial,rmnet"},          // Without ADB
-    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,audio"}, // USB audio + ADB
-    {false, "tty,smd,smd", "diag,serial,rmnet,audio"}, // USB audio without ADB
+    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,uac2_func"}, // USB audio + ADB (uac2)
+    {false, "tty,smd,smd", "diag,serial,rmnet,uac2_func"}, // USB audio without ADB (uac2)
 };
 #define PERSIST_ADB_ON_MAGIC "persistent_adb_on"
 #define PERSIST_ADB_OFF_MAGIC "persistent_adb_off"
