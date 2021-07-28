@@ -307,7 +307,7 @@ int get_num_instances_for_service(int service) {
   return svcs;
 }
 
-int track_client_count(uint8_t *pkt, int from, int sz, int fd) {
+int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
   int msglength, i;
   if (pkt[0] != 0x01 || sz < 12 || pkt[9] != 0x00) {
     return 0;
@@ -329,13 +329,16 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd) {
       client_handle_track.regtime = get_curr_timestamp();
       logger(MSG_WARN, "%s: Registered to service 0x01... PIN entry? \n",
              __func__);
-    } else if (pkt[msglength] == 0x1a && client_handle_track.last_active > 2) {
+    } else if (pkt[msglength] == 0x1a && client_handle_track.last_active > 0) {
       logger(MSG_WARN, "%s: New client request when timed out, resetting... \n",
              __func__);
       force_close_qmi(fd);
+      send_rmnet_ioctls(rmnet_fd);
     } else if (client_handle_track.last_active > 32) {
       logger(MSG_WARN, "%s: Too many clients, resetting... \n", __func__);
       force_close_qmi(fd);
+       send_rmnet_ioctls(rmnet_fd);
+
     }
 
     switch (from) {
@@ -391,6 +394,23 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd) {
   return 0;
 }
 
+void send_rmnet_ioctls(int fd) {
+  int ret, linestate;
+  ret = ioctl(fd, GET_LINE_STATE, &linestate);
+  if (ret < 0)
+    logger(MSG_ERROR, "%s: Error getting line state  %i, %i \n", __func__,
+           linestate, ret);
+
+  // Set modem OFFLINE AND ONLINE
+  ret = ioctl(fd, MODEM_OFFLINE);
+  if (ret < 0)
+    logger(MSG_ERROR, "%s: Set modem offline: %i \n", __func__, ret);
+
+  ret = ioctl(fd, MODEM_ONLINE);
+  if (ret < 0)
+    logger(MSG_ERROR, "%s: Set modem online: %i \n", __func__, ret);
+
+}
 /*
  * This function will loop through all services, connected or not
  * and will send a release request. It doesn't matter if it fails
@@ -404,6 +424,15 @@ void force_close_qmi(int fd) {
   uint8_t release_prototype[] = {0x01, 0x10, 0x00, 0x00, 0x00, 0x00,
                                  0x00, 0x04, 0x23, 0x00, 0x05, 0x00,
                                  0x01, 0x02, 0x00, 0x1a, 0x01};
+  /* TEST */
+  fd_set readfds;
+  uint8_t buf[MAX_PACKET_SIZE];
+  bool is_drained = false;
+  struct timeval tv;
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+
+  /* TEST */
   logger(MSG_WARN, "%s: Wiping any registered client to any instance\n",
          __func__);
   for (service = 0xff; service >= 0x00; service--) {
@@ -420,9 +449,22 @@ void force_close_qmi(int fd) {
     }
   }
 
+  while (!is_drained) {
+    FD_ZERO(&readfds);
+    memset(buf, 0, sizeof(buf));
+    FD_SET(fd, &readfds);
+    ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+    if (FD_ISSET(fd, &readfds)) {
+      ret = read(fd, &buf, MAX_PACKET_SIZE); // and don't do anything with it
+    } else {
+      is_drained = true;
+    }
+  }
   client_handle_track.regtime = 0;
   client_handle_track.last_active = 0;
   for (i = 0; i < 32; i++) {
     client_handle_track.services[i] = 0;
   }
+
+  sleep(1);
 }

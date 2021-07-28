@@ -236,7 +236,8 @@ int init_port_mapper();
 int setup_ipc_security();
 int get_num_instances_for_service(int service);
 void force_close_qmi(int fd);
-int track_client_count(uint8_t *pkt, int from, int sz, int fd);
+void send_rmnet_ioctls(int fd);
+int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd);
 
 /*
 

@@ -167,12 +167,7 @@ int main(int argc, char **argv) {
            __func__);
   }
 
-  logger(MSG_DEBUG, "%s: Switching to powersave mode\n", __func__);
 
-  if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
-           __func__);
-  }
   if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy, NULL))) {
     logger(MSG_ERROR, "%s: Error creating GPS proxy thread\n", __func__);
   }
@@ -182,6 +177,11 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
+  logger(MSG_DEBUG, "%s: Switching to powersave mode\n", __func__);
+  if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
+           __func__);
+  }
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
