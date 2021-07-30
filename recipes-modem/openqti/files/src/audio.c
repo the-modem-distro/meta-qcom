@@ -4,6 +4,7 @@
 #include <sys/ioctl.h>
 
 #include "../inc/audio.h"
+#include "../inc/atfwd.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
@@ -13,6 +14,7 @@ struct pcm *pcm_tx;
 struct pcm *pcm_rx;
 uint8_t current_call_state;
 uint8_t volte_hd_audio_mode = 0;
+bool usb_audio_state = false;
 
 void set_auxpcm_sampling_rate(uint8_t mode) {
   volte_hd_audio_mode = mode;
@@ -171,6 +173,41 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
   return 0;
 }
 
+void config_mixer_mode(struct mixer *mixer, bool usbaud, bool volte, int state)
+{
+    if (usbaud) {
+        if (volte) {
+            set_mixer_ctl(mixer, AFETX_VOLTE, state);
+            set_mixer_ctl(mixer, AFERX_VOLTE, state);
+        } else {
+            set_mixer_ctl(mixer, AFETX_VOICE, state);
+            set_mixer_ctl(mixer, AFERX_VOICE, state);
+        }
+
+    } else {
+        if (volte) {
+            set_mixer_ctl(mixer, TXCTL_VOLTE, state);
+            set_mixer_ctl(mixer, RXCTL_VOLTE, state);
+        } else {
+            set_mixer_ctl(mixer, TXCTL_VOICE, state);
+            set_mixer_ctl(mixer, RXCTL_VOICE, state);
+        }
+    }
+}
+
+void config_mixer(struct mixer *mixer, bool volte, int state)
+{
+    /* Did the USB audio state change? (after EN_USBAUD or DIS_USBAUD) */
+    if (usb_audio_state != (current_usb_mode & USBMODE_USBAUD)) {
+        /* Disable Voice & VoLTE mixer of old audio state */
+        config_mixer_mode(mixer, usb_audio_state, true, 0);
+        config_mixer_mode(mixer, usb_audio_state, false, 0);
+        usb_audio_state = (current_usb_mode & USBMODE_USBAUD);
+    }
+
+    config_mixer_mode(mixer, usb_audio_state, volte, state);
+}
+
 int stop_audio() {
   if (current_call_state == 0) {
     logger(MSG_ERROR, "%s: No call in progress \n", __func__);
@@ -192,11 +229,9 @@ int stop_audio() {
 
   // We close all the mixers
   if (current_call_state == 1) {
-    set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+    config_mixer(mixer, false, 0);
   } else if (current_call_state == 2) {
-    set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+    config_mixer(mixer, true, 0);
   }
 
   mixer_close(mixer);
@@ -231,14 +266,12 @@ int start_audio(int type) {
   switch (type) {
   case 1:
     logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
-    set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
+    config_mixer(mixer, false, 1);
     strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
     break;
   case 2:
     logger(MSG_DEBUG, "Call in progress: VoLTE\n");
-    set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
+    config_mixer(mixer, true, 1);
     strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
     break;
   default:

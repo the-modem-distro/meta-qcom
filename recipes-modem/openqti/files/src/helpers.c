@@ -15,6 +15,11 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 
+#define PERSISTENT_ADB_OFFSET (0x40)
+#define PERSISTENT_USBAUD_OFFSET (0x60)
+#define PERSISTENT_FASTBOOT_OFFSET (0x20000)
+
+
 int write_to(const char *path, const char *val, int flags) {
   int ret;
   int fd = open(path, flags);
@@ -34,17 +39,48 @@ uint32_t get_curr_timestamp() {
   return milliseconds;
 }
 
-int is_adb_enabled() {
-  int fd;
-  char buff[32];
+int persistent_get(uint32_t offset, uint32_t size, uint8_t *outbuf)
+{
+  int fd = -1;
+
   fd = open("/dev/mtdblock12", O_RDONLY);
   if (fd < 0) {
     logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
     return -EINVAL;
   }
-  lseek(fd, 64, SEEK_SET);
-  read(fd, buff, sizeof(PERSIST_ADB_ON_MAGIC));
+
+  lseek(fd, offset, SEEK_SET);
+  read(fd, outbuf, size);
   close(fd);
+
+  return 0;
+}
+
+int persistent_set(uint32_t offset, uint32_t size, uint8_t *buf)
+{
+  int fd = -1;
+
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening misc partition to set adb flag \n",
+           __func__);
+    return -EINVAL;
+  }
+
+  lseek(fd, offset, SEEK_SET);
+  write(fd, buf, size);
+  close(fd);
+
+  return 0;
+}
+
+int is_adb_enabled() {
+  char buff[32] = {0};
+
+  if (persistent_get(PERSISTENT_ADB_OFFSET, sizeof(buff), buff)) {
+    return -EINVAL;
+  }
+
   if (strcmp(buff, PERSIST_ADB_ON_MAGIC) == 0) {
     logger(MSG_DEBUG, "%s: Persistent ADB is enabled\n", __func__);
     return 1;
@@ -56,7 +92,7 @@ int is_adb_enabled() {
 
 void store_adb_setting(bool en) {
   char buff[32];
-  int fd;
+
   if (en) { // Store the magic string in the second block of the misc partition
     logger(MSG_WARN, "Enabling persistent ADB\n");
     strncpy(buff, PERSIST_ADB_ON_MAGIC, sizeof(PERSIST_ADB_ON_MAGIC));
@@ -64,22 +100,45 @@ void store_adb_setting(bool en) {
     logger(MSG_WARN, "Disabling persistent ADB\n");
     strncpy(buff, PERSIST_ADB_OFF_MAGIC, sizeof(PERSIST_ADB_OFF_MAGIC));
   }
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening misc partition to set adb flag \n",
-           __func__);
-    return;
+
+  persistent_set(PERSISTENT_ADB_OFFSET, sizeof(buff), buff);
+}
+
+int is_usbaud_enabled() {
+  uint8_t buff[32];
+
+  if (persistent_get(PERSISTENT_USBAUD_OFFSET, sizeof(buff), buff)) {
+    return -EINVAL;
   }
-  lseek(fd, 64, SEEK_SET);
-  write(fd, &buff, sizeof(buff));
-  close(fd);
+
+  if (strcmp(buff, PERSIST_USBAUD_ON_MAGIC) == 0) {
+    logger(MSG_DEBUG, "%s: Persistent USBAUD is enabled\n", __func__);
+    return 1;
+  }
+
+  logger(MSG_DEBUG, "%s: Persistent USBAUD is disabled \n", __func__);
+  return 0;
+}
+
+void store_usbaud_setting(bool en) {
+  char buff[32];
+
+  if (en) {
+    logger(MSG_WARN, "Enabling persistent USBAUD\n");
+    strncpy(buff, PERSIST_USBAUD_ON_MAGIC, sizeof(PERSIST_USBAUD_ON_MAGIC));
+  } else {
+    logger(MSG_WARN, "Disabling persistent USBAUD\n");
+    strncpy(buff, PERSIST_USBAUD_OFF_MAGIC, sizeof(PERSIST_USBAUD_OFF_MAGIC));
+  }
+
+  persistent_set(PERSISTENT_USBAUD_OFFSET, sizeof(buff), buff);
 }
 
 void set_next_fastboot_mode(int flag) {
   struct fastboot_command fbcmd;
   void *tmpbuff;
   tmpbuff = calloc(64, sizeof(char));
-  int fd;
+
   if (flag == 0) { // Reboot to fastboot mode
     strncpy(fbcmd.command, "boot_fastboot", sizeof(fbcmd.command));
     strncpy(fbcmd.status, "force", sizeof(fbcmd.status));
@@ -87,17 +146,8 @@ void set_next_fastboot_mode(int flag) {
     strncpy(fbcmd.command, "boot_recovery", sizeof(fbcmd.command));
     strncpy(fbcmd.status, "force", sizeof(fbcmd.status));
   }
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR,
-           "%s: Error opening misc partition to set reboot flag %i \n",
-           __func__, flag);
-    return;
-  }
-  lseek(fd, 131072, SEEK_SET);
-  tmpbuff = &fbcmd;
-  write(fd, (void *)tmpbuff, sizeof(fbcmd));
-  close(fd);
+
+  persistent_set(PERSISTENT_FASTBOOT_OFFSET, sizeof(fbcmd), tmpbuff);
 }
 
 void *gps_proxy() {

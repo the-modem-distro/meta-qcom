@@ -11,11 +11,21 @@ static const struct {
 } usb_modes[] = {
     {true, "tty,smd,smd", "diag,serial,rmnet,ffs"},       // With ADB
     {false, "tty,smd,smd", "diag,serial,rmnet"},          // Without ADB
-    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,uac2_func"}, // USB audio + ADB (uac2)
-    {false, "tty,smd,smd", "diag,serial,rmnet,uac2_func"}, // USB audio without ADB (uac2)
+    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,audio"}, // USB audio + ADB
+    {false, "tty,smd,smd", "diag,serial,rmnet,audio"}, // USB audio without ADB
 };
+
 #define PERSIST_ADB_ON_MAGIC "persistent_adb_on"
 #define PERSIST_ADB_OFF_MAGIC "persistent_adb_off"
+#define PERSIST_USBAUD_ON_MAGIC "persistent_usbaud_on"
+#define PERSIST_USBAUD_OFF_MAGIC "persistent_usbaud_off"
+
+#define USBMODE_NONE 0
+#define USBMODE_ADB 1
+#define USBMODE_USBAUD 2
+
+int current_usb_mode;
+
 static const struct {
   unsigned int command_id;
   const char *cmd;

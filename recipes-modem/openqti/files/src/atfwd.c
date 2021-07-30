@@ -18,7 +18,7 @@
 #include "../inc/openqti.h"
 
 /* Used to keep track of the enabled USB composite configuration */
-int current_usb_mode = 0;
+int current_usb_mode = USBMODE_ADB;
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
@@ -48,12 +48,12 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
 }
 
 void switch_adb(bool en) {
-  if (en == true && (current_usb_mode == 0 || current_usb_mode == 2)) {
+  if (en == true && (current_usb_mode & USBMODE_ADB)) {
     logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
     return;
   }
-  if (en == false && (current_usb_mode == 1 || current_usb_mode == 3)) {
-    logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
+  if (en == false && !(current_usb_mode & USBMODE_ADB)) {
+    logger(MSG_ERROR, "%s: ADB is already disabled \n", __func__);
     return;
   }
   /* First we shut down the usb port to be able to modify Sysfs */
@@ -67,29 +67,28 @@ void switch_adb(bool en) {
   }
   if (en) {
     // setup ADB
-    if (current_usb_mode == 1 &&
+    if (current_usb_mode == USBMODE_NONE &&
         write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error enabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 3 &&
+    } else if (current_usb_mode == USBMODE_USBAUD &&
                write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
     }
 
     system("/etc/init.d/adbd start");
-    current_usb_mode--; // ADB ON profiles are always one less than the "off"
-                        // ones
+    current_usb_mode |= USBMODE_ADB;
   } else {
     // setup ADB
     system("/etc/init.d/adbd stop");
-    if (current_usb_mode == 0 &&
+    if (current_usb_mode == USBMODE_ADB &&
         write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 2 &&
+    } else if (current_usb_mode == (USBMODE_ADB | USBMODE_USBAUD) &&
                write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
     }
 
-    current_usb_mode++; // ADB OFF profiles are always one more
+    current_usb_mode &= ~USBMODE_ADB;
   }
 
   sleep(1);
@@ -99,11 +98,11 @@ void switch_adb(bool en) {
 }
 
 void switch_usb_audio(bool en) {
-  if (en == true && (current_usb_mode == 2 || current_usb_mode == 3)) {
+  if (en == true && (current_usb_mode & USBMODE_USBAUD)) {
     logger(MSG_ERROR, "%s: USB Audio is already enabled \n", __func__);
     return;
   }
-  if (en == false && (current_usb_mode == 0 || current_usb_mode == 1)) {
+  if (en == false && !(current_usb_mode & USBMODE_USBAUD)) {
     logger(MSG_ERROR, "%s: USB Audio is already disabled \n", __func__);
     return;
   }
@@ -114,26 +113,26 @@ void switch_usb_audio(bool en) {
 
   if (en) {
     // setup USB audio
-    if (current_usb_mode == 0 &&
+    if (current_usb_mode == USBMODE_ADB &&
         write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
-    } else if (current_usb_mode == 1 &&
+    } else if (current_usb_mode == USBMODE_NONE &&
                write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error enabling AUDIO functions \n", __func__);
     }
 
-    current_usb_mode = current_usb_mode + 2; // Audio profile is +2
+    current_usb_mode |= USBMODE_USBAUD;
   } else {
     // Disable USB audio
-    if (current_usb_mode == 2 &&
+    if (current_usb_mode == (USBMODE_ADB | USBMODE_USBAUD) &&
         write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 3 &&
+    } else if (current_usb_mode == USBMODE_USBAUD &&
                write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
     }
 
-    current_usb_mode = current_usb_mode - 2; // USB Audio off profiles are -2
+    current_usb_mode &= ~USBMODE_USBAUD;
   }
 
   sleep(1);
@@ -454,6 +453,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
+    store_usbaud_setting(true);
     switch_usb_audio(true);
     break;
   case 121: // Fallback to 8K and enable USB_AUDIO
@@ -462,6 +462,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
+    store_usbaud_setting(false);
     switch_usb_audio(false);
     break;
   default:
@@ -555,8 +556,12 @@ int init_atfwd(struct qmi_device *qmidev) {
   atcmd = NULL;
 
   if (!is_adb_enabled()) {
-    current_usb_mode = 1;
+    current_usb_mode &= ~USBMODE_ADB;
   }
+  if (is_usbaud_enabled()) {
+    switch_usb_audio(true);
+  }
+
   return 0;
 }
 
