@@ -24,7 +24,7 @@ static const struct {
 #define USBMODE_ADB 1
 #define USBMODE_USBAUD 2
 
-int current_usb_mode;
+extern int current_usb_mode;
 
 static const struct {
   unsigned int command_id;
