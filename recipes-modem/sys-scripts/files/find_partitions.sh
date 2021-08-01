@@ -28,22 +28,20 @@
 #
 # find_partitions        init.d script to dynamically find partitions
 #
-if [ ! -d /data ];then
+if [ ! -d /data || -d /persist || -d /firmware ];then
 	 mount -o remount,rw /
-	 mkdir -p /data
+	 if [ ! -d /data ];then
+	     mkdir -p /data
+	 fi
+	 if [ ! -d /persist ];then
+	     mkdir -p /persist
+	 fi
+	 if [ ! -d /firmware ];then
+	     mkdir -p /firmware
+	 fi
  	 mount -o remount,ro /
+fi
 
-fi
-if [ ! -d /persist ];then
-	 mount -o remount,rw /
-	 mkdir -p /persist
- 	 mount -o remount,ro /
-fi
-if [ ! -d /firmware ];then
-	 mount -o remount,rw /
-	 mkdir -p /firmware
- 	 mount -o remount,ro /
-fi
 # Attach the modem (11) and data (14) ubifs
 #ubiattach -m 11 -d 1 /dev/ubi_ctrl
 # ubiattach -m 14 -d 2 /dev/ubi_ctrl
