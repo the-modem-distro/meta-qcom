@@ -198,11 +198,11 @@ void config_mixer_mode(struct mixer *mixer, bool usbaud, bool volte, int state)
 void config_mixer(struct mixer *mixer, bool volte, int state)
 {
     /* Did the USB audio state change? (after EN_USBAUD or DIS_USBAUD) */
-    if (usb_audio_state != (current_usb_mode & USBMODE_USBAUD)) {
+    if (usb_audio_state != !!(current_usb_mode & USBMODE_USBAUD)) {
         /* Disable Voice & VoLTE mixer of old audio state */
         config_mixer_mode(mixer, usb_audio_state, true, 0);
         config_mixer_mode(mixer, usb_audio_state, false, 0);
-        usb_audio_state = (current_usb_mode & USBMODE_USBAUD);
+        usb_audio_state = !!(current_usb_mode & USBMODE_USBAUD);
     }
 
     config_mixer_mode(mixer, usb_audio_state, volte, state);
