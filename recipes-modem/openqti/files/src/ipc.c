@@ -16,6 +16,7 @@ struct {
   uint8_t services[32];
   uint8_t last_active;
   uint32_t regtime;
+  uint8_t host_side_managing_app;
 } client_handle_track;
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
@@ -317,6 +318,11 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
     msglength = pkt[10] + 10;
 
     logger(MSG_DEBUG, "%s: QMI Register client request\n", __func__);
+
+    if (client_handle_track.regtime == 0 && 
+        client_handle_track.host_side_managing_app == 0) {
+          client_handle_track.host_side_managing_app = pkt[msglength];
+    }
     if (client_handle_track.regtime == 0) {
       client_handle_track.regtime = get_curr_timestamp();
     } else if (pkt[msglength] == 0x01 &&
@@ -329,16 +335,25 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
       client_handle_track.regtime = get_curr_timestamp();
       logger(MSG_WARN, "%s: Registered to service 0x01... PIN entry? \n",
              __func__);
-    } else if (pkt[msglength] == 0x1a && client_handle_track.last_active > 0) {
+    } else if (client_handle_track.host_side_managing_app ==
+                   HOST_USES_MODEMMANAGER &&
+               pkt[msglength] == 0x1a && client_handle_track.last_active > 0) {
       logger(MSG_WARN, "%s: New client request when timed out, resetting... \n",
              __func__);
       force_close_qmi(fd);
       send_rmnet_ioctls(rmnet_fd);
-    } else if (client_handle_track.last_active > 32) {
+    } else if (client_handle_track.host_side_managing_app == HOST_USES_OFONO &&
+               pkt[msglength] == 0x02 && client_handle_track.last_active > 0) {
+      logger(MSG_WARN, "%s: New client request when timed out, resetting... \n",
+             __func__);
+      force_close_qmi(fd);
+      send_rmnet_ioctls(rmnet_fd);
+    }
+
+    else if (client_handle_track.last_active > 32) {
       logger(MSG_WARN, "%s: Too many clients, resetting... \n", __func__);
       force_close_qmi(fd);
-       send_rmnet_ioctls(rmnet_fd);
-
+      send_rmnet_ioctls(rmnet_fd);
     }
 
     switch (from) {

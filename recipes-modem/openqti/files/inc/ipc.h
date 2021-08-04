@@ -43,6 +43,9 @@
 #define CLIENT_REGISTER_REQ 0x22
 #define CLIENT_RELEASE_REQ 0x23
 #define CLIENT_REG_TIMEOUT 2400000
+
+#define HOST_USES_MODEMMANAGER 0x1a
+#define HOST_USES_OFONO 0x02
 struct irsc_rule {
   int rl_no;
   uint32_t service;
