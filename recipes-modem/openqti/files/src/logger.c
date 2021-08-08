@@ -3,11 +3,19 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <time.h>
 
+#include "../inc/helpers.h"
 #include "../inc/openqti.h"
 
-uint8_t log_level = 0;
 bool log_to_file = true;
+uint8_t log_level = 0;
+struct timespec starup_time;
+
+void reset_logtime() { 
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &starup_time); 
+}
+
 void set_log_method(bool ttyout) {
   if (ttyout) {
     log_to_file = false;
@@ -23,6 +31,12 @@ void set_log_level(uint8_t level) {
 void logger(uint8_t level, char *format, ...) {
   FILE *fd;
   va_list args;
+  double elapsed_time;
+  struct timespec current_time;
+  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &current_time);
+  elapsed_time =
+      (current_time.tv_sec - starup_time.tv_sec) * 1e6 +
+      (current_time.tv_nsec - starup_time.tv_nsec) / 1e6; // in microseconds
   if (level >= log_level) {
     if (!log_to_file) {
       fd = stdout;
@@ -35,13 +49,13 @@ void logger(uint8_t level, char *format, ...) {
     }
     switch (level) {
     case 0:
-      fprintf(fd, "[DBG]");
+      fprintf(fd, "[%.6f] D ", elapsed_time);
       break;
     case 1:
-      fprintf(fd, "[WRN]");
+      fprintf(fd, "[%.6f] W ", elapsed_time);
       break;
     default:
-      fprintf(fd, "[ERR]");
+      fprintf(fd, "[%.6f] E ", elapsed_time);
       break;
     }
     va_start(args, format);

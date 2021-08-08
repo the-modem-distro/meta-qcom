@@ -39,12 +39,13 @@ int main(int argc, char **argv) {
 
   // To track thread exits
   void *retgps, *retrmnet, *retatfwd;
+  reset_logtime();
+  set_log_method(false);
 
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
   logger(MSG_ERROR, "Welcome to OpenQTI! \n", __func__);
-  set_log_method(false);
   set_log_level(1); // By default, set log level to warn
   while ((ret = getopt(argc, argv, "adul")) != -1)
     switch (ret) {
@@ -166,7 +167,6 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
            __func__);
   }
-
 
   if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy, NULL))) {
     logger(MSG_ERROR, "%s: Error creating GPS proxy thread\n", __func__);

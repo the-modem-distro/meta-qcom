@@ -134,7 +134,7 @@ void *gps_proxy() {
     } else {
       logger(MSG_ERROR, "One of the descriptors isn't ready\n");
       nodes->allow_exit = true;
-      sleep(2);
+      sleep(1);
     }
 
     while (!nodes->allow_exit) {
