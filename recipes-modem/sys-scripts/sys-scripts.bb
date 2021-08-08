@@ -27,15 +27,13 @@ do_install() {
       install -d ${D}/lib/firmware
 
       # We might as well make the data directory
-      install -d ${D}/data_swap
       install -d ${D}/data
-      install -d ${D}/cache
 
       install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
       install -m 0755  ${S}/chgrp-diag ${D}/etc/init.d/
       
-      ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S11find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/chgrp-diag ${D}/etc/rcS.d/S10chgrp-diag
+      ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S10find_partitions.sh
+      ln -sf -r ${D}/etc/init.d/chgrp-diag ${D}/etc/rcS.d/S11chgrp-diag
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
       touch ${D}/etc/default/find_partitions.sh
 
