@@ -6,12 +6,14 @@ PR = "r7"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "file://inc/openqti.h \
+           file://inc/tracking.h \
            file://inc/ipc.h \
            file://inc/devices.h \
            file://inc/audio.h \
            file://inc/atfwd.h \
            file://inc/logger.h \
            file://inc/helpers.h \
+           file://src/tracking.c \
            file://src/helpers.c \
            file://src/atfwd.c \
            file://src/ipc.c \
@@ -25,7 +27,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/helpers.c src/atfwd.c src/logger.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
+    ${CC} ${LDFLAGS} -O2 src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
 }
 
 do_install() {
@@ -35,15 +37,16 @@ do_install() {
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
-    ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
+  #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }
 
 #  If debugging, make sure you add '-l' to openqti command line inside inittab
 #  Otherwise remove it to not fill the ramdisk with garbage logs you are not 
 #  going to look at
 #
-# pkg_postinst_${PN}() {
-#    #!/bin/sh
-#    # echo "OQ:12345:respawn:/usr/bin/openqti -l" >> $D/etc/inittab
-#    echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab
-# }
+
+pkg_postinst_${PN}() {
+   #!/bin/sh
+   # echo "OQ:12345:respawn:/usr/bin/openqti -l" >> $D/etc/inittab
+   echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab
+}

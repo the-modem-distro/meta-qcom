@@ -16,6 +16,7 @@
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
+#include "../inc/tracking.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 /*
@@ -45,7 +46,8 @@ int main(int argc, char **argv) {
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
-  logger(MSG_ERROR, "Welcome to OpenQTI! \n", __func__);
+  logger(MSG_INFO, "Welcome to OpenQTI! \n", __func__);
+  reset_client_handler();
   set_log_level(1); // By default, set log level to warn
   while ((ret = getopt(argc, argv, "adul")) != -1)
     switch (ret) {
@@ -177,18 +179,20 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
-  logger(MSG_DEBUG, "%s: Switching to powersave mode\n", __func__);
+  logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
            __func__);
   }
+  // just in case we previously died...
+  enable_usb_port();
+
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
   pthread_join(gps_proxy_thread, NULL);
   pthread_join(rmnet_proxy_thread, NULL);
   pthread_join(atfwd_thread, NULL);
-  /* If rmnet proxy thread dies, we should fork ourselves and exit here */
 
   flock(lockfile, LOCK_UN);
   close(lockfile);

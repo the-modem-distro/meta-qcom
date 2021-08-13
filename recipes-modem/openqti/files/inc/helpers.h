@@ -12,6 +12,8 @@ void set_next_fastboot_mode(int flag);
 void store_adb_setting(bool en);
 void switch_adb(bool en);
 int is_adb_enabled();
+void reset_usb_port();
+void enable_usb_port();
 
 void *gps_proxy();
 void *rmnet_proxy(void *node_data);

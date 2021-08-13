@@ -14,6 +14,7 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/tracking.h"
 
 int write_to(const char *path, const char *val, int flags) {
   int ret;
@@ -100,6 +101,22 @@ void set_next_fastboot_mode(int flag) {
   close(fd);
 }
 
+void reset_usb_port() {
+  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
+  }
+  sleep(1);
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+}
+
+void enable_usb_port() {
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+}
+
 void *gps_proxy() {
   struct node_pair *nodes;
   nodes = calloc(1, sizeof(struct node_pair));
@@ -109,7 +126,7 @@ void *gps_proxy() {
   char node1_to_2[32];
   char node2_to_1[32];
   while (1) {
-    logger(MSG_ERROR, "%s: Initialize GPS proxy thread.\n", __func__);
+    logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
 
     /* Set the names */
     strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
@@ -181,43 +198,70 @@ void *rmnet_proxy(void *node_data) {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
-  logger(MSG_ERROR, "%s: Initialize RMNET proxy thread.\n", __func__);
+  bool already_initialized = false;
+  logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
   snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
            nodes->node2.name);
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
-  while (!nodes->allow_exit) {
-    FD_ZERO(&readfds);
-    memset(buf, 0, sizeof(buf));
-    FD_SET(nodes->node1.fd, &readfds);
-    FD_SET(nodes->node2.fd, &readfds);
-    pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-    if (FD_ISSET(nodes->node1.fd, &readfds)) {
-      ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        handle_call_pkt(buf, FROM_HOST, ret);
-        track_client_count(buf, FROM_HOST, ret, nodes->node2.fd, nodes->node1.fd);
-        dump_packet(node1_to_2, buf, ret);
-        ret = write(nodes->node2.fd, buf, ret);
-      }else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side \n",
-                 __func__);
+  while (1) {
+    while (!nodes->allow_exit) {
+      FD_ZERO(&readfds);
+      memset(buf, 0, sizeof(buf));
+      FD_SET(nodes->node1.fd, &readfds);
+      FD_SET(nodes->node2.fd, &readfds);
+      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+      if (FD_ISSET(nodes->node1.fd, &readfds)) {
+        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          handle_call_pkt(buf, FROM_HOST, ret);
+          track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
+                             nodes->node1.fd);
+          dump_packet(node1_to_2, buf, ret);
+          ret = write(nodes->node2.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
+                 __func__, ret);
+          nodes->allow_exit = true;
         }
-    } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-      ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-      if (ret > 0) {
-        handle_call_pkt(buf, FROM_DSP, ret);
-        track_client_count(buf, FROM_DSP, ret, nodes->node2.fd, nodes->node1.fd);
-        dump_packet(node2_to_1, buf, ret);
-        ret = write(nodes->node1.fd, buf, ret);
-      }else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the USB side \n",
-                 __func__);
+      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+        if (ret > 0) {
+          handle_call_pkt(buf, FROM_DSP, ret);
+          track_client_count(buf, FROM_DSP, ret, nodes->node2.fd,
+                             nodes->node1.fd);
+          dump_packet(node2_to_1, buf, ret);
+          ret = write(nodes->node1.fd, buf, ret);
+        } else {
+          logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
+                 __func__, ret);
+          nodes->allow_exit = true;
         }
+      }
     }
-  }
-  logger(MSG_ERROR, "RMNET proxy is dead!.\n");
-  close(nodes->node1.fd);
-  close(nodes->node2.fd);
+    logger(MSG_WARN, "RMNET proxy is dead! Trying to recover\n");
+    close(nodes->node1.fd);
+    close(nodes->node2.fd);
+    nodes->allow_exit = false;
+
+    nodes->node2.fd = open(SMD_CNTL, O_RDWR);
+    if (nodes->node2.fd < 0) {
+      logger(MSG_ERROR, "Error recoverying %s \n", SMD_CNTL);
+      nodes->allow_exit = true;
+    }
+    nodes->node1.fd = open(RMNET_CTL, O_RDWR);
+    if (nodes->node1.fd < 0) {
+      logger(MSG_ERROR, "Error recoverying %s \n", RMNET_CTL);
+      nodes->allow_exit = true;
+    }
+    if (!nodes->allow_exit) {
+      force_close_qmi(nodes->node2.fd); // kill everything when this happens
+    } else {
+      logger(MSG_ERROR,
+             "Cannot force close QMI clients: ADSP not available.\n");
+    }
+    already_initialized = true;
+  } // end of infinite loop
+
   return NULL;
 }

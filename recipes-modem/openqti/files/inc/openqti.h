@@ -7,8 +7,9 @@
 #include <stdint.h>
 
 #define MSG_DEBUG 0
-#define MSG_WARN 1
-#define MSG_ERROR 2
+#define MSG_INFO 1
+#define MSG_WARN 2
+#define MSG_ERROR 3
 #define MAX_FD 50
 
 #define LOCKFILE "/tmp/openqti.lock"

@@ -334,7 +334,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   parsedcmd = calloc(cmdsize + 1, sizeof(char));
   strncpy(parsedcmd, (char *)buf + 19, cmdsize);
 
-  logger(MSG_DEBUG, "%s: Command requested is %s\n", __func__, parsedcmd);
+  logger(MSG_WARN, "%s: Command requested is %s\n", __func__, parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
       cmd_id = at_commands[j].command_id; // Command matched
@@ -355,15 +355,6 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
 
   switch (cmd_id) {
   case 40: // QDAI
-    if (sz > 60) {
-      sckret = set_audio_profile(buf[30], buf[35], buf[40], buf[45], buf[50],
-                                 buf[55], buf[60], buf[65]);
-      if (sckret < 0) {
-        cmdreply->result = 2;
-      }
-    } else {
-      cmdreply->result = 2;
-    }
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
@@ -400,17 +391,11 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     store_adb_setting(false);
     switch_adb(false);
     break;
-  case 114:
-    if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-    }
-    sleep(1);
-    if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
-    }
+  case 114: // reset usb
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    reset_usb_port();
     break;
   case 115: // reboot to recovery
     sckret =

@@ -13,7 +13,7 @@ uint8_t log_level = 0;
 struct timespec starup_time;
 
 void reset_logtime() { 
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &starup_time); 
+  clock_gettime(CLOCK_MONOTONIC, &starup_time); 
 }
 
 void set_log_method(bool ttyout) {
@@ -33,10 +33,11 @@ void logger(uint8_t level, char *format, ...) {
   va_list args;
   double elapsed_time;
   struct timespec current_time;
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &current_time);
+  clock_gettime(CLOCK_MONOTONIC, &current_time);
   elapsed_time =
-      (current_time.tv_sec - starup_time.tv_sec) * 1e6 +
-      (current_time.tv_nsec - starup_time.tv_nsec) / 1e6; // in microseconds
+      ((current_time.tv_sec - starup_time.tv_sec) * 1e6 +
+      (current_time.tv_nsec - starup_time.tv_nsec) ) / 1e6 / 1000000; // in seconds
+
   if (level >= log_level) {
     if (!log_to_file) {
       fd = stdout;
@@ -47,11 +48,21 @@ void logger(uint8_t level, char *format, ...) {
         fd = stdout;
       }
     }
+    if (elapsed_time > 10000000) {
+      reset_logtime();
+      elapsed_time = 0;
+      fprintf(fd, "[%.6f] D Time shifted \n", elapsed_time);
+
+    }
+  
     switch (level) {
     case 0:
       fprintf(fd, "[%.6f] D ", elapsed_time);
       break;
     case 1:
+      fprintf(fd, "[%.6f] I ", elapsed_time);
+      break;
+    case 2:
       fprintf(fd, "[%.6f] W ", elapsed_time);
       break;
     default:
