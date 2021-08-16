@@ -18,7 +18,7 @@ QCOM_BOOTIMG_PAGE_SIZE ?= "2048"
 
 # Image Generation
 # Make ubi filesystem and then pack it in a ubi container, as stock
-IMAGE_FSTYPES ?= "ubi multiubi"
+IMAGE_FSTYPES ?= "ubi multiubi ext4"
 
 # Set the volume name inside the ubi image
 UBI_VOLNAME = "rootfs"
