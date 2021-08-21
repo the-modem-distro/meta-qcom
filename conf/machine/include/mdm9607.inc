@@ -18,7 +18,7 @@ QCOM_BOOTIMG_PAGE_SIZE ?= "2048"
 
 # Image Generation
 # Make ubi filesystem and then pack it in a ubi container, as stock
-IMAGE_FSTYPES ?= "ubi multiubi ext4"
+IMAGE_FSTYPES ?= "ubi multiubi "
 
 # Set the volume name inside the ubi image
 UBI_VOLNAME = "rootfs"
@@ -28,12 +28,6 @@ CACHE_VOLUME_SIZE ?= "55MiB"
 
 # Max supported inodes
 EXTRA_IMAGECMD ?= "-N 2048"
-
-#UBINIZE Args
-# UBINIZE_ARGS = "-m 2048 -p 256KiB -s 4096"
-#MKUBIFS Arg
-# MKUBIFS_ARGS = "-m 2048 -e 253952 -c 2146 -F"
-#Volume sizes
 
 MKUBIFS_ARGS="-m 2048 -e 126976 -c 4292 -F"
 UBINIZE_ARGS="-m 2048 -p 128KiB -s 2048"
