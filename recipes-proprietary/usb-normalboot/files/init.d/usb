@@ -29,9 +29,19 @@
 # Run adbcheck and store return value in adb_setting for use in shell script
 /usr/bin/adbcheck
 adb_setting=$(echo $?)
+/usr/bin/audiocheck
+aud_setting=$(echo $?)
 
-KERNEL=$(uname -r) 
-export KERNEL
+GADGET_FUNC="diag,serial,rmnet"
+if [ "$adb_setting" = "1" ];
+then 
+    GADGET_FUNC="$GADGET_FUNC,ffs"
+fi 
+
+if [ "$aud_setting" = "1" ];
+then 
+    GADGET_FUNC="$GADGET_FUNC,audio"
+fi 
 
 case "$1" in
     start)
@@ -110,22 +120,32 @@ case "$1" in
         echo tty,smd,smd > /sys/class/android_usb/android0/f_serial/transports
         echo QTI,BAM_DMUX > /sys/class/android_usb/android0/f_rmnet/transports
         echo BAM_DMUX > /sys/class/android_usb/android0/f_usb_mbim/mbim_transports
-        if [ "$adb_setting" = "0" ];
-        then 
-            echo diag,serial,rmnet > /sys/class/android_usb/android0/functions
-        else
-            echo diag,serial,rmnet,ffs > /sys/class/android_usb/android0/functions
-        fi        
+        while [ ! -e /dev/snd/controlC0 ]                                   
+        do                                                                      
+            echo "Audio not ready yet, waiting..." > /dev/kmsg                  
+            sleep 0.1 # or less like 0.2                                  
+        done  
+        echo $GADGET_FUNC > /sys/class/android_usb/android0/functions
         echo 1 > /sys/class/android_usb/android0/remote_wakeup
         echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
         #sleep 10 # Wait 10 seconds here to give time to openqti to settle
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
+
         echo 1 > /sys/class/android_usb/android0/enable
+        if [ "$adb_setting" = "1" ];
+        then 
+            /etc/init.d/adbd restart
+        else
+            /etc/init.d/adbd stop
+        fi 
+
     ;;
     
     stop)
-        echo "Stopping USB Android Gadget"
+        echo "Stopping USB Android Gadget" > /dev/kmsg
+        /etc/init.d/adbd stop
+        echo 0 > /sys/class/android_usb/android0/enable
     ;;
     
     restart)
