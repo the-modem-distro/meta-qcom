@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
   fd = open("/dev/mtdblock12", O_RDONLY);
   if (fd < 0) {
     fprintf(stderr,"Error opening misc partition to read adb flag \n");
-    return -EINVAL;
+    return 1;
   }
   lseek(fd, 64, SEEK_SET);
   read(fd, buff, sizeof(ADB_EN_MAGIC));
