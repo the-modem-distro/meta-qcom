@@ -11,11 +11,10 @@ static const struct {
 } usb_modes[] = {
     {true, "tty,smd,smd", "diag,serial,rmnet,ffs"},       // With ADB
     {false, "tty,smd,smd", "diag,serial,rmnet"},          // Without ADB
-    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,uac2_func"}, // USB audio + ADB (uac2)
-    {false, "tty,smd,smd", "diag,serial,rmnet,uac2_func"}, // USB audio without ADB (uac2)
+    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,audio"}, // USB audio + ADB 
+    {false, "tty,smd,smd", "diag,serial,rmnet,audio"}, // USB audio without ADB 
 };
-#define PERSIST_ADB_ON_MAGIC "persistent_adb_on"
-#define PERSIST_ADB_OFF_MAGIC "persistent_adb_off"
+
 static const struct {
   unsigned int command_id;
   const char *cmd;
@@ -528,6 +527,8 @@ struct at_command_simple_reply {
   unsigned char raw_response[2]; // 2?
 } __attribute__((packed));
 
+void set_atfwd_runtime_default();
+void set_adb_runtime(bool mode);
 void build_atcommand_reg_request(int tid, const char *command, char *buf);
 int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
                       uint8_t format, uint8_t sample, uint8_t num_slots,

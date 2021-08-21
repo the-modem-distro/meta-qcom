@@ -11,11 +11,34 @@
 struct mixer *mixer;
 struct pcm *pcm_tx;
 struct pcm *pcm_rx;
-uint8_t current_call_state;
-uint8_t volte_hd_audio_mode = 0;
+
+/*  Audio runtime state:
+ *    current_call_state: IDLE / CIRCUITSWITCH / VOLTE
+ *    volte_hd_audio_mode: 8000 / 16000 / 48000
+ *    output_device: I2S / USB
+ */
+struct {
+  uint8_t current_call_state;
+  uint8_t volte_hd_audio_mode;
+  uint8_t output_device;
+} audio_runtime_state;
+
+void set_audio_runtime_default() {
+  audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
+  audio_runtime_state.volte_hd_audio_mode = 0;
+  audio_runtime_state.output_device = AUDIO_MODE_I2S;
+}
+
+void set_output_device(int device) {
+  logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
+  audio_runtime_state.output_device = device;
+}
+
+uint8_t get_output_device() { return audio_runtime_state.output_device; }
 
 void set_auxpcm_sampling_rate(uint8_t mode) {
-  volte_hd_audio_mode = mode;
+  int previous_call_state = audio_runtime_state.current_call_state;
+  audio_runtime_state.volte_hd_audio_mode = mode;
   if (mode == 1) {
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__,
@@ -33,12 +56,9 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
     }
   }
   // If in call, restart audio
-  if (current_call_state == CALL_MODE_VOLTE) {
+  if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
     stop_audio();
-    start_audio(CALL_MODE_VOLTE);
-  } else if (current_call_state == CALL_MODE_CS) {
-    stop_audio();
-    start_audio(CALL_MODE_CS);
+    start_audio(previous_call_state);
   }
 }
 
@@ -46,8 +66,8 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
    debugging */
 void handle_call_pkt(uint8_t *pkt, int from, int sz) {
   bool needs_setting_up_paths = false;
+  uint8_t direction, state, type, mode;
 
-  if (sz > 25 && from == FROM_DSP) {
     /* What are we looking for? A voice service QMI packet with the following
     params:
     - frame 0x01
@@ -56,106 +76,67 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
     - and pkt type 0x04
     - and msg ID 0x2e (call indication)
     */
-    if (pkt[0] == 0x1 && pkt[3] == 0x80 && pkt[4] == 0x09 && pkt[6] == 0x04 &&
-        pkt[9] == 0x2e) {
+    if (sz > 25 && pkt[0] == 0x1 && pkt[3] == 0x80 && 
+        pkt[4] == 0x09 && pkt[6] == 0x04 && pkt[9] == 0x2e) {
 
-      if (pkt[20] == 0x01) {
+      direction = pkt[20];
+      state = pkt[18];
+      type = pkt[21];
+
+      if (direction == AUDIO_DIRECTION_OUTGOING) {
         logger(MSG_WARN, "%s: Call direction: outgoing \n", __func__);
-      } else if (pkt[20] == 0x02) {
+      } else if (pkt[20] == AUDIO_DIRECTION_INCOMING) {
         logger(MSG_WARN, "%s: Call direction: incoming \n", __func__);
       } else {
         logger(MSG_ERROR, "%s: Unknown call direction! \n", __func__);
       }
 
-      switch (pkt[18]) { // Call state
-      case 0x01:
-        logger(MSG_WARN, "%s: State: originating\n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      case 0x02:
-        logger(MSG_WARN, "%s: State: Ringing\n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      case 0x03:
-        logger(MSG_WARN, "%s: State: Call in progress \n", __func__);
-        needs_setting_up_paths = true;
-
-        break;
-      case 0x04:
-        logger(MSG_WARN, "%s: State: Trying to call...\n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      case 0x05:
-        logger(MSG_WARN, "%s: State: Ringing?\n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      case 0x06:
-        logger(MSG_WARN, "%s: State: Hold\n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      case 0x07:
-        logger(MSG_WARN, "%s: State: Waiting?\n", __func__);
-        break;
-      case 0x08:
-        logger(MSG_WARN, "%s: State: Disconnecting call\n", __func__);
-        stop_audio();
-        break;
-      case 0x09:
-        logger(MSG_WARN, "%s: State: Hang up! \n", __func__);
-        stop_audio();
-        break;
-      case 0x0a:
-        logger(MSG_WARN, "%s: State: Preparing for outgoing... \n", __func__);
-        needs_setting_up_paths = true;
-        break;
-      default:
-        logger(MSG_WARN, "%s: State: Unknown pkt 0x%.2x", __func__, pkt[18]);
-        break;
-      } // end of call state
-
-      if (needs_setting_up_paths) {
-        switch (pkt[21]) {
-        case 0x00:
-          logger(MSG_WARN, "%s: Set audio paths: No network? Try with CS... \n",
-                 __func__);
-          start_audio(CALL_MODE_CS);
-
+      switch (type) {
+        case CALL_TYPE_NO_NETWORK:
+        case CALL_TYPE_UNKNOWN:
+        case CALL_TYPE_GSM:
+        case CALL_TYPE_UMTS:
+        case CALL_TYPE_UNKNOWN_ALT:
+          mode = CALL_STATUS_CS;
+          logger(MSG_INFO, "%s: Call type: Circuit Switch \n", __func__);
           break;
-        case 0x01:
-          logger(MSG_WARN,
-                 "%s:  Set audio paths: Unknown mode, Try with CS... \n",
-                 __func__);
-          start_audio(CALL_MODE_CS);
-
-          break;
-        case 0x02:
-          logger(MSG_WARN, "%s:  Set audio paths: GSM Call mode \n", __func__);
-          start_audio(CALL_MODE_CS);
-
-          break;
-        case 0x03:
-          logger(MSG_WARN, "%s:  Set audio paths:  UMTS Call mode \n",
-                 __func__);
-          start_audio(CALL_MODE_CS);
-
-          break;
-        case 0x04:
-          logger(MSG_WARN, "%s:  Set audio paths: VoLTE Call mode \n",
-                 __func__);
-          start_audio(CALL_MODE_VOLTE);
-          break;
-        case 0x05:
-          logger(MSG_WARN, "%s: Set audio paths: Can't call with no network!\n",
-                 __func__);
+        case CALL_TYPE_VOLTE:
+          mode = CALL_STATUS_VOLTE;
+          logger(MSG_INFO, "%s: Call type: VoLTE \n", __func__);
           break;
         default:
-          logger(MSG_WARN, "%s: Set audio paths: Can't guess call type! \n",
-                 __func__);
+          logger(MSG_ERROR, "%s: Unknown call type \n", __func__);
           break;
-        } // end of call method
-      }   // if needs setting up paths
-    }     // if packet is call indication, and comes from dsp
-  }       // length
+      }
+
+      switch (state) { // Call status
+        case AUDIO_CALL_PREPARING:
+        case AUDIO_CALL_ATTEMPT:
+        case AUDIO_CALL_ORIGINATING:
+        case AUDIO_CALL_RINGING:
+        case AUDIO_CALL_ESTABLISHED:
+        case AUDIO_CALL_UNKNOWN:
+          logger(MSG_INFO, "%s: Setting up audio for mode %i \n", __func__, mode);
+          start_audio(mode);
+          break;
+        case AUDIO_CALL_ON_HOLD:
+        case AUDIO_CALL_WAITING:
+          logger(MSG_INFO, "%s: Skipping audio setting (on hold/waiting) %i \n",
+                __func__, mode);
+          break;
+        case AUTIO_CALL_DISCONNECTING:
+        case AUDIO_CALL_HANGUP:
+          logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
+          stop_audio();
+          break;
+        default:
+          logger(MSG_ERROR, "%s: Unknown call status \n", __func__);
+          break;
+      }
+
+      logger(MSG_INFO, "%s: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
+             __func__, direction, state, type, mode);
+    } // if packet is call indication, and comes from dsp
 } // func
 
 int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
@@ -172,7 +153,7 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
 }
 
 int stop_audio() {
-  if (current_call_state == 0) {
+  if (audio_runtime_state.current_call_state == CALL_STATUS_IDLE) {
     logger(MSG_ERROR, "%s: No call in progress \n", __func__);
     return 1;
   }
@@ -190,17 +171,31 @@ int stop_audio() {
     return 0;
   }
 
-  // We close all the mixers
-  if (current_call_state == 1) {
-    set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
-  } else if (current_call_state == 2) {
-    set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+switch (audio_runtime_state.output_device) {
+  case AUDIO_MODE_I2S: // I2S Audio
+    // We close all the mixers
+    if (audio_runtime_state.current_call_state == 1) {
+      set_mixer_ctl(mixer, TXCTL_VOICE, 0); // Playback
+      set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+    } else if (audio_runtime_state.current_call_state == 2) {
+      set_mixer_ctl(mixer, TXCTL_VOLTE, 0); // Playback
+      set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+    }
+    break;
+  case AUDIO_MODE_USB: // USB Audio
+    // We close all the mixers
+    if (audio_runtime_state.current_call_state == 1) {
+      set_mixer_ctl(mixer, AFETX_VOICE, 0); // Playback
+      set_mixer_ctl(mixer, AFERX_VOICE, 0); // Capture
+    } else if (audio_runtime_state.current_call_state == 2) {
+      set_mixer_ctl(mixer, AFETX_VOLTE, 0); // Playback
+      set_mixer_ctl(mixer, AFERX_VOLTE, 0); // Capture
+    }
+    break;
   }
 
   mixer_close(mixer);
-  current_call_state = 0;
+  audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
   return 1;
 }
 
@@ -213,12 +208,17 @@ int stop_audio() {
 int start_audio(int type) {
   int i;
   char pcm_device[18];
-  if (current_call_state > 0 && type != current_call_state) {
-    logger(MSG_ERROR,
-           "%s: Audio already active for other profile, restarting... \n",
-           __func__);
+  if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE &&
+      type != audio_runtime_state.current_call_state) {
+    logger(MSG_WARN,
+           "%s: Switching audio profiles: 0x%.2x --> 0x%.2x\n",
+           __func__, audio_runtime_state.current_call_state, type);
     stop_audio();
-  } else if (current_call_state > 0 && type == current_call_state) {
+  } else if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE &&
+             type == audio_runtime_state.current_call_state) {
+    logger(MSG_INFO,
+           "%s: Not doing anything, already set.\n",
+           __func__);
     return 0;
   }
 
@@ -227,24 +227,48 @@ int start_audio(int type) {
     logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return 0;
   }
+ switch (audio_runtime_state.output_device) {
+  case AUDIO_MODE_I2S:
+    switch (type) {
+    case 1:
+      logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
+      set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
+      set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
+      strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+      break;
+    case 2:
+      logger(MSG_DEBUG, "Call in progress: VoLTE\n");
+      set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
+      set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
+      strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
+      break;
+    default:
+      logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n",
+             __func__, type);
+      return -EINVAL;
+    }
+    break;
 
-  switch (type) {
-  case 1:
-    logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
-    set_mixer_ctl(mixer, TXCTL_VOICE, 1); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
-    strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+  case AUDIO_MODE_USB: // MODE usb
+    switch (type) {
+    case 1:
+      logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
+      set_mixer_ctl(mixer, AFETX_VOICE, 1); // Playback
+      set_mixer_ctl(mixer, AFERX_VOICE, 1); // Capture
+      strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+      break;
+    case 2:
+      logger(MSG_DEBUG, "Call in progress: VoLTE\n");
+      set_mixer_ctl(mixer, AFETX_VOLTE, 1); // Playback
+      set_mixer_ctl(mixer, AFERX_VOLTE, 1); // Capture
+      strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
+      break;
+    default:
+      logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n",
+             __func__, type);
+      return -EINVAL;
+    }
     break;
-  case 2:
-    logger(MSG_DEBUG, "Call in progress: VoLTE\n");
-    set_mixer_ctl(mixer, TXCTL_VOLTE, 1); // Playback
-    set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
-    strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
-    break;
-  default:
-    logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n", __func__,
-           type);
-    return -EINVAL;
   }
   mixer_close(mixer);
 
@@ -258,10 +282,10 @@ int start_audio(int type) {
   pcm_tx->rate = 8000;
   pcm_tx->flags = PCM_OUT | PCM_MONO;
 
-  if (volte_hd_audio_mode == 1) {
+  if (audio_runtime_state.volte_hd_audio_mode == 1) {
     pcm_rx->rate = 16000;
     pcm_tx->rate = 16000;
-  } else if (volte_hd_audio_mode == 2) {
+  } else if (audio_runtime_state.volte_hd_audio_mode == 2) {
     pcm_rx->rate = 48000;
     pcm_tx->rate = 48000;
   } else {
@@ -304,11 +328,10 @@ int start_audio(int type) {
     pcm_close(pcm_rx);
   }
 
-  if (type == 1) {
-    current_call_state = 1;
-  } else if (type == 2) {
-    current_call_state = 2;
+  if (type == CALL_STATUS_CS || type == CALL_STATUS_VOLTE) {
+    audio_runtime_state.current_call_state = type;
   }
+
   return 0;
 }
 

@@ -16,9 +16,9 @@
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
-#include "../inc/tracking.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/tracking.h"
 /*
   OpenQTI reworked.
   Attempt 2
@@ -27,6 +27,45 @@
 bool debug_to_stdout;
 int connected_clients = 0;
 
+char *get_gpio_direction_path(char *gpio) {
+  char *path;
+  path = calloc(256, sizeof(char));
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio,
+           GPIO_SYSFS_DIRECTION);
+
+  return path;
+}
+void prepare_gpios() {
+  logger(MSG_INFO, "%s: Getting GPIOs ready\n", __func__);
+  if (write_to(GPIO_EXPORT_PATH, GPIO_DTR, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
+  }
+  if (write_to(GPIO_EXPORT_PATH, GPIO_WAKEUP_IN, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_WAKEUP_IN pin\n", __func__);
+  }
+  if (write_to(GPIO_EXPORT_PATH, GPIO_SLEEP_IND, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_SLEEP_IND pin\n", __func__);
+  }
+  logger(MSG_INFO, "Everything exported\n");
+  // Set directions
+  if (write_to(get_gpio_direction_path(GPIO_DTR), GPIO_MODE_INPUT, O_WRONLY) <
+      0) {
+    logger(MSG_ERROR, "%s: Error setting direction for GPIO_DTR pin at %s\n",
+           __func__, get_gpio_direction_path(GPIO_DTR));
+  }
+  if (write_to(get_gpio_direction_path(GPIO_WAKEUP_IN), GPIO_MODE_INPUT,
+               O_WRONLY) < 0) {
+    logger(MSG_ERROR,
+           "%s: Error setting direction for GPIO_WAKEUP_IN pin at %s\n",
+           __func__, get_gpio_direction_path(GPIO_WAKEUP_IN));
+  }
+  if (write_to(get_gpio_direction_path(GPIO_SLEEP_IND), GPIO_MODE_OUTPUT,
+               O_WRONLY) < 0) {
+    logger(MSG_ERROR,
+           "%s: Error setting direction for GPIO_SLEEP_IND pin at %s\n",
+           __func__, get_gpio_direction_path(GPIO_SLEEP_IND));
+  }
+}
 int main(int argc, char **argv) {
   int i, ret, lockfile;
   int linestate;
@@ -48,7 +87,7 @@ int main(int argc, char **argv) {
 
   logger(MSG_INFO, "Welcome to OpenQTI! \n", __func__);
   reset_client_handler();
-  set_log_level(1); // By default, set log level to warn
+  set_log_level(1); // By default, set log level to info
   while ((ret = getopt(argc, argv, "adul")) != -1)
     switch (ret) {
     case 'a':
@@ -143,7 +182,7 @@ int main(int argc, char **argv) {
     sleep(1);
   } while (rmnet_nodes.node2.fd < 0);
 
-  logger(MSG_DEBUG, "%s: Init: AT Command forwarder \n", __func__);
+  logger(MSG_INFO, "%s: Init: AT Command forwarder \n", __func__);
   if ((ret = pthread_create(&atfwd_thread, NULL, &start_atfwd_thread, NULL))) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);
   }
@@ -164,16 +203,31 @@ int main(int argc, char **argv) {
   if (ret < 0)
     logger(MSG_ERROR, "%s: Set modem online: %i \n", __func__, ret);
 
-  logger(MSG_DEBUG, "%s: Init: Setup default I2S Audio settings \n", __func__);
+  logger(MSG_INFO, "%s: Init: Setup default I2S Audio settings \n", __func__);
   if (set_audio_defaults() < 0) {
     logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
            __func__);
   }
 
+  logger(MSG_DEBUG, "%s: Init: Setup DTR, WAKEUP and SLEEP GPIOs \n", __func__);
+  prepare_gpios();
+
+  logger(MSG_INFO, "%s: Init: Set audio runtime defaults \n", __func__);
+
+  /* ADB and USB audio setting parsing */
+  set_audio_runtime_default();
+  set_atfwd_runtime_default();
+  // Switch between I2S and usb audio depending on the misc partition setting
+  set_output_device(get_audio_mode());
+  // Enable or disable ADB depending on the misc partition setting
+  set_adb_runtime(is_adb_enabled());
+
+  logger(MSG_INFO, "%s: Init: Create GPS runtime thread \n", __func__);
   if ((ret = pthread_create(&gps_proxy_thread, NULL, &gps_proxy, NULL))) {
     logger(MSG_ERROR, "%s: Error creating GPS proxy thread\n", __func__);
   }
 
+  logger(MSG_INFO, "%s: Init: Create RMNET runtime thread \n", __func__);
   if ((ret = pthread_create(&rmnet_proxy_thread, NULL, &rmnet_proxy,
                             (void *)&rmnet_nodes))) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);

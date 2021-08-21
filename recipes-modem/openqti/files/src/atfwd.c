@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -17,8 +18,17 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 
-/* Used to keep track of the enabled USB composite configuration */
-int current_usb_mode = 0;
+struct {
+  bool adb_enabled;
+} atfwd_runtime_state;
+
+void set_atfwd_runtime_default() {
+  atfwd_runtime_state.adb_enabled = false;
+}
+
+void set_adb_runtime(bool mode) {
+  atfwd_runtime_state.adb_enabled = mode;
+}
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
@@ -47,254 +57,6 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   atcmd = NULL;
 }
 
-void switch_adb(bool en) {
-  if (en == true && (current_usb_mode == 0 || current_usb_mode == 2)) {
-    logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
-    return;
-  }
-  if (en == false && (current_usb_mode == 1 || current_usb_mode == 3)) {
-    logger(MSG_ERROR, "%s: ADB is already enabled \n", __func__);
-    return;
-  }
-  /* First we shut down the usb port to be able to modify Sysfs */
-  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-  }
-
-  if (write_to(USB_SERIAL_TRANSPORTS_PATH, usb_modes[0].serial_transports,
-               O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error setting serial transports \n", __func__);
-  }
-  if (en) {
-    // setup ADB
-    if (current_usb_mode == 1 &&
-        write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error enabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 3 &&
-               write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
-    }
-
-    system("/etc/init.d/adbd start");
-    current_usb_mode--; // ADB ON profiles are always one less than the "off"
-                        // ones
-  } else {
-    // setup ADB
-    system("/etc/init.d/adbd stop");
-    if (current_usb_mode == 0 &&
-        write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 2 &&
-               write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
-    }
-
-    current_usb_mode++; // ADB OFF profiles are always one more
-  }
-
-  sleep(1);
-  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
-  }
-}
-
-void switch_usb_audio(bool en) {
-  if (en == true && (current_usb_mode == 2 || current_usb_mode == 3)) {
-    logger(MSG_ERROR, "%s: USB Audio is already enabled \n", __func__);
-    return;
-  }
-  if (en == false && (current_usb_mode == 0 || current_usb_mode == 1)) {
-    logger(MSG_ERROR, "%s: USB Audio is already disabled \n", __func__);
-    return;
-  }
-  /* First we shut down the usb port to be able to modify Sysfs */
-  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
-  }
-
-  if (en) {
-    // setup USB audio
-    if (current_usb_mode == 0 &&
-        write_to(USB_FUNC_PATH, usb_modes[2].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error enabling ADB+AUDIO functions \n", __func__);
-    } else if (current_usb_mode == 1 &&
-               write_to(USB_FUNC_PATH, usb_modes[3].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error enabling AUDIO functions \n", __func__);
-    }
-
-    current_usb_mode = current_usb_mode + 2; // Audio profile is +2
-  } else {
-    // Disable USB audio
-    if (current_usb_mode == 2 &&
-        write_to(USB_FUNC_PATH, usb_modes[0].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling ADB functions \n", __func__);
-    } else if (current_usb_mode == 3 &&
-               write_to(USB_FUNC_PATH, usb_modes[1].functions, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error disabling ADB+AUDIO functions \n", __func__);
-    }
-
-    current_usb_mode = current_usb_mode - 2; // USB Audio off profiles are -2
-  }
-
-  sleep(1);
-  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
-  }
-}
-// AT+QDAI=1,1,0,1,0,0,1,1
-int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
-                      uint8_t format, uint8_t sample, uint8_t num_slots,
-                      uint8_t slot) {
-  uint8_t ret = 0;
-  return ret;
-  /* We know we don't have an analog codec here,
-     so EINVAL if anything other than Digital PCM (i2s) */
-  logger(MSG_ERROR,
-         "Set audio profile: 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x 0x%.2x "
-         "0x%.2x\n",
-         io, mode, fsync, clock, format, sample, num_slots, slot);
-  switch (io) { // 1,2,3,5, Digital PCM, <--analog-->
-  case 0x31:
-    if (write_to(sysfs_value_pairs[0].path, "0", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[0].path);
-      ret = -EINVAL;
-    }
-    break;
-  default:
-    ret = -EINVAL;
-    break;
-  }
-  switch (mode) { // Master / Slave
-  case 0x30:      // Master (they're flipped?)
-    if (write_to(sysfs_value_pairs[2].path, "1", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[1].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x31: // Slave
-    if (write_to(sysfs_value_pairs[2].path, "0", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[1].path);
-      ret = -EINVAL;
-    }
-    break;
-  default:
-    ret = -EINVAL;
-    break;
-  }
-  switch (fsync) { // Short sync / Long sync
-  case 0x30:
-    if (write_to(sysfs_value_pairs[1].path, "0", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[1].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x31:
-    if (write_to(sysfs_value_pairs[1].path, "1", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[1].path);
-      ret = -EINVAL;
-    }
-    break;
-  default:
-    return -EINVAL;
-    break;
-  }
-  switch (clock) { // Clock freq
-  case 0x30:       // 128
-    if (write_to(sysfs_value_pairs[5].path, "128000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x31: // 256
-    if (write_to(sysfs_value_pairs[5].path, "256000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x32: // 512
-    if (write_to(sysfs_value_pairs[5].path, "512000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x33: // 1024
-    if (write_to(sysfs_value_pairs[5].path, "1024000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x34: // 2048
-    if (write_to(sysfs_value_pairs[5].path, "2048000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x35: // 4096
-    if (write_to(sysfs_value_pairs[5].path, "4096000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[5].path);
-      ret = -EINVAL;
-    }
-    break;
-  default:
-    ret = -EINVAL;
-    break;
-  }
-  switch (format) {
-  case 0x30: // 16bit linear
-  case 0x31: // 8bit a-law
-  case 0x32: // 8bit u-law
-    break;
-  default:
-    ret = -EINVAL;
-    break;
-  }
-  switch (sample) { // Sample rate
-  case 0x30:        // 8k
-    if (write_to(sysfs_value_pairs[6].path, "8000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[6].path);
-      ret = -EINVAL;
-    }
-    // Write bits per frame too. Anything less than 5 for 8k
-    if (write_to(sysfs_value_pairs[3].path, "2", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[3].path);
-      ret = -EINVAL;
-    }
-    break;
-  case 0x31: // 16k
-    if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[6].path);
-      ret = -EINVAL;
-    }
-    /* Per msm-dai-q6-v2.c, use frame > AFE_PORT_PCM_BITS_PER_FRAME_256
-       to specify PCM16k mode. Dont know if this works yet
-    */
-    if (write_to(sysfs_value_pairs[3].path, "6", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[3].path);
-      ret = -EINVAL;
-    }
-    break;
-  default:
-    ret = -EINVAL;
-    break;
-  }
-  /* Number of slots and current slot are not used */
-  return ret;
-}
 
 /* When a command is requested via AT interface,
    this function is used to answer to them */
@@ -382,14 +144,14 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     store_adb_setting(true);
-    switch_adb(true);
+    restart_usb_stack();
     break;
   case 113: // ADB OFF // First respond to avoid locking the AT IF
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     store_adb_setting(false);
-    switch_adb(false);
+    restart_usb_stack();
     break;
   case 114: // reset usb
     sckret =
@@ -438,8 +200,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-
-    switch_usb_audio(true);
+    store_audio_output_mode(AUDIO_MODE_USB);
+    restart_usb_stack();
     break;
   case 121: // Fallback to 8K and enable USB_AUDIO
     cmdreply->result = 1;
@@ -447,7 +209,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
 
-    switch_usb_audio(false);
+    store_audio_output_mode(AUDIO_MODE_I2S);
+    restart_usb_stack();
     break;
   default:
     // Fallback for dummy commands that arent implemented
@@ -539,9 +302,6 @@ int init_atfwd(struct qmi_device *qmidev) {
   }
   atcmd = NULL;
 
-  if (!is_adb_enabled()) {
-    current_usb_mode = 1;
-  }
   return 0;
 }
 

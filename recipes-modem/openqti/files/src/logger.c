@@ -36,7 +36,7 @@ void logger(uint8_t level, char *format, ...) {
   clock_gettime(CLOCK_MONOTONIC, &current_time);
   elapsed_time =
       ((current_time.tv_sec - starup_time.tv_sec) * 1e6 +
-      (current_time.tv_nsec - starup_time.tv_nsec) ) / 1e6 / 1000000; // in seconds
+      (current_time.tv_nsec - starup_time.tv_nsec) ) / 1e4; // in seconds
 
   if (level >= log_level) {
     if (!log_to_file) {

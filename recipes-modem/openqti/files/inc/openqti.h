@@ -17,17 +17,25 @@
 #define CPUFREQ_PERF "performance"
 #define CPUFREQ_PS "powersave"
 
-#define CALL_MODE_CS 1
-#define CALL_MODE_VOLTE 2
+#define CALL_STATUS_IDLE 0
+#define CALL_STATUS_CS 1
+#define CALL_STATUS_VOLTE 2
+
+#define GPIO_DTR "5" // 0 low, 1 high, input
+#define GPIO_WAKEUP_IN "25" // input
+#define GPIO_SLEEP_IND "74" // output
+#define GPIO_MODE_INPUT "in"
+#define GPIO_MODE_OUTPUT "out"
+
+#define SMD_DATA3 "/dev/smd8"
+#define GPIO_EXPORT_PATH "/sys/class/gpio/export"
+#define GPIO_SYSFS_BASE "/sys/class/gpio/gpio"
+#define GPIO_SYSFS_DIRECTION "direction"
+#define GPIO_SYSFS_VALUE "value"
 
 // for handle_pkt
 #define FROM_DSP 0
 #define FROM_HOST 1
-/* Current call state:
-        0 -> No active call
-        1 -> Circuit Switch
-        2 -> VoLTE
-*/
 
 static const struct {
   const char *path;

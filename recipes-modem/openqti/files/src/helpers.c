@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/poll.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -15,6 +16,8 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/tracking.h"
+
+char prev_dtr, prev_wakeup, prev_sleepind;
 
 int write_to(const char *path, const char *val, int flags) {
   int ret;
@@ -41,7 +44,7 @@ int is_adb_enabled() {
   fd = open("/dev/mtdblock12", O_RDONLY);
   if (fd < 0) {
     logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
-    return -EINVAL;
+    return 1;
   }
   lseek(fd, 64, SEEK_SET);
   read(fd, buff, sizeof(PERSIST_ADB_ON_MAGIC));
@@ -101,6 +104,51 @@ void set_next_fastboot_mode(int flag) {
   close(fd);
 }
 
+
+int get_audio_mode() {
+  int fd;
+  char buff[32];
+  fd = open("/dev/mtdblock12", O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
+    return AUDIO_MODE_I2S;
+  }
+  lseek(fd, 96, SEEK_SET);
+  read(fd, buff, sizeof(PERSIST_USB_AUD_MAGIC));
+  close(fd);
+  if (strcmp(buff, PERSIST_USB_AUD_MAGIC) == 0) {
+    logger(MSG_INFO, "%s: Persistent USB audio is enabled\n", __func__);
+    return AUDIO_MODE_USB;
+  }
+
+  logger(MSG_INFO, "%s: Persistent USB audio is disabled \n", __func__);
+  return AUDIO_MODE_I2S;
+}
+
+
+void store_audio_output_mode(uint8_t mode) {
+  char buff[32];
+  memset(buff, 0, 32);
+  int fd;
+  if (mode == AUDIO_MODE_USB) { // Store the magic string in the second block of
+                                // the misc partition
+    logger(MSG_WARN, "Enabling USB Audio\n");
+    strncpy(buff, PERSIST_USB_AUD_MAGIC, sizeof(PERSIST_USB_AUD_MAGIC));
+  } else {
+    logger(MSG_WARN, "Disabling USB audio\n");
+  }
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR,
+           "%s: Error opening misc partition to set audio output flag \n",
+           __func__);
+    return;
+  }
+  lseek(fd, 96, SEEK_SET);
+  write(fd, &buff, sizeof(buff));
+  close(fd);
+}
+
 void reset_usb_port() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
@@ -111,10 +159,122 @@ void reset_usb_port() {
   }
 }
 
+void restart_usb_stack() {
+  int ret;
+  char functions[64] = "diag,serial,rmnet";
+  if (is_adb_enabled()) {
+    strcat(functions,",ffs");
+  }
+
+  if (get_audio_mode()) {
+    strcat(functions, ",audio");
+  }
+
+  if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
+  }
+  
+  if (write_to(USB_FUNC_PATH, functions, O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error setting USB functions \n", __func__);
+  }
+  
+  sleep(1);
+  if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+
+  // Switch between I2S and usb audio depending on the misc partition setting
+  set_output_device(get_audio_mode());
+  // Enable or disable ADB depending on the misc partition setting
+  set_adb_runtime(is_adb_enabled());
+}
+
 void enable_usb_port() {
   if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
   }
+}
+
+char *get_gpio_value_path(char *gpio) {
+  char *path;
+  path = calloc(256, sizeof(char));
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_VALUE);
+
+  return path;
+}
+
+int get_dtr() {
+  int dtr, val = 0;
+  char readval;
+  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY);
+  if (dtr < 0) {
+    logger(MSG_ERROR, "%s: DTR not available: %s \n", __func__,
+           get_gpio_value_path(GPIO_DTR));
+    return 0; // assume active
+  }
+  lseek(dtr, 0, SEEK_SET);
+  read(dtr, &readval, 1);
+  close(dtr);
+  if ((int)(readval - '0') == 1) {
+    val = 1;
+  }
+  return val;
+}
+int get_wakeup_ind() {
+  int dtr, val = 0;
+  char readval;
+  dtr = open(get_gpio_value_path(GPIO_WAKEUP_IN), O_RDONLY);
+  if (dtr < 0) {
+    logger(MSG_ERROR, "%s: GPIO_WAKEUP_IN not available: %s \n", __func__,
+           get_gpio_value_path(GPIO_WAKEUP_IN));
+    return 0; // assume active
+  }
+  lseek(dtr, 0, SEEK_SET);
+  read(dtr, &readval, 1);
+  close(dtr);
+  if ((int)(readval - '0') == 1) {
+    val = 1;
+    logger(MSG_INFO, "%s: WAKEUP is 1 \n", __func__);
+  }
+  logger(MSG_INFO, "%s: WAKEUP is %i \n", __func__, val);
+
+  return val;
+}
+void *handle_gpios() {
+  int sleep_ind, wakeup_in, dtr;
+  char dtrval, wakeupval;
+  if (prev_dtr != '0' && prev_dtr != '1') {
+    prev_dtr = '0';
+    prev_wakeup = '0';
+    prev_sleepind = '0';
+  }
+  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY);
+  wakeup_in = open(get_gpio_value_path(GPIO_WAKEUP_IN), O_RDONLY);
+  if (dtr < 0) {
+    logger(MSG_ERROR, "%s: DTR not available: %s \n", __func__,
+           get_gpio_value_path(GPIO_DTR));
+  } else {
+    lseek(dtr, 0, SEEK_SET);
+    read(dtr, &dtrval, 1);
+    close(dtr);
+  }
+  if (wakeup_in < 0) {
+    logger(MSG_ERROR, "%s: WAKEUP in not available %s: \n", __func__,
+           get_gpio_value_path(GPIO_WAKEUP_IN));
+  } else {
+    lseek(wakeup_in, 0, SEEK_SET);
+    read(wakeup_in, &wakeupval, 1);
+    close(wakeup_in);
+  }
+
+  if (dtrval != prev_dtr || wakeupval != prev_wakeup) {
+    logger(MSG_INFO, "%s: DTR: %c->%c WAKEUP_IND: %c->%c\n", __func__, prev_dtr,
+           dtrval, prev_wakeup, wakeupval);
+    prev_dtr = dtrval;
+    prev_wakeup = wakeupval;
+  }
+
+  return NULL;
 }
 
 void *gps_proxy() {
@@ -155,6 +315,8 @@ void *gps_proxy() {
     }
 
     while (!nodes->allow_exit) {
+      handle_gpios();
+      //  if (!get_dtr()) {
       FD_ZERO(&readfds);
       memset(buf, 0, sizeof(buf));
       FD_SET(nodes->node1.fd, &readfds);
@@ -181,6 +343,7 @@ void *gps_proxy() {
           nodes->allow_exit = true;
         }
       }
+      //    }
     }
     logger(MSG_ERROR,
            "%s: One of the descriptors was closed, restarting the thread \n",
@@ -198,7 +361,6 @@ void *rmnet_proxy(void *node_data) {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
-  bool already_initialized = false;
   logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
   snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
            nodes->node2.name);
@@ -206,6 +368,7 @@ void *rmnet_proxy(void *node_data) {
            nodes->node2.name);
   while (1) {
     while (!nodes->allow_exit) {
+      //  handle_gpios();
       FD_ZERO(&readfds);
       memset(buf, 0, sizeof(buf));
       FD_SET(nodes->node1.fd, &readfds);
@@ -214,7 +377,6 @@ void *rmnet_proxy(void *node_data) {
       if (FD_ISSET(nodes->node1.fd, &readfds)) {
         ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
         if (ret > 0) {
-          handle_call_pkt(buf, FROM_HOST, ret);
           track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
                              nodes->node1.fd);
           dump_packet(node1_to_2, buf, ret);
@@ -260,7 +422,6 @@ void *rmnet_proxy(void *node_data) {
       logger(MSG_ERROR,
              "Cannot force close QMI clients: ADSP not available.\n");
     }
-    already_initialized = true;
   } // end of infinite loop
 
   return NULL;

@@ -7,23 +7,53 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* VoLTE calls use these mixers */
+/* Mixers used in VoLTE / VoLTE HD */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
 #define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
 
-/* Keeping these as reference but not using them since we're not using ACDBs */
+/* Mixers used in Circuit Switch type voice calls (2G/3G) */
+#define RXCTL_VOICE "SEC_AUX_PCM_RX_Voice Mixer CSVoice"
+#define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
+
+/* Mixers used in VoLTE / VoLTE HD calls with USB Audio */
 #define AFECTL_VOLTE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOLTE "AFE_PCM_RX_Voice Mixer VoLTE"
 #define AFETX_VOLTE "VoLTE_Tx Mixer AFE_PCM_TX_VoLTE"
 
-/* Normal Voice calls */
-#define RXCTL_VOICE "SEC_AUX_PCM_RX_Voice Mixer CSVoice"
-#define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
-
-/* Keeping these as reference but not using them since we're not using ACDBs */
+/* Mixers used in Circuit Switch type voice calls (2G/3G) with USB Audio */
 #define AFECTL_VOICE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
+
+#define AUDIO_MODE_I2S 0
+#define AUDIO_MODE_USB 1
+
+enum call_direction {
+  AUDIO_DIRECTION_OUTGOING = 0x01,
+  AUDIO_DIRECTION_INCOMING = 0x02,
+};
+
+enum call_status {
+  AUDIO_CALL_ORIGINATING = 0x01,
+  AUDIO_CALL_RINGING = 0x02,
+  AUDIO_CALL_ESTABLISHED = 0x03,
+  AUDIO_CALL_ATTEMPT = 0x04,
+  AUDIO_CALL_UNKNOWN = 0x05,
+  AUDIO_CALL_ON_HOLD = 0x06,
+  AUDIO_CALL_WAITING = 0x07,
+  AUTIO_CALL_DISCONNECTING = 0x08,
+  AUDIO_CALL_HANGUP = 0x09,
+  AUDIO_CALL_PREPARING = 0x0a
+};
+
+enum call_type {
+  CALL_TYPE_NO_NETWORK = 0x00,
+  CALL_TYPE_UNKNOWN = 0x01,
+  CALL_TYPE_GSM = 0x02,
+  CALL_TYPE_UMTS = 0x03,
+  CALL_TYPE_VOLTE = 0x04,
+  CALL_TYPE_UNKNOWN_ALT = 0x05 // this I don't know what it is
+};
 
 /* AUDIO */
 
@@ -135,6 +165,10 @@ struct pcm {
 #define PCM_PERIOD_SZ_MIN 128
 #define PCM_PERIOD_SZ_SHIFT 12
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
+
+void set_audio_runtime_default();
+void set_output_device(int device);
+uint8_t get_output_device();
 
 /* Mixer functions */
 struct mixer *mixer_open(const char *device);
