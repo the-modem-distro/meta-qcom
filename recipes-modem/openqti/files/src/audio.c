@@ -68,75 +68,75 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
   bool needs_setting_up_paths = false;
   uint8_t direction, state, type, mode;
 
-    /* What are we looking for? A voice service QMI packet with the following
-    params:
-    - frame 0x01
-    - with flag 0x80
-    - of service 0x09 (voice svc)
-    - and pkt type 0x04
-    - and msg ID 0x2e (call indication)
-    */
-    if (sz > 25 && pkt[0] == 0x1 && pkt[3] == 0x80 && 
-        pkt[4] == 0x09 && pkt[6] == 0x04 && pkt[9] == 0x2e) {
+  /* What are we looking for? A voice service QMI packet with the following
+  params:
+  - frame 0x01
+  - with flag 0x80
+  - of service 0x09 (voice svc)
+  - and pkt type 0x04
+  - and msg ID 0x2e (call indication)
+  */
+  if (sz > 25 && pkt[0] == 0x1 && pkt[3] == 0x80 && pkt[4] == 0x09 &&
+      pkt[6] == 0x04 && pkt[9] == 0x2e) {
 
-      direction = pkt[20];
-      state = pkt[18];
-      type = pkt[21];
+    direction = pkt[20];
+    state = pkt[18];
+    type = pkt[21];
 
-      if (direction == AUDIO_DIRECTION_OUTGOING) {
-        logger(MSG_WARN, "%s: Call direction: outgoing \n", __func__);
-      } else if (pkt[20] == AUDIO_DIRECTION_INCOMING) {
-        logger(MSG_WARN, "%s: Call direction: incoming \n", __func__);
-      } else {
-        logger(MSG_ERROR, "%s: Unknown call direction! \n", __func__);
-      }
+    if (direction == AUDIO_DIRECTION_OUTGOING) {
+      logger(MSG_WARN, "%s: Call direction: outgoing \n", __func__);
+    } else if (pkt[20] == AUDIO_DIRECTION_INCOMING) {
+      logger(MSG_WARN, "%s: Call direction: incoming \n", __func__);
+    } else {
+      logger(MSG_ERROR, "%s: Unknown call direction! \n", __func__);
+    }
 
-      switch (type) {
-        case CALL_TYPE_NO_NETWORK:
-        case CALL_TYPE_UNKNOWN:
-        case CALL_TYPE_GSM:
-        case CALL_TYPE_UMTS:
-        case CALL_TYPE_UNKNOWN_ALT:
-          mode = CALL_STATUS_CS;
-          logger(MSG_INFO, "%s: Call type: Circuit Switch \n", __func__);
-          break;
-        case CALL_TYPE_VOLTE:
-          mode = CALL_STATUS_VOLTE;
-          logger(MSG_INFO, "%s: Call type: VoLTE \n", __func__);
-          break;
-        default:
-          logger(MSG_ERROR, "%s: Unknown call type \n", __func__);
-          break;
-      }
+    switch (type) {
+    case CALL_TYPE_NO_NETWORK:
+    case CALL_TYPE_UNKNOWN:
+    case CALL_TYPE_GSM:
+    case CALL_TYPE_UMTS:
+    case CALL_TYPE_UNKNOWN_ALT:
+      mode = CALL_STATUS_CS;
+      logger(MSG_INFO, "%s: Call type: Circuit Switch \n", __func__);
+      break;
+    case CALL_TYPE_VOLTE:
+      mode = CALL_STATUS_VOLTE;
+      logger(MSG_INFO, "%s: Call type: VoLTE \n", __func__);
+      break;
+    default:
+      logger(MSG_ERROR, "%s: Unknown call type \n", __func__);
+      break;
+    }
 
-      switch (state) { // Call status
-        case AUDIO_CALL_PREPARING:
-        case AUDIO_CALL_ATTEMPT:
-        case AUDIO_CALL_ORIGINATING:
-        case AUDIO_CALL_RINGING:
-        case AUDIO_CALL_ESTABLISHED:
-        case AUDIO_CALL_UNKNOWN:
-          logger(MSG_INFO, "%s: Setting up audio for mode %i \n", __func__, mode);
-          start_audio(mode);
-          break;
-        case AUDIO_CALL_ON_HOLD:
-        case AUDIO_CALL_WAITING:
-          logger(MSG_INFO, "%s: Skipping audio setting (on hold/waiting) %i \n",
-                __func__, mode);
-          break;
-        case AUTIO_CALL_DISCONNECTING:
-        case AUDIO_CALL_HANGUP:
-          logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
-          stop_audio();
-          break;
-        default:
-          logger(MSG_ERROR, "%s: Unknown call status \n", __func__);
-          break;
-      }
+    switch (state) { // Call status
+    case AUDIO_CALL_PREPARING:
+    case AUDIO_CALL_ATTEMPT:
+    case AUDIO_CALL_ORIGINATING:
+    case AUDIO_CALL_RINGING:
+    case AUDIO_CALL_ESTABLISHED:
+    case AUDIO_CALL_UNKNOWN:
+      logger(MSG_INFO, "%s: Setting up audio for mode %i \n", __func__, mode);
+      start_audio(mode);
+      break;
+    case AUDIO_CALL_ON_HOLD:
+    case AUDIO_CALL_WAITING:
+      logger(MSG_INFO, "%s: Skipping audio setting (on hold/waiting) %i \n",
+             __func__, mode);
+      break;
+    case AUTIO_CALL_DISCONNECTING:
+    case AUDIO_CALL_HANGUP:
+      logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
+      stop_audio();
+      break;
+    default:
+      logger(MSG_ERROR, "%s: Unknown call status \n", __func__);
+      break;
+    }
 
-      logger(MSG_INFO, "%s: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
-             __func__, direction, state, type, mode);
-    } // if packet is call indication, and comes from dsp
+    logger(MSG_INFO, "%s: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
+           __func__, direction, state, type, mode);
+  } // if packet is call indication, and comes from dsp
 } // func
 
 int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
@@ -171,7 +171,7 @@ int stop_audio() {
     return 0;
   }
 
-switch (audio_runtime_state.output_device) {
+  switch (audio_runtime_state.output_device) {
   case AUDIO_MODE_I2S: // I2S Audio
     // We close all the mixers
     if (audio_runtime_state.current_call_state == 1) {
@@ -210,15 +210,12 @@ int start_audio(int type) {
   char pcm_device[18];
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE &&
       type != audio_runtime_state.current_call_state) {
-    logger(MSG_WARN,
-           "%s: Switching audio profiles: 0x%.2x --> 0x%.2x\n",
+    logger(MSG_WARN, "%s: Switching audio profiles: 0x%.2x --> 0x%.2x\n",
            __func__, audio_runtime_state.current_call_state, type);
     stop_audio();
   } else if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE &&
              type == audio_runtime_state.current_call_state) {
-    logger(MSG_INFO,
-           "%s: Not doing anything, already set.\n",
-           __func__);
+    logger(MSG_INFO, "%s: Not doing anything, already set.\n", __func__);
     return 0;
   }
 
@@ -227,7 +224,7 @@ int start_audio(int type) {
     logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return 0;
   }
- switch (audio_runtime_state.output_device) {
+  switch (audio_runtime_state.output_device) {
   case AUDIO_MODE_I2S:
     switch (type) {
     case 1:

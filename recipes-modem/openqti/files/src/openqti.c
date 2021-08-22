@@ -30,8 +30,7 @@ int connected_clients = 0;
 char *get_gpio_direction_path(char *gpio) {
   char *path;
   path = calloc(256, sizeof(char));
-  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio,
-           GPIO_SYSFS_DIRECTION);
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_DIRECTION);
 
   return path;
 }

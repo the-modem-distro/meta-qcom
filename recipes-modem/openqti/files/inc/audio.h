@@ -4,8 +4,8 @@
 #define _AUDIO_H_
 
 #include <sound/asound.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /* Mixers used in VoLTE / VoLTE HD */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"

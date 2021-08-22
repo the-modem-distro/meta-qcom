@@ -104,7 +104,6 @@ void set_next_fastboot_mode(int flag) {
   close(fd);
 }
 
-
 int get_audio_mode() {
   int fd;
   char buff[32];
@@ -124,7 +123,6 @@ int get_audio_mode() {
   logger(MSG_INFO, "%s: Persistent USB audio is disabled \n", __func__);
   return AUDIO_MODE_I2S;
 }
-
 
 void store_audio_output_mode(uint8_t mode) {
   char buff[32];
@@ -163,7 +161,7 @@ void restart_usb_stack() {
   int ret;
   char functions[64] = "diag,serial,rmnet";
   if (is_adb_enabled()) {
-    strcat(functions,",ffs");
+    strcat(functions, ",ffs");
   }
 
   if (get_audio_mode()) {
@@ -173,11 +171,11 @@ void restart_usb_stack() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
   }
-  
+
   if (write_to(USB_FUNC_PATH, functions, O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error setting USB functions \n", __func__);
   }
-  
+
   sleep(1);
   if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);

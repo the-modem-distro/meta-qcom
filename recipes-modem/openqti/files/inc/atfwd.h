@@ -5,17 +5,6 @@
 #include <stdint.h>
 
 static const struct {
-  bool adb_en;
-  const char *serial_transports;
-  const char *functions;
-} usb_modes[] = {
-    {true, "tty,smd,smd", "diag,serial,rmnet,ffs"},       // With ADB
-    {false, "tty,smd,smd", "diag,serial,rmnet"},          // Without ADB
-    {true, "tty,smd,smd", "diag,serial,rmnet,ffs,audio"}, // USB audio + ADB 
-    {false, "tty,smd,smd", "diag,serial,rmnet,audio"}, // USB audio without ADB 
-};
-
-static const struct {
   unsigned int command_id;
   const char *cmd;
 } at_commands[] = {

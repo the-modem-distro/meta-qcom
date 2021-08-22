@@ -21,7 +21,7 @@
 #define CALL_STATUS_CS 1
 #define CALL_STATUS_VOLTE 2
 
-#define GPIO_DTR "5" // 0 low, 1 high, input
+#define GPIO_DTR "5"        // 0 low, 1 high, input
 #define GPIO_WAKEUP_IN "25" // input
 #define GPIO_SLEEP_IND "74" // output
 #define GPIO_MODE_INPUT "in"

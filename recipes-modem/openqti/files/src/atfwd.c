@@ -3,9 +3,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -22,13 +22,9 @@ struct {
   bool adb_enabled;
 } atfwd_runtime_state;
 
-void set_atfwd_runtime_default() {
-  atfwd_runtime_state.adb_enabled = false;
-}
+void set_atfwd_runtime_default() { atfwd_runtime_state.adb_enabled = false; }
 
-void set_adb_runtime(bool mode) {
-  atfwd_runtime_state.adb_enabled = mode;
-}
+void set_adb_runtime(bool mode) { atfwd_runtime_state.adb_enabled = mode; }
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
@@ -56,7 +52,6 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   free(atcmd);
   atcmd = NULL;
 }
-
 
 /* When a command is requested via AT interface,
    this function is used to answer to them */
