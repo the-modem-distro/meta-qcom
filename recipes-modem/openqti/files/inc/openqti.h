@@ -27,7 +27,6 @@
 #define GPIO_MODE_INPUT "in"
 #define GPIO_MODE_OUTPUT "out"
 
-#define SMD_DATA3 "/dev/smd8"
 #define GPIO_EXPORT_PATH "/sys/class/gpio/export"
 #define GPIO_SYSFS_BASE "/sys/class/gpio/gpio"
 #define GPIO_SYSFS_DIRECTION "direction"

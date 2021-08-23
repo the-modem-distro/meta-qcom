@@ -24,4 +24,5 @@ void enable_usb_port();
 
 void *gps_proxy();
 void *rmnet_proxy(void *node_data);
+void *dtr_monitor();
 #endif

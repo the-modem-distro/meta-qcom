@@ -7,7 +7,7 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 #include <unistd.h>
-
+#include <sys/ioctl.h>
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
@@ -239,15 +239,15 @@ int get_wakeup_ind() {
   return val;
 }
 void *handle_gpios() {
-  int sleep_ind, wakeup_in, dtr;
+  int sleep_ind, wakeup_in, dtr, bitset, fd;
   char dtrval, wakeupval;
   if (prev_dtr != '0' && prev_dtr != '1') {
     prev_dtr = '0';
     prev_wakeup = '0';
     prev_sleepind = '0';
   }
-  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY);
-  wakeup_in = open(get_gpio_value_path(GPIO_WAKEUP_IN), O_RDONLY);
+  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY | O_NONBLOCK);
+  wakeup_in = open(get_gpio_value_path(GPIO_WAKEUP_IN), O_RDONLY | O_NONBLOCK);
   if (dtr < 0) {
     logger(MSG_ERROR, "%s: DTR not available: %s \n", __func__,
            get_gpio_value_path(GPIO_DTR));
@@ -270,6 +270,23 @@ void *handle_gpios() {
            dtrval, prev_wakeup, wakeupval);
     prev_dtr = dtrval;
     prev_wakeup = wakeupval;
+     fd = open(SMD_DATA3, O_RDWR);
+    if (fd < 0) {
+      logger(MSG_ERROR, "%s: DATA3 is not available \n", __func__);
+    } else {
+      logger(MSG_ERROR, "%s: DATA3 is available, continuing \n", __func__);
+      if (dtrval == 0) {
+        bitset = 2;
+      } else {
+        bitset = 0;
+      }
+      if (ioctl(fd, TIOCMSET, &bitset) == -1) {
+            logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__,
+                   bitset);
+      }
+
+      close(fd);
+    }
   }
 
   return NULL;
@@ -366,7 +383,7 @@ void *rmnet_proxy(void *node_data) {
            nodes->node2.name);
   while (1) {
     while (!nodes->allow_exit) {
-      //  handle_gpios();
+      handle_gpios();
       FD_ZERO(&readfds);
       memset(buf, 0, sizeof(buf));
       FD_SET(nodes->node1.fd, &readfds);
@@ -424,3 +441,68 @@ void *rmnet_proxy(void *node_data) {
 
   return NULL;
 }
+
+void *dtr_monitor() {
+  int count = 0;
+  logger(MSG_INFO, "%s: Initialize DTR status monitor thread.\n", __func__);
+  int fd, dtr, ret;
+  struct pollfd fdset[1];
+  char dtrval;
+  int bitset;
+  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY | O_NONBLOCK);
+  if (dtr < 0) {
+    logger(MSG_ERROR, "%s: DTR not available: %s \n", __func__,
+           get_gpio_value_path(GPIO_DTR));
+    return NULL;
+  }
+  while (1) {
+    logger(MSG_ERROR, "%s: Looped thread: %i \n", __func__, count);
+    count++;
+    fdset[0].fd = dtr;
+    fdset[0].events = POLLPRI;
+    logger(MSG_INFO, "%s: Poll wait\n", __func__);
+    ret = poll(fdset, 1, -1);
+    fd = open(SMD_DATA3, O_RDWR);
+    if (fd < 0) {
+      logger(MSG_ERROR, "%s: DATA3 is not available \n", __func__);
+    } else {
+      logger(MSG_ERROR, "%s: DATA3 is available, continuing \n", __func__);
+    }
+    if (fdset[0].revents & POLLPRI) {
+      logger(MSG_INFO, "%s: Poll pri\n", __func__);
+
+      lseek(dtr, 0, SEEK_SET);
+      read(dtr, &dtrval, 1);
+      if ((int)dtrval - '0' == 0) { // 0?
+        bitset = 2;
+        logger(MSG_ERROR, "%s: DTR  is 0 \n", __func__);
+        if (fd >= 0) {
+          if (ioctl(fd, TIOCMSET, &bitset) == -1) {
+            logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__,
+                   bitset);
+          }
+        }
+        } else if ((int)dtrval - '0' == 1) { // 2?
+          bitset = 0;
+          logger(MSG_ERROR, "%s: DTR  is 1 \n", __func__);
+            if (fd >= 0) {
+              if (ioctl(fd, TIOCMSET, &bitset) == -1) {
+                logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n",
+                       __func__, bitset);
+              }
+            }
+          } else {
+            logger(MSG_ERROR, "%s: ERR: DTR  is %c \n", __func__, dtrval);
+
+          } //   if ((int)(readval - '0') == 1) {
+        }
+        logger(MSG_INFO, "%s: End of loop\n", __func__);
+        if (fd >= 0) {
+          close(fd);
+        }
+        handle_gpios();
+      } // end of infinite loop
+
+      close(dtr);
+      return NULL;
+    }

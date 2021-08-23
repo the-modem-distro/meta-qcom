@@ -12,6 +12,9 @@
 #define SMD_CNTL "/dev/smdcntl8"
 /* SMD Device 7: ADSP side GPS port */
 #define SMD_GPS "/dev/smd7"
+/* SMD Data 3 is used by Quectel's LPM kernel driver */
+#define SMD_DATA3 "/dev/smd8"
+
 /* ttyGS0: USB side GPS port */
 #define USB_GPS "/dev/ttyGS0"
 
