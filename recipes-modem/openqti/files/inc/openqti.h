@@ -31,6 +31,7 @@
 #define GPIO_SYSFS_BASE "/sys/class/gpio/gpio"
 #define GPIO_SYSFS_DIRECTION "direction"
 #define GPIO_SYSFS_VALUE "value"
+#define GPIO_SYSFS_EDGE "edge"
 
 // for handle_pkt
 #define FROM_DSP 0

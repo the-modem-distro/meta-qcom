@@ -64,6 +64,9 @@ void prepare_gpios() {
            "%s: Error setting direction for GPIO_SLEEP_IND pin at %s\n",
            __func__, get_gpio_direction_path(GPIO_SLEEP_IND));
   }
+    if (write_to("/sys/class/gpio/gpio5/edge", "both", O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
+  }
 }
 int main(int argc, char **argv) {
   int i, ret, lockfile;
@@ -233,13 +236,13 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
-/*
+
   logger(MSG_INFO, "%s: Init: Create DTR monitor thread \n", __func__);
   if ((ret = pthread_create(&dtr_monitor_thread, NULL, &dtr_monitor,
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
-*/
+
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",

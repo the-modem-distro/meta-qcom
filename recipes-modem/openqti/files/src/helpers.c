@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <string.h>
-#include <sys/poll.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
+#include "../inc/helpers.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
-#include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/tracking.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 char prev_dtr, prev_wakeup, prev_sleepind;
-
+int current_dtr = 0;
 int write_to(const char *path, const char *val, int flags) {
   int ret;
   int fd = open(path, flags);
@@ -201,6 +201,13 @@ char *get_gpio_value_path(char *gpio) {
   return path;
 }
 
+char *get_gpio_edge_path(char *gpio) {
+  char *path;
+  path = calloc(256, sizeof(char));
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_VALUE);
+
+  return path;
+}
 int get_dtr() {
   int dtr, val = 0;
   char readval;
@@ -217,6 +224,32 @@ int get_dtr() {
     val = 1;
   }
   return val;
+}
+int get_usb_state() {
+  int dtr, val = 0;
+  char readval[6];
+  // ./devices/virtual/android_usb/android0/state
+  dtr = open("/sys/devices/78d9000.usb/power_supply/usb/current_max", O_RDONLY);
+  if (dtr < 0) {
+    logger(MSG_ERROR, "%s: Cannot open USB state \n", __func__);
+    return 0; // assume active
+  }
+  lseek(dtr, 0, SEEK_SET);
+  read(dtr, &readval, 6);
+  val = strtol(readval, NULL, 10);
+
+  logger(MSG_DEBUG, "USB Power: %i mAh \n", val / 1000);
+  if (val < 500000 && current_dtr == 0) {
+    current_dtr =
+        1; // If the Pinephone is delivering less than 500 mAh stop right there
+    setDATA3();
+  } else if (current_dtr == 1) {
+    current_dtr = 0;
+    setDATA3();
+  }
+  close(dtr);
+  // 500000 | 2000
+  return 0;
 }
 int get_wakeup_ind() {
   int dtr, val = 0;
@@ -270,7 +303,7 @@ void *handle_gpios() {
            dtrval, prev_wakeup, wakeupval);
     prev_dtr = dtrval;
     prev_wakeup = wakeupval;
-     fd = open(SMD_DATA3, O_RDWR);
+    fd = open(SMD_DATA3, O_RDWR);
     if (fd < 0) {
       logger(MSG_ERROR, "%s: DATA3 is not available \n", __func__);
     } else {
@@ -281,8 +314,8 @@ void *handle_gpios() {
         bitset = 0;
       }
       if (ioctl(fd, TIOCMSET, &bitset) == -1) {
-            logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__,
-                   bitset);
+        logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__,
+               bitset);
       }
 
       close(fd);
@@ -292,6 +325,26 @@ void *handle_gpios() {
   return NULL;
 }
 
+void setDATA3() {
+  int bitset, fd;
+
+  fd = open(SMD_DATA3, O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: DATA3 is not available \n", __func__);
+    return;
+  } else {
+    logger(MSG_ERROR, "%s: DATA3 is available, continuing \n", __func__);
+    if (current_dtr == 0) {
+      bitset = 2;
+    } else {
+      bitset = 0;
+    }
+    if (ioctl(fd, TIOCMSET, &bitset) == -1) {
+      logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__, bitset);
+    }
+    close(fd);
+  }
+}
 void *gps_proxy() {
   struct node_pair *nodes;
   nodes = calloc(1, sizeof(struct node_pair));
@@ -302,7 +355,7 @@ void *gps_proxy() {
   char node2_to_1[32];
   while (1) {
     logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
-
+    get_usb_state();
     /* Set the names */
     strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
     strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
@@ -330,35 +383,35 @@ void *gps_proxy() {
     }
 
     while (!nodes->allow_exit) {
-      handle_gpios();
-      //  if (!get_dtr()) {
-      FD_ZERO(&readfds);
-      memset(buf, 0, sizeof(buf));
-      FD_SET(nodes->node1.fd, &readfds);
-      FD_SET(nodes->node2.fd, &readfds);
-      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-      if (FD_ISSET(nodes->node1.fd, &readfds)) {
-        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          dump_packet(node1_to_2, buf, ret);
-          ret = write(nodes->node2.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n",
-                 __func__);
-          nodes->allow_exit = true;
-        }
-      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          dump_packet(node2_to_1, buf, ret);
-          ret = write(nodes->node1.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n",
-                 __func__);
-          nodes->allow_exit = true;
+      get_usb_state();
+      if (!current_dtr) {
+        FD_ZERO(&readfds);
+        memset(buf, 0, sizeof(buf));
+        FD_SET(nodes->node1.fd, &readfds);
+        FD_SET(nodes->node2.fd, &readfds);
+        pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+        if (FD_ISSET(nodes->node1.fd, &readfds)) {
+          ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            dump_packet(node1_to_2, buf, ret);
+            ret = write(nodes->node2.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n",
+                   __func__);
+            nodes->allow_exit = true;
+          }
+        } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+          ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            dump_packet(node2_to_1, buf, ret);
+            ret = write(nodes->node1.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n",
+                   __func__);
+            nodes->allow_exit = true;
+          }
         }
       }
-      //    }
     }
     logger(MSG_ERROR,
            "%s: One of the descriptors was closed, restarting the thread \n",
@@ -367,6 +420,11 @@ void *gps_proxy() {
     close(nodes->node2.fd);
   }
 }
+struct {
+  ssize_t bufsize;
+  uint64_t elements;
+  char *buf;
+} storage_plan;
 
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;
@@ -382,40 +440,47 @@ void *rmnet_proxy(void *node_data) {
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
   while (1) {
+    get_usb_state();
     while (!nodes->allow_exit) {
-      handle_gpios();
-      FD_ZERO(&readfds);
-      memset(buf, 0, sizeof(buf));
-      FD_SET(nodes->node1.fd, &readfds);
-      FD_SET(nodes->node2.fd, &readfds);
-      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-      if (FD_ISSET(nodes->node1.fd, &readfds)) {
-        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
-                             nodes->node1.fd);
-          dump_packet(node1_to_2, buf, ret);
-          ret = write(nodes->node2.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
-                 __func__, ret);
-          nodes->allow_exit = true;
-        }
-      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          handle_call_pkt(buf, FROM_DSP, ret);
-          track_client_count(buf, FROM_DSP, ret, nodes->node2.fd,
-                             nodes->node1.fd);
-          dump_packet(node2_to_1, buf, ret);
-          ret = write(nodes->node1.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
-                 __func__, ret);
-          nodes->allow_exit = true;
+      get_usb_state();
+      //  get_usb_state();
+      // IF USB state here is not CONNECTED && CONFIGURED we should stop.
+      // I think I might be trying to wake up USB myself in this loop
+      if (!current_dtr) {
+        FD_ZERO(&readfds);
+        memset(buf, 0, sizeof(buf));
+        FD_SET(nodes->node1.fd, &readfds);
+        FD_SET(nodes->node2.fd, &readfds);
+        pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+        if (FD_ISSET(nodes->node1.fd, &readfds)) {
+          ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
+                               nodes->node1.fd);
+            dump_packet(node1_to_2, buf, ret);
+            ret = write(nodes->node2.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
+                   __func__, ret);
+            //     nodes->allow_exit = true;
+          }
+        } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+          ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            handle_call_pkt(buf, FROM_DSP, ret);
+            track_client_count(buf, FROM_DSP, ret, nodes->node2.fd,
+                               nodes->node1.fd);
+            dump_packet(node2_to_1, buf, ret);
+            ret = write(nodes->node1.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
+                   __func__, ret);
+            //     nodes->allow_exit = true;
+          }
         }
       }
     }
+    /*
     logger(MSG_WARN, "RMNET proxy is dead! Trying to recover\n");
     close(nodes->node1.fd);
     close(nodes->node2.fd);
@@ -437,13 +502,14 @@ void *rmnet_proxy(void *node_data) {
       logger(MSG_ERROR,
              "Cannot force close QMI clients: ADSP not available.\n");
     }
+    */
   } // end of infinite loop
 
   return NULL;
 }
 
 void *dtr_monitor() {
-  int count = 0;
+  uint32_t count = 0;
   logger(MSG_INFO, "%s: Initialize DTR status monitor thread.\n", __func__);
   int fd, dtr, ret;
   struct pollfd fdset[1];
@@ -455,54 +521,29 @@ void *dtr_monitor() {
            get_gpio_value_path(GPIO_DTR));
     return NULL;
   }
+
+  fdset[0].fd = dtr;
+  fdset[0].events = POLLPRI | POLLERR;
   while (1) {
-    logger(MSG_ERROR, "%s: Looped thread: %i \n", __func__, count);
-    count++;
-    fdset[0].fd = dtr;
-    fdset[0].events = POLLPRI;
-    logger(MSG_INFO, "%s: Poll wait\n", __func__);
+    lseek(dtr, 0, SEEK_SET);
     ret = poll(fdset, 1, -1);
-    fd = open(SMD_DATA3, O_RDWR);
-    if (fd < 0) {
-      logger(MSG_ERROR, "%s: DATA3 is not available \n", __func__);
-    } else {
-      logger(MSG_ERROR, "%s: DATA3 is available, continuing \n", __func__);
+    if (ret < 0) {
+      logger(MSG_ERROR, "%s: poll failed\n ", __func__);
     }
     if (fdset[0].revents & POLLPRI) {
-      logger(MSG_INFO, "%s: Poll pri\n", __func__);
-
-      lseek(dtr, 0, SEEK_SET);
       read(dtr, &dtrval, 1);
-      if ((int)dtrval - '0' == 0) { // 0?
-        bitset = 2;
-        logger(MSG_ERROR, "%s: DTR  is 0 \n", __func__);
-        if (fd >= 0) {
-          if (ioctl(fd, TIOCMSET, &bitset) == -1) {
-            logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__,
-                   bitset);
-          }
-        }
-        } else if ((int)dtrval - '0' == 1) { // 2?
-          bitset = 0;
-          logger(MSG_ERROR, "%s: DTR  is 1 \n", __func__);
-            if (fd >= 0) {
-              if (ioctl(fd, TIOCMSET, &bitset) == -1) {
-                logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n",
-                       __func__, bitset);
-              }
-            }
-          } else {
-            logger(MSG_ERROR, "%s: ERR: DTR  is %c \n", __func__, dtrval);
-
-          } //   if ((int)(readval - '0') == 1) {
-        }
-        logger(MSG_INFO, "%s: End of loop\n", __func__);
-        if (fd >= 0) {
-          close(fd);
-        }
-        handle_gpios();
-      } // end of infinite loop
-
-      close(dtr);
-      return NULL;
+      if ((int)(dtrval - '0') == 1) {
+        current_dtr = 1;
+      } else {
+        current_dtr = 0;
+      }
+      logger(MSG_INFO, "%s: Current DTR: %i \n", __func__, current_dtr);
+      setDATA3();
     }
+    // handle_gpios();
+
+  } // end of infinite loop
+  close(dtr);
+
+  return NULL;
+}
