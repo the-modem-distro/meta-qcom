@@ -209,10 +209,31 @@ char *get_gpio_edge_path(char *gpio) {
   return path;
 }
 
-int get_usb_state() {
+int set_smd_dtr() {
+  int bitset, fd, ret;
+
+  fd = open(SMD_DATA3, O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Unable to open %s \n", __func__, SMD_DATA3);
+    return -EINVAL;
+  } else {
+    if (current_dtr == 0) {
+      bitset = 2;
+    } else {
+      bitset = 0;
+    }
+    if (ioctl(fd, TIOCMSET, &bitset) == -1) {
+      logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__, bitset);
+    }
+    close(fd);
+  }
+
+  return ret;
+}
+
+int get_usb_current() {
   int dtr, val = 0;
   char readval[6];
-  // ./devices/virtual/android_usb/android0/state
   dtr = open("/sys/devices/78d9000.usb/power_supply/usb/current_max", O_RDONLY);
   if (dtr < 0) {
     logger(MSG_ERROR, "%s: Cannot open USB state \n", __func__);
@@ -256,27 +277,6 @@ int get_wakeup_ind() {
   return val;
 }
 
-int set_smd_dtr() {
-  int bitset, fd, ret;
-
-  fd = open(SMD_DATA3, O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Unable to open %s \n", __func__, SMD_DATA3);
-    return -EINVAL;
-  } else {
-    if (current_dtr == 0) {
-      bitset = 2;
-    } else {
-      bitset = 0;
-    }
-    if (ioctl(fd, TIOCMSET, &bitset) == -1) {
-      logger(MSG_ERROR, "%s: IOCTL Failed for set bit %i \n", __func__, bitset);
-    }
-    close(fd);
-  }
-
-  return ret;
-}
 void *gps_proxy() {
   struct node_pair *nodes;
   nodes = calloc(1, sizeof(struct node_pair));
@@ -285,16 +285,17 @@ void *gps_proxy() {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[32];
   char node2_to_1[32];
+  /* Set the names */
+  strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
+  strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
+  snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
+           nodes->node2.name);
+  snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
+           nodes->node2.name);
+
   while (1) {
     logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
-    /* Set the names */
-    strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
-    strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
-    snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
-             nodes->node2.name);
-    snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
-             nodes->node2.name);
-
+    get_usb_current();
     nodes->node1.fd = open(SMD_GPS, O_RDWR);
     if (nodes->node1.fd < 0) {
       logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
@@ -314,7 +315,7 @@ void *gps_proxy() {
     }
 
     while (!nodes->allow_exit) {
-      get_usb_state();
+      get_usb_current();
       if (!current_dtr) {
         FD_ZERO(&readfds);
         memset(buf, 0, sizeof(buf));
@@ -344,9 +345,7 @@ void *gps_proxy() {
         }
       }
     }
-    logger(MSG_ERROR,
-           "%s: One of the descriptors was closed, restarting the thread \n",
-           __func__);
+    logger(MSG_ERROR, "%s: Restarting the thread \n", __func__);
     close(nodes->node1.fd);
     close(nodes->node2.fd);
   }
@@ -371,40 +370,39 @@ void *rmnet_proxy(void *node_data) {
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
   while (1) {
-    get_usb_state();
-    //  get_usb_state();
-    // IF USB state here is not CONNECTED && CONFIGURED we should stop.
-    // I think I might be trying to wake up USB myself in this loop
-    if (!current_dtr) {
-      FD_ZERO(&readfds);
-      memset(buf, 0, sizeof(buf));
-      FD_SET(nodes->node1.fd, &readfds);
-      FD_SET(nodes->node2.fd, &readfds);
-      pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
-      if (FD_ISSET(nodes->node1.fd, &readfds)) {
-        ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
-                             nodes->node1.fd);
-          dump_packet(node1_to_2, buf, ret);
-          ret = write(nodes->node2.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
-                 __func__, ret);
-          //     nodes->allow_exit = true;
-        }
-      } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
-        ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
-        if (ret > 0) {
-          handle_call_pkt(buf, FROM_DSP, ret);
-          track_client_count(buf, FROM_DSP, ret, nodes->node2.fd,
-                             nodes->node1.fd);
-          dump_packet(node2_to_1, buf, ret);
-          ret = write(nodes->node1.fd, buf, ret);
-        } else {
-          logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
-                 __func__, ret);
-          //     nodes->allow_exit = true;
+    get_usb_current();
+    // Everything dies if I remove this?
+    while (!nodes->allow_exit) {
+      get_usb_current();
+      if (!current_dtr) {
+        FD_ZERO(&readfds);
+        memset(buf, 0, sizeof(buf));
+        FD_SET(nodes->node1.fd, &readfds);
+        FD_SET(nodes->node2.fd, &readfds);
+        pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+        if (FD_ISSET(nodes->node1.fd, &readfds)) {
+          ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            track_client_count(buf, FROM_HOST, ret, nodes->node2.fd,
+                               nodes->node1.fd);
+            dump_packet(node1_to_2, buf, ret);
+            ret = write(nodes->node2.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
+                   __func__, ret);
+          }
+        } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
+          ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
+          if (ret > 0) {
+            handle_call_pkt(buf, FROM_DSP, ret);
+            track_client_count(buf, FROM_DSP, ret, nodes->node2.fd,
+                               nodes->node1.fd);
+            dump_packet(node2_to_1, buf, ret);
+            ret = write(nodes->node1.fd, buf, ret);
+          } else {
+            logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
+                   __func__, ret);
+          }
         }
       }
     }
@@ -414,7 +412,6 @@ void *rmnet_proxy(void *node_data) {
 }
 
 void *dtr_monitor() {
-  uint32_t count = 0;
   logger(MSG_INFO, "%s: Initialize DTR status monitor thread.\n", __func__);
   int fd, dtr, ret;
   struct pollfd fdset[1];
