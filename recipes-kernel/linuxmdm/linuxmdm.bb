@@ -31,11 +31,16 @@ SD_QCOM_BOOTIMG_ROOTFS ?= "undefined"
 # set output file names
 BOOT_IMAGE_BASE_NAME = "boot-${KERNEL_IMAGE_NAME}"
 BOOT_IMAGE_SYMLINK_NAME = "boot-${KERNEL_IMAGE_LINK_NAME}"
-# CMDLine params
 QCOM_BOOTIMG_PAGE_SIZE = "2048"
-KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 QCOM_BOOTIMG_KERNEL_BASE = "0x80000000"
 KERNEL_TAGS_ADDR = "0x81E00000"
+
+# CMDLine params
+# For debugging through serial console:
+# KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
+# For Production use (faster)
+KERNEL_CMDLINE = "noinitrd ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
+
 do_compile[nostamp] = "1"
 
 kernel_conf_variable() {
