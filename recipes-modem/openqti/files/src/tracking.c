@@ -120,6 +120,9 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
    * hate usb)
    * 6. ???
    * 7. Someone is just trying to deregister itself
+   * It seems there could be an unhandled case here (needs more debugging) where
+   * ModemManager was force closed, is reregistering but gets disconnected again
+   * If this happens you'll see a SIM with a question mark in Phosh
    */
   if (pkt[8] == CLIENT_REGISTER_REQ && pkt[10] == 0x04 && from == FROM_HOST) {
     logger(MSG_INFO, "%s: Request for service 0x%.2x...\n", __func__, pkt[15]);

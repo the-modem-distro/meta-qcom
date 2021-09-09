@@ -22,6 +22,8 @@ void reset_usb_port();
 void restart_usb_stack();
 void enable_usb_port();
 
+int get_usb_state();
+int set_smd_dtr();
 void *gps_proxy();
 void *rmnet_proxy(void *node_data);
 void *dtr_monitor();

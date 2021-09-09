@@ -64,7 +64,7 @@ void prepare_gpios() {
            "%s: Error setting direction for GPIO_SLEEP_IND pin at %s\n",
            __func__, get_gpio_direction_path(GPIO_SLEEP_IND));
   }
-    if (write_to("/sys/class/gpio/gpio5/edge", "both", O_WRONLY) < 0) {
+  if (write_to("/sys/class/gpio/gpio5/edge", "both", O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
   }
 }
@@ -216,7 +216,6 @@ int main(int argc, char **argv) {
   prepare_gpios();
 
   logger(MSG_INFO, "%s: Init: Set audio runtime defaults \n", __func__);
-
   /* ADB and USB audio setting parsing */
   set_audio_runtime_default();
   set_atfwd_runtime_default();
@@ -236,10 +235,8 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
-
   logger(MSG_INFO, "%s: Init: Create DTR monitor thread \n", __func__);
-  if ((ret = pthread_create(&dtr_monitor_thread, NULL, &dtr_monitor,
-                            NULL))) {
+  if ((ret = pthread_create(&dtr_monitor_thread, NULL, &dtr_monitor, NULL))) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
@@ -257,7 +254,7 @@ int main(int argc, char **argv) {
   pthread_join(gps_proxy_thread, NULL);
   pthread_join(rmnet_proxy_thread, NULL);
   pthread_join(atfwd_thread, NULL);
- // pthread_join(dtr_monitor_thread, NULL);
+  // pthread_join(dtr_monitor_thread, NULL);
 
   flock(lockfile, LOCK_UN);
   close(lockfile);
