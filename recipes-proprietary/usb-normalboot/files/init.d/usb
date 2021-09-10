@@ -58,45 +58,9 @@ case "$1" in
             socplatform=$(cat /sys/devices/system/soc/soc0/machine) 2> /dev/null
         fi
         
-        # find serialno from cmdline
-        cmdline=$(cat /proc/cmdline) 2> /dev/null
-        strsearch="androidboot.serialno="
-        if echo "$cmdline" | grep -q "$strsearch"; then
-            startsearch=${cmdline#*$strsearch}
-            pos=$(( ${#cmdline} - ${#startsearch}))
-            serialno=${cmdline:$pos:8}
-        else
-            echo "serialno not found with cmdline, use default"
-            serialno="12345678"
-        fi
-        
         msm_serial=$(cat /sys/devices/soc0/serial_number)
         msm_serial_hex=$(printf %08X "$msm_serial")
         product_string="$socplatform-$soc_hwplatform _SN:$msm_serial_hex"
-        
-        # try to mount configfs, and create instance of USB functions if it goes through
-        mount -t configfs none /sys/kernel/config
-        if [ -d /sys/kernel/config/usb_gadget ]; then
-            echo "Configuring the USB gadget using ConfigFS..."
-            cd /sys/kernel/config/usb_gadget || ! echo "Path '/sys/kernel/config/usb_gadget' not found"
-            mkdir g1
-            cd g1 || ! echo "Failed to create 'g1' in previous step"
-            mkdir strings/0x409
-            mkdir configs/b.1
-            mkdir configs/b.1/strings/0x409
-            mkdir functions/mass_storage.0
-            mkdir functions/ffs.adb
-            mkdir functions/diag.diag
-            mkdir functions/cser.dun.0
-            mkdir functions/cser.nmea.1
-            mkdir functions/rmnet_bam.rmnet
-            mkdir functions/ncm.0
-            echo "$serialno" > strings/0x409/serialnumber
-            echo "QCOM" > strings/0x409/manufacturer
-            echo "$socplatform" > strings/0x409/product
-            echo "$product_string" > /config/usb_gadget/g1/strings/0x409/product
-            setprop sys.usb.configfs 1
-        fi
         
         if [ -d /sys/class/android_usb/android0 ]
         then
@@ -106,7 +70,6 @@ case "$1" in
         # mount functionfs
         mkdir -p /dev/usb-ffs/adb
         mount -o uid=2000,gid=2000 -t functionfs adb /dev/usb-ffs/adb
-        mount -o remount,gid=5,mode=620 /dev/pts
         echo adb > /sys/class/android_usb/android0/f_ffs/aliases
         echo ffs > /sys/class/android_usb/android0/functions
         
@@ -123,21 +86,17 @@ case "$1" in
         while [ ! -e /dev/snd/controlC0 ]                                   
         do                                                                      
             echo "Audio not ready yet, waiting..." > /dev/kmsg                  
-            sleep 0.1 # or less like 0.2                                  
+            sleep 0.1                              
         done  
         echo $GADGET_FUNC > /sys/class/android_usb/android0/functions
         echo 1 > /sys/class/android_usb/android0/remote_wakeup
         echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
-        #sleep 10 # Wait 10 seconds here to give time to openqti to settle
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
-
         echo 1 > /sys/class/android_usb/android0/enable
         if [ "$adb_setting" = "1" ];
         then 
-            /etc/init.d/adbd restart
-        else
-            /etc/init.d/adbd stop
+            /etc/init.d/adbd start
         fi 
 
     ;;

@@ -25,8 +25,6 @@ do_install() {
       install -m 0755 ${S}/adbd ${D}/etc/init.d/
       install -m 0755  ${S}/recoverymount ${D}/bin
       install -m 0755  ${S}/rootfsmount ${D}/bin
-      
-      ln -sf -r ${D}/etc/init.d/adbd ${D}/etc/rcS.d/S99adbd
       touch ${D}/etc/default/adbd
 
 }
