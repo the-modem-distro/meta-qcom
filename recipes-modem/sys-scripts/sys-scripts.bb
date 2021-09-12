@@ -10,8 +10,7 @@ PR = "r0"
 INSANE_SKIP_${PN} = "ldflags"
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 INHIBIT_PACKAGE_STRIP = "1"
-SRC_URI="file://find_partitions.sh \
-         file://chgrp-diag"
+SRC_URI="file://find_partitions.sh"
 S = "${WORKDIR}"
 
 
@@ -30,10 +29,8 @@ do_install() {
       install -d ${D}/data
 
       install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
-      install -m 0755  ${S}/chgrp-diag ${D}/etc/init.d/
       
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S10find_partitions.sh
-      ln -sf -r ${D}/etc/init.d/chgrp-diag ${D}/etc/rcS.d/S11chgrp-diag
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
       touch ${D}/etc/default/find_partitions.sh
 

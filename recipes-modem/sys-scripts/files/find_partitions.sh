@@ -26,24 +26,9 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# find_partitions        init.d script to dynamically find partitions
-#
-if [ ! -d /data || -d /persist || -d /firmware ];then
-	 mount -o remount,rw /
-	 if [ ! -d /data ];then
-	     mkdir -p /data
-	 fi
-	 if [ ! -d /persist ];then
-	     mkdir -p /persist
-	 fi
-	 if [ ! -d /firmware ];then
-	     mkdir -p /firmware
-	 fi
- 	 mount -o remount,ro /
-fi
 
 mount -t ubifs -o ro /dev/ubi1_0 /firmware
 # Tell the Hexagon it can boot once the firmware is in place
 echo 1 > /sys/kernel/boot_adsp/boot
 
-mount -t tmpfs -o size=8m tmpfs /data
+mount -t tmpfs -o size=16m tmpfs /data
