@@ -185,6 +185,11 @@ void restart_usb_stack() {
   set_output_device(get_audio_mode());
   // Enable or disable ADB depending on the misc partition setting
   set_adb_runtime(is_adb_enabled());
+  
+  // ADB should start when usb is available
+  if (is_adb_enabled()) {
+    system("/etc/init.d/adbd start");
+  }
 }
 
 void enable_usb_port() {
@@ -211,6 +216,7 @@ char *get_gpio_edge_path(char *gpio) {
 
 int set_smd_dtr() {
   int bitset, fd, ret;
+  logger(MSG_INFO, "%s: Set DTR to %i in SMD\n",__func__, current_dtr);
 
   fd = open(SMD_DATA3, O_RDWR);
   if (fd < 0) {
