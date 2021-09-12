@@ -1,4 +1,4 @@
-SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspace"
+SUMMARY = "Small utility to send ACDB data to the modem"
 LICENSE = "MIT"
 MY_PN = "calibloader"
 RPROVIDES_${PN} = "calibloader"

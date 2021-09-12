@@ -1,4 +1,4 @@
-SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspace"
+SUMMARY = "Small utility to check if ADB flag is set in the misc partition"
 LICENSE = "MIT"
 MY_PN = "adbcheck"
 RPROVIDES_${PN} = "adbcheck"

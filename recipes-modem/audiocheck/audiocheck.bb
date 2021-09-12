@@ -1,4 +1,4 @@
-SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspace"
+SUMMARY = "Small utility to check if USB Audio flag is set in the misc partition"
 LICENSE = "MIT"
 MY_PN = "audiocheck"
 RPROVIDES_${PN} = "audiocheck"
