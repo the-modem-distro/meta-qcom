@@ -62,8 +62,8 @@ int main(int argc, char **argv) {
   year = 0;
   time_t mytime = time(0);
   struct tm *tm_ptr = localtime(&mytime);
-
   while (year < 21) {
+    sleep(60);
     get_carrier_datetime();
     fprintf(stdout, "Year is %i/%i/%i %i:%i:%i\n", year, month, day, hour,
             minute, second);
@@ -82,7 +82,6 @@ int main(int argc, char **argv) {
         settimeofday(&tv, 0);
       }
     }
-    sleep(60);
   }
 
   return 0;
