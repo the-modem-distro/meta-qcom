@@ -24,11 +24,11 @@ S = "${WORKDIR}"
 do_install() {
       #make folders if they dont exist
       install -d ${D}/etc/acdb/
-      install -m 0755  ${S}/Bluetooth_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/General_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/Global_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/Handset_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/Hdmi_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/Headset_cal.acdb  ${D}/etc/acdb/
-      install -m 0755  ${S}/Speaker_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Bluetooth_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/General_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Global_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Handset_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Hdmi_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Headset_cal.acdb  ${D}/etc/acdb/
+      install -m 0644  ${S}/Speaker_cal.acdb  ${D}/etc/acdb/
 }
