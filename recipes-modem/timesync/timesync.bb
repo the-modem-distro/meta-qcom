@@ -1,4 +1,4 @@
-SUMMARY = "Small utility to retrieve temperature sensor data in MDM9607"
+SUMMARY = "Small utility to sync current date from network"
 LICENSE = "MIT"
 MY_PN = "timesync"
 RPROVIDES_${PN} = "timesync"
@@ -15,11 +15,10 @@ do_compile() {
 
 do_install() {
     install -d ${D}${bindir}
-
     install -m 0755 ${S}/timesync ${D}${bindir}
 }
 
 pkg_postinst_${PN}() {
    #!/bin/sh
-   echo "DL:12345:once:/usr/bin/timesync" >> $D/etc/inittab
+   echo "TS:12345:boot:/usr/bin/timesync" >> $D/etc/inittab
 }
