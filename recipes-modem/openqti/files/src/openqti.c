@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   logger(MSG_INFO, "Welcome to OpenQTI! \n", __func__);
   reset_client_handler();
   set_log_level(1); // By default, set log level to info
-  while ((ret = getopt(argc, argv, "adul")) != -1)
+  while ((ret = getopt(argc, argv, "adulv?")) != -1)
     switch (ret) {
     case 'a':
       fprintf(stdout, "Dump audio mixer data \n");
@@ -116,13 +116,19 @@ int main(int argc, char **argv) {
       break;
 
     case '?':
-      fprintf(stdout, "openQTI\n");
-      fprintf(stdout, "-------\n");
+      fprintf(stdout, "openQTI version %s\n", RELEASE_VER);
+      fprintf(stdout, "---------------------\n");
       fprintf(stdout, "Options:\n");
       fprintf(stdout, " -a: Dump audio mixer controls\n");
       fprintf(stdout, " -u: Print available ADSP firmware services\n");
       fprintf(stdout, " -d: Send logs to stdout\n");
       fprintf(stdout, " -l: Set log level to debug\n");
+      fprintf(stdout, " -?: Show available options\n");
+      fprintf(stdout, " -v: Show OpenQTI version\n");
+      return 0;
+
+    case 'v':
+      fprintf(stdout, "openQTI Version %s \n", RELEASE_VER);
       return 0;
 
     default:
