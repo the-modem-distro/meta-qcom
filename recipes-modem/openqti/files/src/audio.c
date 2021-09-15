@@ -21,14 +21,80 @@ struct {
   uint8_t current_call_state;
   uint8_t volte_hd_audio_mode;
   uint8_t output_device;
+  uint8_t is_muted;
 } audio_runtime_state;
 
 void set_audio_runtime_default() {
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
   audio_runtime_state.volte_hd_audio_mode = 0;
   audio_runtime_state.output_device = AUDIO_MODE_I2S;
+  audio_runtime_state.is_muted = 0;
 }
 
+void set_audio_mute(bool mute) {
+  logger(MSG_ERROR, "%s: start\n",__func__);
+  if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
+      logger(MSG_ERROR, "%s: Call in progress, we can proceed\n");
+    mixer = mixer_open(SND_CTL);
+    if (!mixer) {
+      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno),
+             __LINE__);
+      return;
+    }
+
+    if (mute) {
+        logger(MSG_ERROR, "%s: Lets get silent\n",__func__);
+
+      audio_runtime_state.is_muted = 1;
+      switch (audio_runtime_state.output_device) {
+      case AUDIO_MODE_I2S: // I2S Audio
+        // We close all the mixers
+        if (audio_runtime_state.current_call_state == 1) {
+          set_mixer_ctl(mixer, RXCTL_VOICE, 0); // Capture
+        } else if (audio_runtime_state.current_call_state == 2) {
+          set_mixer_ctl(mixer, RXCTL_VOLTE, 0); // Capture
+        }
+        break;
+      case AUDIO_MODE_USB: // USB Audio
+        // We close all the mixers
+        if (audio_runtime_state.current_call_state == 1) {
+          set_mixer_ctl(mixer, AFERX_VOICE, 0); // Capture
+        } else if (audio_runtime_state.current_call_state == 2) {
+          set_mixer_ctl(mixer, AFERX_VOLTE, 0); // Capture
+        }
+        break;
+      }
+    } else {
+        logger(MSG_ERROR, "%s: Enabling microphone again\n",__func__);
+
+      audio_runtime_state.is_muted = 0;
+      switch (audio_runtime_state.output_device) {
+      case AUDIO_MODE_I2S: // I2S Audio
+        // We close all the mixers
+        if (audio_runtime_state.current_call_state == 1) {
+          set_mixer_ctl(mixer, RXCTL_VOICE, 1); // Capture
+        } else if (audio_runtime_state.current_call_state == 2) {
+          set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
+        }
+        break;
+      case AUDIO_MODE_USB: // USB Audio
+        // We close all the mixers
+        if (audio_runtime_state.current_call_state == 1) {
+          set_mixer_ctl(mixer, AFERX_VOICE, 1); // Capture
+        } else if (audio_runtime_state.current_call_state == 2) {
+          set_mixer_ctl(mixer, AFERX_VOLTE, 1); // Capture
+        }
+        break;
+      }
+    }
+
+    mixer_close(mixer);
+  } else {
+    audio_runtime_state.is_muted = 0;
+      logger(MSG_ERROR, "%s: No call in progress, nothing to do and not setting mute to on\n",__func__);
+
+  }
+}
 void set_output_device(int device) {
   logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
   audio_runtime_state.output_device = device;
@@ -159,7 +225,9 @@ int stop_audio() {
   }
   if (pcm_tx == NULL || pcm_rx == NULL) {
     logger(MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n", __func__);
+    return 1;
   }
+
   if (pcm_tx->fd >= 0)
     pcm_close(pcm_tx);
   if (pcm_rx->fd >= 0)
@@ -196,6 +264,8 @@ int stop_audio() {
 
   mixer_close(mixer);
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
+  audio_runtime_state.is_muted = 0;
+
   return 1;
 }
 

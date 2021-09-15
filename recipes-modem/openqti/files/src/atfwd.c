@@ -64,8 +64,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   int cmd_id = -1;
   struct at_command_simple_reply *cmdreply;
   cmdreply = calloc(1, sizeof(struct at_command_simple_reply));
+    logger(MSG_ERROR, "%s: Begin\n", __func__);
   if (sz == 14) {
-    logger(MSG_DEBUG, "%s: Packet ACK\n", __func__);
+    logger(MSG_ERROR, "%s: Packet ACK\n", __func__);
     return 0;
   }
   if (sz < 16) {
@@ -207,7 +208,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     store_audio_output_mode(AUDIO_MODE_I2S);
     restart_usb_stack();
     break;
-  case 122: // CMUT=1
+  case 122: // CMUT
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
@@ -222,7 +223,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   default:
     // Fallback for dummy commands that arent implemented
-    if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 108)) {
+    if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 111)) {
+            logger(MSG_ERROR, "%s: Dummy command requested \n", __func__);
+
       cmdreply->result = 1;
     } else {
       logger(MSG_ERROR, "%s: Unknown command requested \n", __func__);

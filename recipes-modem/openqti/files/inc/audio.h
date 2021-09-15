@@ -169,7 +169,7 @@ struct pcm {
 void set_audio_runtime_default();
 void set_output_device(int device);
 uint8_t get_output_device();
-
+void set_audio_mute(bool mute);
 /* Mixer functions */
 struct mixer *mixer_open(const char *device);
 void mixer_close(struct mixer *mixer);
