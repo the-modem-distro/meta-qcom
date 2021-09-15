@@ -216,11 +216,11 @@ char *get_gpio_edge_path(char *gpio) {
 
 int set_smd_dtr() {
   int bitset, fd, ret;
-  logger(MSG_INFO, "%s: Set DTR to %i in SMD\n",__func__, current_dtr);
+  logger(MSG_DEBUG, "%s: Set DTR to %i in SMD\n",__func__, current_dtr);
 
   fd = open(SMD_DATA3, O_RDWR);
   if (fd < 0) {
-    logger(MSG_ERROR, "%s: Unable to open %s \n", __func__, SMD_DATA3);
+    logger(MSG_ERROR, "%s: Unable to open %s to set DTR to %i, current_dtr\n", __func__, SMD_DATA3);
     return -EINVAL;
   } else {
     if (current_dtr == 0) {
@@ -257,6 +257,7 @@ int get_usb_current() {
   } else if (current_dtr == 1) {
     current_dtr = 0;
     set_smd_dtr();
+    usleep(10000); // Allow this letargic son of a bitch to recompose when waking up from sleep
   }
   close(dtr);
   return 0;
