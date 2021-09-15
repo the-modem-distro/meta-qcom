@@ -207,6 +207,19 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     store_audio_output_mode(AUDIO_MODE_I2S);
     restart_usb_stack();
     break;
+  case 122: // CMUT=1
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    if (buf[30] == 0x31) {
+      set_audio_mute(true);
+    } else {
+      set_audio_mute(false);
+    }
+    logger(MSG_ERROR, "%s: CMUT: %.2x \n", __func__,
+           buf[30]); // 31 MUTE, 30 UNMUTE
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 108)) {
