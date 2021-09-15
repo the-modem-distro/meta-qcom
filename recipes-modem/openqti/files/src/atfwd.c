@@ -64,9 +64,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   int cmd_id = -1;
   struct at_command_simple_reply *cmdreply;
   cmdreply = calloc(1, sizeof(struct at_command_simple_reply));
-    logger(MSG_ERROR, "%s: Begin\n", __func__);
   if (sz == 14) {
-    logger(MSG_ERROR, "%s: Packet ACK\n", __func__);
+    logger(MSG_DEBUG, "%s: Packet ACK\n", __func__);
     return 0;
   }
   if (sz < 16) {
@@ -92,7 +91,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   parsedcmd = calloc(cmdsize + 1, sizeof(char));
   strncpy(parsedcmd, (char *)buf + 19, cmdsize);
 
-  logger(MSG_WARN, "%s: Command requested is %s\n", __func__, parsedcmd);
+  logger(MSG_INFO, "%s: Command requested is %s\n", __func__, parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
       cmd_id = at_commands[j].command_id; // Command matched
