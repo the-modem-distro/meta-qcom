@@ -132,7 +132,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
       if (client_tracking.host_side_managing_app == 0) {
         ret = set_current_host_app(pkt[15]);
       }
-    } else if (get_current_host_app() == pkt[15] ==
+    } else if (sz >= 15 && get_current_host_app() == pkt[15] ==
                client_tracking.last_active > 0) {
       // We'd hit this if USB vanishes during suspend
       logger(MSG_WARN, "%s: Dirty re-register attempt from host \n", __func__);
@@ -145,7 +145,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
       reset_usb_port();
       send_rmnet_ioctls(rmnet_fd);
     }
-  } else if (pkt[8] == CLIENT_REGISTER_REQ && pkt[10] == 0x05 &&
+  } else if (sz >= 16 && pkt[8] == CLIENT_REGISTER_REQ && pkt[10] == 0x05 &&
              from == FROM_HOST) {
     logger(MSG_INFO, "%s: Register request: S:0x%.2x I:0x%.2x\n", __func__,
            pkt[15], pkt[16]);
@@ -155,7 +155,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
            __func__, pkt[msglength], pkt[msglength + 1],
            client_tracking.last_active);
     ret = add_client(pkt[msglength], pkt[msglength + 1]);
-  } else if (pkt[8] == CLIENT_RELEASE_REQ && from == FROM_DSP) {
+  } else if (sz >= 16 && pkt[8] == CLIENT_RELEASE_REQ && from == FROM_DSP) {
     logger(MSG_INFO, "%s: QMI Client Release from HOST,S:%.2x I:%.2x, AC:%i \n",
            __func__, pkt[15], pkt[16], client_tracking.last_active);
     ret = remove_client(pkt[15], pkt[16]);
