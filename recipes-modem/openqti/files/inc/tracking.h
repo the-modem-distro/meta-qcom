@@ -13,6 +13,7 @@
 
 #define HOST_USES_MODEMMANAGER 0x1a
 #define HOST_USES_OFONO 0x02
+#define MAX_ACTIVE_CLIENTS 22
 
 void reset_client_handler();
 int get_num_instances_for_service(int service);
