@@ -56,7 +56,7 @@ int add_client(uint8_t service, uint8_t instance) {
   client_tracking.services[client_tracking.last_active].instance = instance;
   client_tracking.last_active++;
   client_tracking.regtime = get_curr_timestamp();
-  if (client_tracking.last_active > 16) {
+  if (client_tracking.last_active > MAX_ACTIVE_CLIENTS) {
     return -ENOSPC;
   }
   return 0;
@@ -132,18 +132,19 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
       if (client_tracking.host_side_managing_app == 0) {
         ret = set_current_host_app(pkt[15]);
       }
-    } else if (sz >= 15 && get_current_host_app() == pkt[15] ==
+ /*   } else if (sz >= 15 && get_current_host_app() == pkt[15] ==
                client_tracking.last_active > 0) {
       // We'd hit this if USB vanishes during suspend
       logger(MSG_WARN, "%s: Dirty re-register attempt from host \n", __func__);
       force_close_qmi(fd);
-      send_rmnet_ioctls(rmnet_fd);
+      reset_usb_port();
+      send_rmnet_ioctls(rmnet_fd); */
     } else if (client_tracking.last_active > MAX_ACTIVE_CLIENTS) {
       // We'd hit this if host app dies mid reconnect more than once
       logger(MSG_WARN, "%s: Too many clients, resetting... \n", __func__);
       force_close_qmi(fd);
       reset_usb_port();
-      send_rmnet_ioctls(rmnet_fd);
+  //    send_rmnet_ioctls(rmnet_fd);
     }
   } else if (sz >= 16 && pkt[8] == CLIENT_REGISTER_REQ && pkt[10] == 0x05 &&
              from == FROM_HOST) {

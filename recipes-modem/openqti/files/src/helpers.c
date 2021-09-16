@@ -220,7 +220,8 @@ int set_smd_dtr() {
 
   fd = open(SMD_DATA3, O_RDWR);
   if (fd < 0) {
-    logger(MSG_ERROR, "%s: Unable to open %s to set DTR to %i, current_dtr\n", __func__, SMD_DATA3);
+    logger(MSG_ERROR, "%s: Unable to open %s to set DTR to %i, current_dtr\n", __func__, SMD_DATA3, current_dtr);
+    usleep(10000); 
     return -EINVAL;
   } else {
     if (current_dtr == 0) {
@@ -447,7 +448,7 @@ void *dtr_monitor() {
         current_dtr = 0;
       }
       logger(MSG_INFO, "%s: Current DTR: %i \n", __func__, current_dtr);
-      set_smd_dtr();
+   //   set_smd_dtr();
     }
 
   } // end of infinite loop
