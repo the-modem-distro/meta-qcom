@@ -75,7 +75,6 @@ int main(int argc, char **argv) {
   pthread_t gps_proxy_thread;
   pthread_t rmnet_proxy_thread;
   pthread_t atfwd_thread;
-  pthread_t dtr_monitor_thread;
 
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
@@ -241,11 +240,6 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
   }
 
-  logger(MSG_INFO, "%s: Init: Create DTR monitor thread \n", __func__);
-  if ((ret = pthread_create(&dtr_monitor_thread, NULL, &dtr_monitor, NULL))) {
-    logger(MSG_ERROR, "%s: Error creating RMNET proxy thread\n", __func__);
-  }
-
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
@@ -260,7 +254,6 @@ int main(int argc, char **argv) {
   pthread_join(gps_proxy_thread, NULL);
   pthread_join(rmnet_proxy_thread, NULL);
   pthread_join(atfwd_thread, NULL);
-  // pthread_join(dtr_monitor_thread, NULL);
 
   flock(lockfile, LOCK_UN);
   close(lockfile);
