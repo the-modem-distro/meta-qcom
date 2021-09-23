@@ -25,9 +25,9 @@ int get_carrier_datetime() {
   int opened = 0;
   char response[128];
   char *begin;
-  fd = open("/dev/smd8", O_RDWR);
+  fd = open("/dev/smd10", O_RDWR);
   if (fd < 0) {
-    fprintf(stderr, "%s: Cannot open SMD8 entry\n", __func__);
+    fprintf(stderr, "%s: Cannot open SMD10 entry\n", __func__);
     return -EINVAL;
   }
   ret = write(fd, SET_CTZU, sizeof(SET_CTZU));
