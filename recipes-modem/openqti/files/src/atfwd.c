@@ -223,7 +223,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 111)) {
-            logger(MSG_ERROR, "%s: Dummy command requested \n", __func__);
+      logger(MSG_ERROR, "%s: Dummy command requested \n", __func__);
 
       cmdreply->result = 1;
     } else {

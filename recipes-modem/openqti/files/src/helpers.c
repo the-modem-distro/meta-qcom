@@ -48,7 +48,7 @@ int is_adb_enabled() {
     return 1;
   }
   lseek(fd, 64, SEEK_SET);
-  if (read(fd, buff, sizeof(PERSIST_ADB_ON_MAGIC))  <= 0) {
+  if (read(fd, buff, sizeof(PERSIST_ADB_ON_MAGIC)) <= 0) {
     logger(MSG_ERROR, "%s: Error reading ADB state \n", __func__);
   }
   close(fd);
@@ -79,8 +79,7 @@ void store_adb_setting(bool en) {
   }
   lseek(fd, 64, SEEK_SET);
   if (write(fd, &buff, sizeof(buff)) < 0) {
-        logger(MSG_ERROR, "%s: Error writing the ADB flag \n",
-           __func__);
+    logger(MSG_ERROR, "%s: Error writing the ADB flag \n", __func__);
   }
   close(fd);
 }
@@ -107,8 +106,7 @@ void set_next_fastboot_mode(int flag) {
   lseek(fd, 131072, SEEK_SET);
   tmpbuff = &fbcmd;
   if (write(fd, (void *)tmpbuff, sizeof(fbcmd)) < 0) {
-        logger(MSG_ERROR, "%s: Error writing the FaSTBOOT flag \n",
-           __func__);
+    logger(MSG_ERROR, "%s: Error writing the FaSTBOOT flag \n", __func__);
   }
   close(fd);
 }
@@ -155,8 +153,7 @@ void store_audio_output_mode(uint8_t mode) {
   }
   lseek(fd, 96, SEEK_SET);
   if (write(fd, &buff, sizeof(buff)) < 0) {
-        logger(MSG_ERROR, "%s: Error writing USB audio flag \n",
-           __func__);
+    logger(MSG_ERROR, "%s: Error writing USB audio flag \n", __func__);
   }
   close(fd);
 }
@@ -229,18 +226,19 @@ int get_usb_current() {
   }
   val = strtol(readval, NULL, 10);
 
-  logger(MSG_DEBUG, "%s: USB Power: %i mAh \n", __func__, val / 1000);
+  if (val == 100000) {
+    logger(MSG_ERROR, "%s: USB Bus Reset detected, host app is going to be kicked.\n", __func__);
+  }
+
   if (val < 500000 && current_dtr == 0) {
-    current_dtr = 1; // If the Pinephone is delivering less than 500 mAh stop right there
+    current_dtr = 1; // USB is suspended, stop trying to transfer data
   } else if (current_dtr == 1) {
-    current_dtr = 0;
-    usleep(10000); // Allow this letargic son of a bitch to recompose when
-                   // waking up from sleep
+    usleep(10000); // Allow time to finish wakeup
+    current_dtr = 0; // Then allow transfers again
   }
   close(dtr);
   return 0;
 }
-
 
 void *gps_proxy() {
   struct node_pair *nodes;
@@ -261,22 +259,29 @@ void *gps_proxy() {
   while (1) {
     logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
     get_usb_current();
-    nodes->node1.fd = open(SMD_GPS, O_RDWR);
-    if (nodes->node1.fd < 0) {
-      logger(MSG_ERROR, "Error opening %s \n", SMD_GPS);
-    }
-
-    nodes->node2.fd = open(USB_GPS, O_RDWR);
-    if (nodes->node2.fd < 0) {
-      logger(MSG_ERROR, "Error opening %s \n", USB_GPS);
-    }
-
-    if (nodes->node1.fd >= 0 && nodes->node2.fd >= 0) {
+    if (!current_dtr) {
+      close(nodes->node1.fd);
+      close(nodes->node2.fd);
       nodes->allow_exit = false;
+      nodes->node1.fd = open(SMD_GPS, O_RDWR);
+      if (nodes->node1.fd < 0) {
+        logger(MSG_ERROR, "%s: Error opening %s \n", __func__, SMD_GPS);
+        nodes->allow_exit = true;
+      }
+
+      nodes->node2.fd = open(USB_GPS, O_RDWR);
+      if (nodes->node2.fd < 0) {
+        logger(MSG_ERROR, "%s: Error opening %s \n", __func__, USB_GPS);
+        nodes->allow_exit = true;
+      }
+      if (nodes->allow_exit) {
+        logger(MSG_ERROR, "%s: One of the descriptors isn't ready\n", __func__);
+        usleep(10000);
+      }
     } else {
-      logger(MSG_ERROR, "One of the descriptors isn't ready\n");
+      logger(MSG_ERROR, "%s: Delaying GPS thread restart until USB ready\n",
+             __func__);
       nodes->allow_exit = true;
-      usleep(10000);
     }
 
     while (!nodes->allow_exit) {
@@ -310,17 +315,8 @@ void *gps_proxy() {
         }
       }
     }
-    logger(MSG_ERROR, "%s: Restarting the thread \n", __func__);
-    usleep(10000);
-    close(nodes->node1.fd);
-    close(nodes->node2.fd);
   }
 }
-struct {
-  ssize_t bufsize;
-  uint64_t elements;
-  char *buf;
-} storage_plan;
 
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;

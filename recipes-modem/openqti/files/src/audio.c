@@ -32,9 +32,7 @@ void set_audio_runtime_default() {
 }
 
 void set_audio_mute(bool mute) {
-  logger(MSG_ERROR, "%s: start\n",__func__);
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
-      logger(MSG_ERROR, "%s: Call in progress, we can proceed\n");
     mixer = mixer_open(SND_CTL);
     if (!mixer) {
       logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno),
@@ -43,7 +41,7 @@ void set_audio_mute(bool mute) {
     }
 
     if (mute) {
-        logger(MSG_ERROR, "%s: Lets get silent\n",__func__);
+      logger(MSG_INFO, "%s: Muting microphone... \n", __func__);
 
       audio_runtime_state.is_muted = 1;
       switch (audio_runtime_state.output_device) {
@@ -65,7 +63,7 @@ void set_audio_mute(bool mute) {
         break;
       }
     } else {
-        logger(MSG_ERROR, "%s: Enabling microphone again\n",__func__);
+      logger(MSG_INFO, "%s: Enabling microphone... \n", __func__);
 
       audio_runtime_state.is_muted = 0;
       switch (audio_runtime_state.output_device) {
@@ -91,8 +89,10 @@ void set_audio_mute(bool mute) {
     mixer_close(mixer);
   } else {
     audio_runtime_state.is_muted = 0;
-      logger(MSG_ERROR, "%s: No call in progress, nothing to do and not setting mute to on\n",__func__);
-
+    logger(
+        MSG_WARN,
+        "%s: Can't mute audio when there's no call in progress\n",
+        __func__);
   }
 }
 void set_output_device(int device) {

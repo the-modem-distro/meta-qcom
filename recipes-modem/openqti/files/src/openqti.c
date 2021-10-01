@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
-  logger(MSG_INFO, "Welcome to OpenQTI! \n", __func__);
+  logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", __func__, RELEASE_VER);
   reset_client_handler();
   set_log_level(1); // By default, set log level to info
   while ((ret = getopt(argc, argv, "adulv?")) != -1)
