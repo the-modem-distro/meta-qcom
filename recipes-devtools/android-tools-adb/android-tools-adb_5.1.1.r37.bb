@@ -8,17 +8,17 @@ LIC_FILES_CHKSUM = " \
     file://${COMMON_LICENSE_DIR}/BSD-3-Clause;md5=550794465ba0ec5312d6919e203a55f9 \
 "
 DEPENDS = "libbsd libpcre zlib libcap"
-DEPENDS_append_class-target = " openssl"
+DEPENDS:append:class-target = " openssl"
 PROVIDES = "android-tools-adb"
 MY_PN = "android-tools-adb"
 ANDROID_MIRROR = "android.googlesource.com"
 
 # matches with android-5.1.1_r37
-SRCREV_core = "2314b110bdebdbfd2d94c502282f9e57c849897e"
-SRCREV_extras = "3ecbe8d841df96127d7855661293e5ab6ba6c205"
-SRCREV_libhardware = "be55eb1f4d840c82ffaf7c47460df17ff5bc4d9b"
-SRCREV_libselinux = "07e9e1339ad1ba608acfba9dce2d0f474b252feb"
-SRCREV_build = "16e987def3d7d8f7d30805eb95cef69e52a87dbc"
+SRCREV:core = "2314b110bdebdbfd2d94c502282f9e57c849897e"
+SRCREV:extras = "3ecbe8d841df96127d7855661293e5ab6ba6c205"
+SRCREV:libhardware = "be55eb1f4d840c82ffaf7c47460df17ff5bc4d9b"
+SRCREV:libselinux = "07e9e1339ad1ba608acfba9dce2d0f474b252feb"
+SRCREV:build = "16e987def3d7d8f7d30805eb95cef69e52a87dbc"
 
 SRC_URI = " \
     git://${ANDROID_MIRROR}/platform/system/core;name=core;protocol=https;nobranch=1;destsuffix=git/system/core \
@@ -55,26 +55,26 @@ S = "${WORKDIR}/git"
 B = "${WORKDIR}/${BPN}"
 
 # http://errors.yoctoproject.org/Errors/Details/133881/
-ARM_INSTRUCTION_SET_armv4 = "arm"
-ARM_INSTRUCTION_SET_armv5 = "arm"
+ARM_INSTRUCTION_SET:armv4 = "arm"
+ARM_INSTRUCTION_SET:armv5 = "arm"
 
-COMPATIBLE_HOST_powerpc = "(null)"
-COMPATIBLE_HOST_powerpc64 = "(null)"
-COMPATIBLE_HOST_powerpc64le = "(null)"
+COMPATIBLE_HOST:powerpc = "(null)"
+COMPATIBLE_HOST:powerpc64 = "(null)"
+COMPATIBLE_HOST:powerpc64le = "(null)"
 
 inherit systemd
 
 SYSTEMD_SERVICE_${PN} = "android-tools-adbd.service"
 
 # Find libbsd headers during native builds
-CC_append_class-native = " -I${STAGING_INCDIR}"
-CC_append_class-nativesdk = " -I${STAGING_INCDIR}"
+CC:append:class-native = " -I${STAGING_INCDIR}"
+CC:append:class-nativesdk = " -I${STAGING_INCDIR}"
 
 TOOLS = "adbd"
 
 # Adb needs sys/capability.h, which is not available for native*
-TOOLS_class-native = "fastboot ext4_utils mkbootimg"
-TOOLS_class-nativesdk = "fastboot ext4_utils mkbootimg"
+TOOLS:class-native = "fastboot ext4_utils mkbootimg"
+TOOLS:class-nativesdk = "fastboot ext4_utils mkbootimg"
 
 do_compile() {
     cp ${WORKDIR}/gitignore ${S}/.gitignore
@@ -125,6 +125,6 @@ do_install() {
 
 PACKAGES += "${PN}-fstools"
 
-RDEPENDS_${BPN} = "bash"
+RDEPENDS:${BPN} = "bash"
 
 BBCLASSEXTEND = "native"
