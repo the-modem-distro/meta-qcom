@@ -49,7 +49,7 @@ kernel_conf_variable() {
 }
 
 
-do_configure_prepend() {
+do_configure:prepend() {
 	echo "" > ${B}/.config
 	CONF_SED_SCRIPT=""
 
@@ -73,7 +73,7 @@ do_configure_prepend() {
 }
 
 # append DTB
-do_compile_append() {
+do_compile:append() {
     ${STAGING_BINDIR_NATIVE}/dtbTool ${B}/arch/arm/boot/dts/ -s 2048 -o ${B}/arch/arm/boot/dts/dtb.img -p scripts/dtc/ -v
 }
 
@@ -91,7 +91,7 @@ priv_make_image() {
               --cmdline "${KERNEL_CMDLINE}"
 }
 
-do_deploy_append() {
+do_deploy:append() {
     # mkbootimg requires an initrd file, make fake one that will be ignored
     # during boot
     touch ${B}/initrd.gz
