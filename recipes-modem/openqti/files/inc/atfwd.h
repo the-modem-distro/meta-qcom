@@ -132,6 +132,7 @@ static const struct {
     {120, "+EN_USBAUD"},
     {121, "+DIS_USBAUD"},
     {122, "+CMUT"},
+    {123, "+REBOOTDO"},
 };
 
 /*

@@ -220,6 +220,13 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     logger(MSG_ERROR, "%s: CMUT: %.2x \n", __func__,
            buf[30]); // 31 MUTE, 30 UNMUTE
     break;
+  case 123: // Gracefully restart 
+    cmdreply->result = 1;
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    system("reboot");
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 111)) {
