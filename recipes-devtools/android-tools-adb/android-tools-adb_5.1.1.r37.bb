@@ -14,12 +14,13 @@ MY_PN = "android-tools-adb"
 ANDROID_MIRROR = "android.googlesource.com"
 
 # matches with android-5.1.1_r37
-SRCREV:core = "2314b110bdebdbfd2d94c502282f9e57c849897e"
-SRCREV:extras = "3ecbe8d841df96127d7855661293e5ab6ba6c205"
-SRCREV:libhardware = "be55eb1f4d840c82ffaf7c47460df17ff5bc4d9b"
-SRCREV:libselinux = "07e9e1339ad1ba608acfba9dce2d0f474b252feb"
-SRCREV:build = "16e987def3d7d8f7d30805eb95cef69e52a87dbc"
+SRCREV_core = "2314b110bdebdbfd2d94c502282f9e57c849897e"
+SRCREV_extras = "3ecbe8d841df96127d7855661293e5ab6ba6c205"
+SRCREV_libhardware = "be55eb1f4d840c82ffaf7c47460df17ff5bc4d9b"
+SRCREV_libselinux = "07e9e1339ad1ba608acfba9dce2d0f474b252feb"
+SRCREV_build = "16e987def3d7d8f7d30805eb95cef69e52a87dbc"
 
+SRCREV_FORMAT = "core_extras_libhardware_libselinux_build"
 SRC_URI = " \
     git://${ANDROID_MIRROR}/platform/system/core;name=core;protocol=https;nobranch=1;destsuffix=git/system/core \
     git://${ANDROID_MIRROR}/platform/system/extras;name=extras;protocol=https;nobranch=1;destsuffix=git/system/extras \
@@ -47,9 +48,12 @@ SRC_URI = " \
     file://android-tools-adbd.service \
     file://build/0001-Riscv-Add-risc-v-Android-config-header.patch;patchdir=build \
     file://gitignore \
+    file://adb.mk;subdir=${BPN} \
     file://adbd.mk;subdir=${BPN} \
+    file://ext4_utils.mk;subdir=${BPN} \
+    file://fastboot.mk;subdir=${BPN} \
+    file://mkbootimg.mk;subdir=${BPN} \
 "
-
 
 S = "${WORKDIR}/git"
 B = "${WORKDIR}/${BPN}"
