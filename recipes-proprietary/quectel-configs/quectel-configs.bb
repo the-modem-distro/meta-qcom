@@ -98,7 +98,3 @@ do_install() {
 
   
 }
-
-do_install_append() {
-   
-}
