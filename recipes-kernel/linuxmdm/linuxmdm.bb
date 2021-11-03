@@ -23,7 +23,7 @@ PR = "${DISTRO}"
 PVBASE := "${PV}"
 PV = "1.0+git${SRCPV}"
 KERNEL_IMAGETYPE ?= "zImage"
-KERNEL_DEFCONFIG_mdm9607 ?= "${S}/arch/arm/configs/mdm9607-perf_defconfig"
+KERNEL_DEFCONFIG:mdm9607 ?= "${S}/arch/arm/configs/mdm9607-perf_defconfig"
 KERNEL_DEVICETREE ?= "qcom/mdm9607-mtp.dtb"
 
 QCOM_BOOTIMG_ROOTFS ?= "undefined"
