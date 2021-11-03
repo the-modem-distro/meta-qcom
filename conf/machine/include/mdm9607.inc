@@ -1,6 +1,6 @@
 SOC_FAMILY = "mdm9607"
 require conf/machine/include/soc-family.inc
-require conf/machine/include/tune-cortexa8.inc
+require conf/machine/include/arm/armv7a/tune-cortexa8.inc
 
 PREFERRED_PROVIDER_virtual/kernel ?= "linuxmdm"
 
