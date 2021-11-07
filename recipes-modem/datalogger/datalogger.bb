@@ -19,7 +19,7 @@ do_install() {
     install -m 0755 ${S}/datalogger ${D}${bindir}
 }
 
-pkg_postinst_${PN}() {
+pkg_postinst:${PN}() {
    #!/bin/sh
    echo "DL:12345:respawn:/usr/bin/datalogger" >> $D/etc/inittab
 }

@@ -45,7 +45,7 @@ do_install() {
 #  going to look at
 #
 
-pkg_postinst_${PN}() {
+pkg_postinst:${PN}() {
    #!/bin/sh
    # echo "OQ:12345:respawn:/usr/bin/openqti -l" >> $D/etc/inittab
    echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab

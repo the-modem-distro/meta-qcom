@@ -18,7 +18,7 @@ do_install() {
     install -m 0755 ${S}/timesync ${D}${bindir}
 }
 
-pkg_postinst_${PN}() {
+pkg_postinst:${PN}() {
    #!/bin/sh
    echo "TS:12345:boot:/usr/bin/timesync" >> $D/etc/inittab
 }
