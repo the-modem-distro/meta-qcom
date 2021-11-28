@@ -24,6 +24,7 @@ struct {
   uint8_t is_muted;
 } audio_runtime_state;
 
+
 void set_audio_runtime_default() {
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
   audio_runtime_state.volte_hd_audio_mode = 0;
@@ -133,7 +134,8 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
 void handle_call_pkt(uint8_t *pkt, int from, int sz) {
   bool needs_setting_up_paths = false;
   uint8_t direction, state, type, mode;
-
+    // also need to check pkt 0x24: VOICE_GET_CALL_INFO"
+//
   /* What are we looking for? A voice service QMI packet with the following
   params:
   - frame 0x01
@@ -181,22 +183,20 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
     case AUDIO_CALL_ORIGINATING:
     case AUDIO_CALL_RINGING:
     case AUDIO_CALL_ESTABLISHED:
-    case AUDIO_CALL_UNKNOWN:
+    case AUDIO_CALL_ALERTING:
+    case AUDIO_CALL_ON_HOLD:
+    case AUDIO_CALL_WAITING:
       logger(MSG_INFO, "%s: Setting up audio for mode %i \n", __func__, mode);
       start_audio(mode);
       break;
-    case AUDIO_CALL_ON_HOLD:
-    case AUDIO_CALL_WAITING:
-      logger(MSG_INFO, "%s: Skipping audio setting (on hold/waiting) %i \n",
-             __func__, mode);
-      break;
+
     case AUTIO_CALL_DISCONNECTING:
     case AUDIO_CALL_HANGUP:
       logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
       stop_audio();
       break;
     default:
-      logger(MSG_ERROR, "%s: Unknown call status \n", __func__);
+      logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
       break;
     }
 
