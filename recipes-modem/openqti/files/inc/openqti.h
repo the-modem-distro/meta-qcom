@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.4.3"
+#define RELEASE_VER "0.4.7"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
