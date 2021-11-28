@@ -17,9 +17,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-char prev_dtr, prev_wakeup, prev_sleepind;
-bool smd_dtr_busy = false;
-int current_dtr = 0;
+int is_usb_suspended = 0;
+
 int write_to(const char *path, const char *val, int flags) {
   int ret;
   int fd = open(path, flags);
@@ -211,32 +210,28 @@ void enable_usb_port() {
   }
 }
 
-int get_usb_current() {
-  int dtr, val = 0;
+int get_transceiver_suspend_state() {
+  int fd, val = 0;
   char readval[6];
-  current_dtr = 0;
-  dtr = open("/sys/devices/78d9000.usb/power_supply/usb/current_max", O_RDONLY);
-  if (dtr < 0) {
+  is_usb_suspended = 0;
+  fd = open("/sys/devices/78d9000.usb/msm_hsusb/isr_suspend_state", O_RDONLY);
+  if (fd < 0) {
     logger(MSG_ERROR, "%s: Cannot open USB state \n", __func__);
     return 0; // assume active
   }
-  lseek(dtr, 0, SEEK_SET);
-  if (read(dtr, &readval, 6) <= 0) {
+  lseek(fd, 0, SEEK_SET);
+  if (read(fd, &readval, 1) <= 0) {
     logger(MSG_ERROR, "%s: Error reading USB Sysfs entry \n", __func__);
   }
   val = strtol(readval, NULL, 10);
 
-  if (val == 100000) {
-    logger(MSG_ERROR, "%s: USB Bus Reset detected, host app is going to be kicked.\n", __func__);
+  if (val > 0 && is_usb_suspended == 0) {
+    is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
+  } else if (val == 0 && is_usb_suspended == 1) {
+    usleep(10000);        // Allow time to finish wakeup
+    is_usb_suspended = 0; // Then allow transfers again
   }
-
-  if (val < 500000 && current_dtr == 0) {
-    current_dtr = 1; // USB is suspended, stop trying to transfer data
-  } else if (current_dtr == 1) {
-    usleep(10000); // Allow time to finish wakeup
-    current_dtr = 0; // Then allow transfers again
-  }
-  close(dtr);
+  close(fd);
   return 0;
 }
 
@@ -248,6 +243,7 @@ void *gps_proxy() {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[64];
   char node2_to_1[64];
+
   /* Set the names */
   strncpy(nodes->node1.name, "Modem GPS", sizeof("Modem GPS"));
   strncpy(nodes->node2.name, "USB-GPS", sizeof("USB-GPS"));
@@ -258,10 +254,8 @@ void *gps_proxy() {
 
   while (1) {
     logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
-    get_usb_current();
-    if (!current_dtr) {
-      close(nodes->node1.fd);
-      close(nodes->node2.fd);
+    get_transceiver_suspend_state();
+    if (!is_usb_suspended) {
       nodes->allow_exit = false;
       nodes->node1.fd = open(SMD_GPS, O_RDWR);
       if (nodes->node1.fd < 0) {
@@ -285,8 +279,8 @@ void *gps_proxy() {
     }
 
     while (!nodes->allow_exit) {
-      get_usb_current();
-      if (!current_dtr) {
+      get_transceiver_suspend_state();
+      if (!is_usb_suspended) {
         FD_ZERO(&readfds);
         memset(buf, 0, sizeof(buf));
         FD_SET(nodes->node1.fd, &readfds);
@@ -298,9 +292,9 @@ void *gps_proxy() {
             dump_packet(node1_to_2, buf, ret);
             ret = write(nodes->node2.fd, buf, ret);
           } else {
-            logger(MSG_ERROR, "%s: Closing descriptor at the ADSP side \n",
-                   __func__);
+            logger(MSG_ERROR, "%s: Closing at the ADSP side \n", __func__);
             nodes->allow_exit = true;
+            close(nodes->node1.fd);
           }
         } else if (FD_ISSET(nodes->node2.fd, &readfds)) {
           ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
@@ -308,15 +302,16 @@ void *gps_proxy() {
             dump_packet(node2_to_1, buf, ret);
             ret = write(nodes->node1.fd, buf, ret);
           } else {
-            logger(MSG_ERROR, "%s: Closing descriptor at the USB side \n",
-                   __func__);
+            logger(MSG_ERROR, "%s: Closing at the USB side \n", __func__);
             nodes->allow_exit = true;
+            close(nodes->node2.fd);
           }
         }
       }
     }
   }
 }
+
 
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;
@@ -332,11 +327,11 @@ void *rmnet_proxy(void *node_data) {
   snprintf(node2_to_1, sizeof(node2_to_1), "%s<--%s", nodes->node1.name,
            nodes->node2.name);
   while (1) {
-    get_usb_current();
+    get_transceiver_suspend_state();
     // Everything dies if I remove this?
     while (!nodes->allow_exit) {
-      get_usb_current();
-      if (!current_dtr) {
+      get_transceiver_suspend_state();
+      if (!is_usb_suspended) {
         FD_ZERO(&readfds);
         memset(buf, 0, sizeof(buf));
         FD_SET(nodes->node1.fd, &readfds);
