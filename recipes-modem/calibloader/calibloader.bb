@@ -2,7 +2,7 @@ SUMMARY = "Small utility to send ACDB data to the modem"
 LICENSE = "MIT"
 MY_PN = "calibloader"
 RPROVIDES_${PN} = "calibloader"
-TOOLCHAIN_TARGET_TASK_append = " kernel-devsrc"
+TOOLCHAIN_TARGET_TASK:append = " kernel-devsrc"
 
 PR = "r7"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
