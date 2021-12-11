@@ -32,6 +32,19 @@ void set_audio_runtime_default() {
   audio_runtime_state.is_muted = 0;
 }
 
+int use_external_codec() {
+  int fd;
+  char buff[32];
+  fd = open(EXTERNAL_CODEC_DETECT_PATH, O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: ALC5616 codec is not initialized \n", __func__);
+    return 0;
+  }
+  close(fd);
+
+  return 1;
+}
+
 void set_audio_mute(bool mute) {
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
     mixer = mixer_open(SND_CTL);
@@ -427,6 +440,24 @@ int set_audio_defaults() {
     } else {
       logger(MSG_DEBUG, "%s: Written %s to %s \n", __func__,
              sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
+    }
+  }
+  return ret;
+}
+
+int set_external_codec_defaults() {
+  int i;
+  int ret = 0;
+  for (i = 0; i < (sizeof(alc5616_default_settings) / sizeof(alc5616_default_settings[0]));
+       i++) {
+    if (write_to(alc5616_default_settings[i].path, alc5616_default_settings[i].value,
+                 O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
+             alc5616_default_settings[i].path);
+      ret = -EPERM;
+    } else {
+      logger(MSG_DEBUG, "%s: Written %s to %s \n", __func__,
+             alc5616_default_settings[i].value, alc5616_default_settings[i].path);
     }
   }
   return ret;

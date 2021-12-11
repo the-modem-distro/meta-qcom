@@ -167,6 +167,7 @@ struct pcm {
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
 
 void set_audio_runtime_default();
+int use_external_codec();
 void set_output_device(int device);
 uint8_t get_output_device();
 void set_audio_mute(bool mute);
@@ -192,6 +193,7 @@ int start_audio(int type);
 int dump_audio_mixer();
 void handle_call_pkt(uint8_t *pkt, int from, int sz);
 int set_audio_defaults();
+int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);
 
 #endif

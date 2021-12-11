@@ -212,9 +212,17 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Set modem online: %i \n", __func__, ret);
 
   logger(MSG_INFO, "%s: Init: Setup default I2S Audio settings \n", __func__);
-  if (set_audio_defaults() < 0) {
-    logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
-           __func__);
+  
+  if (use_external_codec()) {
+    if (set_external_codec_defaults() < 0) {
+      logger(MSG_ERROR, "%s: Failed to set default kernel audio params for ALC5616\n",
+            __func__);
+    }
+  } else {
+    if (set_audio_defaults() < 0) {
+      logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
+            __func__);
+    }
   }
 
   logger(MSG_DEBUG, "%s: Init: Setup DTR, WAKEUP and SLEEP GPIOs \n", __func__);
@@ -223,6 +231,7 @@ int main(int argc, char **argv) {
   logger(MSG_INFO, "%s: Init: Set audio runtime defaults \n", __func__);
   /* ADB and USB audio setting parsing */
   set_audio_runtime_default();
+
   set_atfwd_runtime_default();
   // Switch between I2S and usb audio depending on the misc partition setting
   set_output_device(get_audio_mode());
