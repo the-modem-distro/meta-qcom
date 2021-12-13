@@ -37,11 +37,10 @@ int use_external_codec() {
   char buff[32];
   fd = open(EXTERNAL_CODEC_DETECT_PATH, O_RDONLY);
   if (fd < 0) {
-    logger(MSG_ERROR, "%s: ALC5616 codec is not initialized \n", __func__);
+    logger(MSG_INFO, "%s: ALC5616 codec not detected \n", __func__);
     return 0;
   }
   close(fd);
-
   return 1;
 }
 
@@ -49,8 +48,7 @@ void set_audio_mute(bool mute) {
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
     mixer = mixer_open(SND_CTL);
     if (!mixer) {
-      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno),
-             __LINE__);
+      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
       return;
     }
 
@@ -204,10 +202,14 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
       break;
 
     case AUTIO_CALL_DISCONNECTING:
+      logger(MSG_INFO, "%s: Disconnecting call (%i) \n", __func__, mode);
+      break;
+
     case AUDIO_CALL_HANGUP:
       logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
       stop_audio();
       break;
+
     default:
       logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
       break;
@@ -354,12 +356,10 @@ int start_audio(int type) {
 
   pcm_rx = pcm_open((PCM_IN | PCM_MONO), pcm_device);
   pcm_rx->channels = 1;
-  pcm_rx->rate = 8000;
   pcm_rx->flags = PCM_IN | PCM_MONO;
 
   pcm_tx = pcm_open((PCM_OUT | PCM_MONO), pcm_device);
   pcm_tx->channels = 1;
-  pcm_tx->rate = 8000;
   pcm_tx->flags = PCM_OUT | PCM_MONO;
 
   if (audio_runtime_state.volte_hd_audio_mode == 1) {
@@ -372,6 +372,8 @@ int start_audio(int type) {
     pcm_rx->rate = 8000;
     pcm_tx->rate = 8000;
   }
+
+  logger(MSG_INFO, "Selected sampling rate: RX: %i, TX: %i\n", pcm_rx->rate, pcm_tx->rate);
 
   if (set_params(pcm_rx, PCM_IN)) {
     logger(MSG_ERROR, "Error setting RX Params\n");
@@ -460,5 +462,6 @@ int set_external_codec_defaults() {
              alc5616_default_settings[i].value, alc5616_default_settings[i].path);
     }
   }
+  set_auxpcm_sampling_rate(2); // Set audio mode to 48KPCM
   return ret;
 }
