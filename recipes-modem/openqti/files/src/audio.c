@@ -119,18 +119,24 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
   audio_runtime_state.volte_hd_audio_mode = mode;
   if (mode == 1) {
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__,
-             sysfs_value_pairs[6].path);
+      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__);
+    }
+    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "4096000", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   } else if (mode == 2) {
     if (write_to(sysfs_value_pairs[6].path, "48000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__,
-             sysfs_value_pairs[6].path);
+      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__);
+    }
+    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "12288000", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   } else {
     if (write_to(sysfs_value_pairs[6].path, "8000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 8k\n", __func__,
-             sysfs_value_pairs[6].path);
+      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 8k\n", __func__);
+    }
+    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "2048000", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   }
   // If in call, restart audio
