@@ -22,10 +22,11 @@ SRC_URI = "file://inc/openqti.h \
            file://src/mixer.c \
            file://src/pcm.c \
            file://src/logger.c \
-           file://init_openqti"
+           file://init_openqti \
+           file://external/ring8k.wav"
 
 S = "${WORKDIR}"
-
+FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
     ${CC} ${LDFLAGS} -O2 src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
 }
@@ -34,9 +35,14 @@ do_install() {
     install -d ${D}${bindir}
     install -d ${D}/etc/init.d
     install -d ${D}/etc/rcS.d
+    install -d ${D}/usr/share/tones/
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
+
+    # default dialing tone
+    install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
+
   #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }
 

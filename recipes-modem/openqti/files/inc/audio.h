@@ -25,7 +25,8 @@
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
 
-#define AUDIO_MODE_I2S 0
+#define MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
+#define AUDIO_MODE_I2S 0//SEC_AUX_PCM_RX Audio Mixer
 #define AUDIO_MODE_USB 1
 
 enum call_direction {
@@ -122,7 +123,7 @@ struct pcm {
   unsigned channels;
   unsigned flags;
   unsigned format;
-  unsigned running : 1;
+  unsigned running:1;
   int underruns;
   unsigned buffer_size;
   unsigned period_size;
@@ -166,6 +167,13 @@ struct pcm {
 #define PCM_PERIOD_SZ_SHIFT 12
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
 
+/* Bit formats */
+enum pcm_format {
+    PCM_FORMAT_S16_LE = 0,
+    PCM_FORMAT_S32_LE,
+    PCM_FORMAT_MAX,
+};
+
 void set_audio_runtime_default();
 int use_external_codec();
 void set_output_device(int device);
@@ -195,5 +203,8 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz);
 int set_audio_defaults();
 int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);
-
+void configure_custom_alert_tone(bool en);
+int pcm_write(struct pcm *pcm, void *data, unsigned count);
+unsigned int pcm_get_buffer_size(const struct pcm *pcm);
+unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
 #endif

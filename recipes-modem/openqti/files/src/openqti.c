@@ -27,47 +27,6 @@
 bool debug_to_stdout;
 int connected_clients = 0;
 
-char *get_gpio_direction_path(char *gpio) {
-  char *path;
-  path = calloc(256, sizeof(char));
-  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_DIRECTION);
-
-  return path;
-}
-void prepare_gpios() {
-  logger(MSG_INFO, "%s: Getting GPIOs ready\n", __func__);
-  if (write_to(GPIO_EXPORT_PATH, GPIO_DTR, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
-  }
-  if (write_to(GPIO_EXPORT_PATH, GPIO_WAKEUP_IN, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error exporting GPIO_WAKEUP_IN pin\n", __func__);
-  }
-  if (write_to(GPIO_EXPORT_PATH, GPIO_SLEEP_IND, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error exporting GPIO_SLEEP_IND pin\n", __func__);
-  }
-  logger(MSG_INFO, "Everything exported\n");
-  // Set directions
-  if (write_to(get_gpio_direction_path(GPIO_DTR), GPIO_MODE_INPUT, O_WRONLY) <
-      0) {
-    logger(MSG_ERROR, "%s: Error setting direction for GPIO_DTR pin at %s\n",
-           __func__, get_gpio_direction_path(GPIO_DTR));
-  }
-  if (write_to(get_gpio_direction_path(GPIO_WAKEUP_IN), GPIO_MODE_INPUT,
-               O_WRONLY) < 0) {
-    logger(MSG_ERROR,
-           "%s: Error setting direction for GPIO_WAKEUP_IN pin at %s\n",
-           __func__, get_gpio_direction_path(GPIO_WAKEUP_IN));
-  }
-  if (write_to(get_gpio_direction_path(GPIO_SLEEP_IND), GPIO_MODE_OUTPUT,
-               O_WRONLY) < 0) {
-    logger(MSG_ERROR,
-           "%s: Error setting direction for GPIO_SLEEP_IND pin at %s\n",
-           __func__, get_gpio_direction_path(GPIO_SLEEP_IND));
-  }
-  if (write_to("/sys/class/gpio/gpio5/edge", "both", O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
-  }
-}
 int main(int argc, char **argv) {
   int i, ret, lockfile;
   int linestate;
@@ -87,7 +46,7 @@ int main(int argc, char **argv) {
   strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
   strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
-  logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", __func__, RELEASE_VER);
+  logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", RELEASE_VER);
   reset_client_handler();
   set_log_level(1); // By default, set log level to info
   while ((ret = getopt(argc, argv, "adulv?")) != -1)
@@ -172,15 +131,10 @@ int main(int argc, char **argv) {
   }
 
   do {
-    /*  ret = recvfrom(qmidev->fd, buf, sizeof(buf), 0,
-                     (struct sockaddr *)&qmidev->socket, &addrlen);
-  */
-    // Wait one second after requesting bam init...
     rmnet_nodes.node2.fd = open(SMD_CNTL, O_RDWR);
     if (rmnet_nodes.node2.fd < 0) {
       logger(MSG_ERROR, "Error opening %s, retry... \n", SMD_CNTL);
     }
-    // Sleep 1 second just in case it needs to loop
     /* The modem needs some more time to boot the DSP
      * Since I haven't found a way to query its status
      * except by probing it, I loop until the IPC socket
@@ -195,7 +149,8 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);
   }
 
-  /* QTI gets line state, then sets modem offline and online while initializing
+  /* QTI gets line state, then sets modem offline and online 
+   * while initializing
    */
   ret = ioctl(rmnet_nodes.node1.fd, GET_LINE_STATE, &linestate);
   if (ret < 0)
@@ -228,14 +183,21 @@ int main(int argc, char **argv) {
     }
   }
 
-// Switch between I2S and usb audio depending on the misc partition setting
+  /* Switch between I2S and usb audio 
+   * depending on the misc partition setting
+   */
   set_output_device(get_audio_mode());
 
- /* logger(MSG_DEBUG, "%s: Init: Setup DTR, WAKEUP and SLEEP GPIOs \n", __func__);
-  prepare_gpios(); */
+  /* Read custom alert tone status flag
+   * and configure it in runtime
+   */
+  if (use_custom_alert_tone()) {
+    configure_custom_alert_tone(true);
+  }
 
   set_atfwd_runtime_default();
-    // Enable or disable ADB depending on the misc partition setting
+  
+  // Enable or disable ADB depending on the misc partition setting
   set_adb_runtime(is_adb_enabled());
 
   logger(MSG_INFO, "%s: Init: Create GPS runtime thread \n", __func__);
@@ -254,6 +216,7 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
            __func__);
   }
+
   // just in case we previously died...
   enable_usb_port();
 

@@ -125,7 +125,7 @@ static const struct {
     {113, "+ADBOFF"},
     {114, "+RESETUSB"},
     {115, "+REBOOT_REC"},
-    {116, "+PINE64ROCKS"},
+    {116, "+IS_CUSTOM"},
     {117, "+EN_PCM16K"},
     {118, "+EN_PCM48K"},
     {119, "+EN_PCM8K"},
@@ -133,6 +133,8 @@ static const struct {
     {121, "+DIS_USBAUD"},
     {122, "+CMUT"},
     {123, "+REBOOTDO"},
+    {124, "+EN_CAT"},
+    {125, "+DIS_CAT"},
 };
 
 /*

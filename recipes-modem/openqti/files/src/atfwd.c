@@ -220,12 +220,26 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     logger(MSG_ERROR, "%s: CMUT: %.2x \n", __func__,
            buf[30]); // 31 MUTE, 30 UNMUTE
     break;
-  case 123: // Gracefully restart 
+  case 123: // Gracefully restart
     cmdreply->result = 1;
     sckret =
         sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
                MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
     system("reboot");
+    break;
+  case 124: // Custom alert tone ON
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    set_custom_alert_tone(true);       // save to flash
+    configure_custom_alert_tone(true); // enable in runtime
+    break;
+  case 125: // Custom alert tone off
+    sckret =
+        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
+               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    set_custom_alert_tone(false);       // save to flash
+    configure_custom_alert_tone(false); // runtime
     break;
   default:
     // Fallback for dummy commands that arent implemented

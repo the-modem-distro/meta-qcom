@@ -62,13 +62,14 @@ int is_adb_enabled() {
 
 void store_adb_setting(bool en) {
   char buff[32];
+  memset(buff, 0, 32);
+
   int fd;
   if (en) { // Store the magic string in the second block of the misc partition
     logger(MSG_WARN, "Enabling persistent ADB\n");
     strncpy(buff, PERSIST_ADB_ON_MAGIC, sizeof(PERSIST_ADB_ON_MAGIC));
   } else {
     logger(MSG_WARN, "Disabling persistent ADB\n");
-    strncpy(buff, PERSIST_ADB_OFF_MAGIC, sizeof(PERSIST_ADB_OFF_MAGIC));
   }
   fd = open("/dev/mtdblock12", O_RDWR);
   if (fd < 0) {
@@ -105,7 +106,7 @@ void set_next_fastboot_mode(int flag) {
   lseek(fd, 131072, SEEK_SET);
   tmpbuff = &fbcmd;
   if (write(fd, (void *)tmpbuff, sizeof(fbcmd)) < 0) {
-    logger(MSG_ERROR, "%s: Error writing the FaSTBOOT flag \n", __func__);
+    logger(MSG_ERROR, "%s: Error writing the reboot flag \n", __func__);
   }
   close(fd);
 }
@@ -156,6 +157,54 @@ void store_audio_output_mode(uint8_t mode) {
   }
   close(fd);
 }
+
+
+int use_custom_alert_tone() {
+  int fd;
+  char buff[32];
+  fd = open("/dev/mtdblock12", O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
+    return 0;
+  }
+  lseek(fd, 128, SEEK_SET);
+  if (read(fd, buff, sizeof(PERSIST_CUSTOM_ALERT_TONE)) <= 0) {
+    logger(MSG_ERROR, "%s: Error reading alert tone flag\n", __func__);
+  }
+  close(fd);
+  if (strcmp(buff, PERSIST_CUSTOM_ALERT_TONE) == 0) {
+    logger(MSG_DEBUG, "%s: Using custom alert tone\n", __func__);
+    return 1;
+  }
+
+  logger(MSG_DEBUG, "%s: Using default alert tone provided by the carrier \n", __func__);
+  return 0;
+}
+
+void set_custom_alert_tone(bool en) {
+  char buff[32];
+  memset(buff, 0, 32);
+
+  int fd;
+  if (en) { // Store the magic string in the second block of the misc partition
+    logger(MSG_WARN, "Enabling Custom alert tone\n");
+    strncpy(buff, PERSIST_CUSTOM_ALERT_TONE, sizeof(PERSIST_CUSTOM_ALERT_TONE));
+  } else {
+    logger(MSG_WARN, "Disabling custom alert tone\n");
+  }
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening misc partition to set alert tone flag \n",
+           __func__);
+    return;
+  }
+  lseek(fd, 128, SEEK_SET);
+  if (write(fd, &buff, sizeof(buff)) < 0) {
+    logger(MSG_ERROR, "%s: Error writing the alert tone flag \n", __func__);
+  }
+  close(fd);
+}
+
 
 void reset_usb_port() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {

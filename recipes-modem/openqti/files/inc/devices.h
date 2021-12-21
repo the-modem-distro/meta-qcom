@@ -23,6 +23,7 @@
 #define PCM_DEV_VOCS                                                           \
   "/dev/snd/pcmC0D2" // Normal Voice calls use CS - Circuit Switch, device #2
 #define PCM_DEV_VOLTE "/dev/snd/pcmC0D4" // VoLTE uses PCM device #4
+#define PCM_DEV_HIFI "/dev/snd/pcmC0D0" // Multimedia1 is device #0
 
 #define EXTERNAL_CODEC_DETECT_PATH "/sys/devices/78b6000.i2c/i2c-2/2-001b/rt5616_detected_state"
 #define USB_SERIAL_TRANSPORTS_PATH                                             \

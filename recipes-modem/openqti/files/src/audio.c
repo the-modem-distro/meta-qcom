@@ -1,7 +1,9 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "../inc/audio.h"
 #include "../inc/devices.h"
@@ -18,18 +20,29 @@ struct pcm *pcm_rx;
  *    output_device: I2S / USB
  */
 struct {
+  uint8_t custom_alert_tone;
   uint8_t current_call_state;
   uint8_t volte_hd_audio_mode;
   uint8_t output_device;
   uint8_t is_muted;
+  uint8_t is_alerting;
 } audio_runtime_state;
 
-
 void set_audio_runtime_default() {
+  audio_runtime_state.custom_alert_tone = 0;
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
   audio_runtime_state.volte_hd_audio_mode = 0;
   audio_runtime_state.output_device = AUDIO_MODE_I2S;
   audio_runtime_state.is_muted = 0;
+  audio_runtime_state.is_alerting = 0;
+}
+
+void configure_custom_alert_tone(bool en) {
+  if (en) {
+    audio_runtime_state.custom_alert_tone = 1;
+  } else {
+    audio_runtime_state.custom_alert_tone = 0;
+  }
 }
 
 int use_external_codec() {
@@ -101,12 +114,102 @@ void set_audio_mute(bool mute) {
     mixer_close(mixer);
   } else {
     audio_runtime_state.is_muted = 0;
-    logger(
-        MSG_WARN,
-        "%s: Can't mute audio when there's no call in progress\n",
-        __func__);
+    logger(MSG_WARN, "%s: Can't mute audio when there's no call in progress\n",
+           __func__);
   }
 }
+
+void *play_alerting_tone() {
+  char *buffer;
+  int size;
+  int num_read;
+  FILE *file;
+  struct pcm *pcm0;
+  struct mixer *mymixer;
+
+  /*
+   * Ensure we loop the file while alerting
+   */
+  while (audio_runtime_state.is_alerting) {
+
+    logger(MSG_INFO, "%s: Playing custom alert tone\n", __func__);
+
+    mymixer = mixer_open(SND_CTL);
+    if (!mymixer) {
+      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
+      return NULL;
+    }
+    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 1);
+    mixer_close(mymixer);
+
+    pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
+    pcm0->channels = 1;
+    pcm0->flags = PCM_OUT | PCM_MONO;
+    pcm0->format = PCM_FORMAT_S16_LE;
+    pcm0->rate = 8000;
+    pcm0->period_size = 1024;
+    pcm0->period_cnt = 1;
+    pcm0->buffer_size = 32768;
+
+    file = fopen("/tmp/alert_tone.wav", "r");
+    if (file == NULL) {
+      logger(MSG_INFO, "%s: Falling back to default tone\n", __func__);
+      file = fopen("/usr/share/tones/ring8k.wav", "r");
+    }
+
+    if (file == NULL) {
+      logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
+      pcm_close(pcm0);
+      return NULL;
+    }
+
+    fseek(file, 44, SEEK_SET);
+
+    if (set_params(pcm0, PCM_OUT)) {
+      logger(MSG_ERROR, "Error setting TX Params\n");
+      pcm_close(pcm0);
+      return NULL;
+    }
+
+    if (!pcm0) {
+      logger(MSG_ERROR, "%s: Unable to open PCM device\n", __func__);
+      return NULL;
+    }
+
+    size = pcm_frames_to_bytes(pcm0, pcm_get_buffer_size(pcm0));
+    buffer = malloc(size * 1024);
+
+    if (!buffer) {
+      logger(MSG_ERROR, "Unable to allocate %d bytes\n", size);
+      free(buffer);
+      return NULL;
+    }
+
+    do {
+      num_read = fread(buffer, 1, size, file);
+      if (num_read > 0) {
+        if (pcm_write(pcm0, buffer, num_read)) {
+          logger(MSG_ERROR, "Error playing sample\n");
+          break;
+        }
+      }
+    } while (num_read > 0 && audio_runtime_state.is_alerting);
+    fclose(file);
+    free(buffer);
+    pcm_close(pcm0);
+
+    mymixer = mixer_open(SND_CTL);
+    if (!mymixer) {
+      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
+      return NULL;
+    }
+    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
+    mixer_close(mymixer);
+  }
+
+  return NULL;
+}
+
 void set_output_device(int device) {
   logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
   audio_runtime_state.output_device = device;
@@ -121,21 +224,24 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
     if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__);
     }
-    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "4096000", O_RDWR) < 0) {
+    if (use_external_codec() &&
+        write_to(sysfs_value_pairs[5].path, "4096000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   } else if (mode == 2) {
     if (write_to(sysfs_value_pairs[6].path, "48000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__);
     }
-    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "12288000", O_RDWR) < 0) {
+    if (use_external_codec() &&
+        write_to(sysfs_value_pairs[5].path, "12288000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   } else {
     if (write_to(sysfs_value_pairs[6].path, "8000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 8k\n", __func__);
     }
-    if (use_external_codec() && write_to(sysfs_value_pairs[5].path, "2048000", O_RDWR) < 0) {
+    if (use_external_codec() &&
+        write_to(sysfs_value_pairs[5].path, "2048000", O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
     }
   }
@@ -150,9 +256,11 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
    debugging */
 void handle_call_pkt(uint8_t *pkt, int from, int sz) {
   bool needs_setting_up_paths = false;
-  uint8_t direction, state, type, mode;
-    // also need to check pkt 0x24: VOICE_GET_CALL_INFO"
-//
+  uint8_t direction, state, type, mode, ret;
+  // Thread
+  pthread_t tone_thread;
+  // also need to check pkt 0x24: VOICE_GET_CALL_INFO"
+
   /* What are we looking for? A voice service QMI packet with the following
   params:
   - frame 0x01
@@ -200,23 +308,39 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
     case AUDIO_CALL_ORIGINATING:
     case AUDIO_CALL_RINGING:
     case AUDIO_CALL_ESTABLISHED:
-    case AUDIO_CALL_ALERTING:
     case AUDIO_CALL_ON_HOLD:
     case AUDIO_CALL_WAITING:
+      audio_runtime_state.is_alerting = 0;
       logger(MSG_INFO, "%s: Setting up audio for mode %i \n", __func__, mode);
       start_audio(mode);
       break;
-
+    case AUDIO_CALL_ALERTING:
+      audio_runtime_state.is_alerting = 1;
+      logger(MSG_INFO, "%s: ALERTING! %i \n", __func__, mode);
+      if (audio_runtime_state.custom_alert_tone) {
+        stop_audio();
+        if ((ret = pthread_create(&tone_thread, NULL, &play_alerting_tone,
+                                  NULL))) {
+          logger(MSG_ERROR, "%s: Error creating dialing tone thread\n",
+                 __func__);
+        }
+      } else {
+        start_audio(mode);
+      }
+      break;
     case AUTIO_CALL_DISCONNECTING:
+      audio_runtime_state.is_alerting = 0;
       logger(MSG_INFO, "%s: Disconnecting call (%i) \n", __func__, mode);
       break;
 
     case AUDIO_CALL_HANGUP:
+      audio_runtime_state.is_alerting = 0;
       logger(MSG_INFO, "%s: Stopping audio, mode %i \n", __func__, mode);
       stop_audio();
       break;
 
     default:
+      audio_runtime_state.is_alerting = 0;
       logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
       break;
     }
@@ -230,7 +354,11 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
   struct mixer_ctl *ctl;
   ctl = get_ctl(mixer, name);
   int r;
-
+  if (!ctl) {
+    logger(MSG_ERROR, "%s: Setting %s to value %i failed, cant find control \n",
+           __func__, name, value);
+    return 0;
+  }
   r = mixer_ctl_set_value(ctl, 1, value);
   if (r < 0) {
     logger(MSG_ERROR, "%s: Setting %s to value %i failed \n", __func__, name,
@@ -360,13 +488,15 @@ int start_audio(int type) {
   }
   mixer_close(mixer);
 
-  pcm_rx = pcm_open((PCM_IN | PCM_MONO), pcm_device);
+  pcm_rx = pcm_open((PCM_IN | PCM_MONO | PCM_MMAP), pcm_device);
   pcm_rx->channels = 1;
   pcm_rx->flags = PCM_IN | PCM_MONO;
+  pcm_rx->format = PCM_FORMAT_S16_LE;
 
-  pcm_tx = pcm_open((PCM_OUT | PCM_MONO), pcm_device);
+  pcm_tx = pcm_open((PCM_OUT | PCM_MONO | PCM_MMAP), pcm_device);
   pcm_tx->channels = 1;
   pcm_tx->flags = PCM_OUT | PCM_MONO;
+  pcm_tx->format = PCM_FORMAT_S16_LE;
 
   if (audio_runtime_state.volte_hd_audio_mode == 1) {
     pcm_rx->rate = 16000;
@@ -379,7 +509,8 @@ int start_audio(int type) {
     pcm_tx->rate = 8000;
   }
 
-  logger(MSG_INFO, "Selected sampling rate: RX: %i, TX: %i\n", pcm_rx->rate, pcm_tx->rate);
+  logger(MSG_INFO, "Selected sampling rate: RX: %i, TX: %i\n", pcm_rx->rate,
+         pcm_tx->rate);
 
   if (set_params(pcm_rx, PCM_IN)) {
     logger(MSG_ERROR, "Error setting RX Params\n");
@@ -456,16 +587,18 @@ int set_audio_defaults() {
 int set_external_codec_defaults() {
   int i;
   int ret = 0;
-  for (i = 0; i < (sizeof(alc5616_default_settings) / sizeof(alc5616_default_settings[0]));
+  for (i = 0; i < (sizeof(alc5616_default_settings) /
+                   sizeof(alc5616_default_settings[0]));
        i++) {
-    if (write_to(alc5616_default_settings[i].path, alc5616_default_settings[i].value,
-                 O_RDWR) < 0) {
+    if (write_to(alc5616_default_settings[i].path,
+                 alc5616_default_settings[i].value, O_RDWR) < 0) {
       logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
              alc5616_default_settings[i].path);
       ret = -EPERM;
     } else {
       logger(MSG_DEBUG, "%s: Written %s to %s \n", __func__,
-             alc5616_default_settings[i].value, alc5616_default_settings[i].path);
+             alc5616_default_settings[i].value,
+             alc5616_default_settings[i].path);
     }
   }
   set_auxpcm_sampling_rate(2); // Set audio mode to 48KPCM
