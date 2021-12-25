@@ -9,7 +9,12 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-// +CCLK: "21/09/09,18:08:44+08"'`
+/*
+ * Timesync
+ *    Ugly utility to read the current time from the ADSP
+ *    and sync the local RTC with it
+ */
+
 uint32_t year, month, day, hour, minute, second;
 
 int get_int_from_str(char *str, int offset) {
@@ -20,12 +25,12 @@ int get_int_from_str(char *str, int offset) {
   val = strtol(tmp, NULL, 10);
   return val;
 }
+
 int get_carrier_datetime() {
-  int fd, val = 0, ret, i;
-  int opened = 0;
+  int fd, ret;
   char response[128];
   char *begin;
-  fd = open("/dev/smd10", O_RDWR);
+  fd = open(SMD_DEVICE_PATH, O_RDWR);
   if (fd < 0) {
     fprintf(stderr, "%s: Cannot open SMD10 entry\n", __func__);
     return -EINVAL;
@@ -50,13 +55,10 @@ int get_carrier_datetime() {
     }
   }
   close(fd);
-  return val;
+  return 0;
 }
 
 int main(int argc, char **argv) {
-  int sensors[7];
-  char sensor_path[128];
-  int i;
   FILE *fd;
   fprintf(stdout, "Time sync!\n");
   year = 0;
