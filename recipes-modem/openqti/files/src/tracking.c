@@ -219,5 +219,5 @@ void force_close_qmi(int fd) {
     client_tracking.services[i].instance = 0;
   }
 
-  sleep(1);
+  usleep(100);
 }
