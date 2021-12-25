@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
      * manages to open /dev/smdcntl8, which is the point
      * where it is ready
      */
-    sleep(1);
+    usleep(100);
   } while (rmnet_nodes.node2.fd < 0);
 
   logger(MSG_INFO, "%s: Init: AT Command forwarder \n", __func__);
