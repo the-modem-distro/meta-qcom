@@ -151,7 +151,7 @@ void *play_alerting_tone() {
     pcm0->period_cnt = 1;
     pcm0->buffer_size = 32768;
 
-    file = fopen("/tmp/alert_tone.wav", "r");
+    file = fopen("/tmp/ring8k.wav", "r");
     if (file == NULL) {
       logger(MSG_INFO, "%s: Falling back to default tone\n", __func__);
       file = fopen("/usr/share/tones/ring8k.wav", "r");
