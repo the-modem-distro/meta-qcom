@@ -277,7 +277,7 @@ int get_transceiver_suspend_state() {
   if (val > 0 && is_usb_suspended == 0) {
     is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
   } else if (val == 0 && is_usb_suspended == 1) {
-    usleep(10000);        // Allow time to finish wakeup
+    usleep(1000);        // Allow time to finish wakeup
     is_usb_suspended = 0; // Then allow transfers again
   }
   close(fd);
@@ -393,6 +393,10 @@ void *rmnet_proxy(void *node_data) {
                                nodes->node1.fd);
             dump_packet(node1_to_2, buf, ret);
             ret = write(nodes->node2.fd, buf, ret);
+            if (ret == 0) {
+              logger(MSG_WARN, "%s: Failed to write at the USB side: %i \n",
+                __func__, ret);
+            }
           } else {
             logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
                    __func__, ret);
@@ -405,6 +409,10 @@ void *rmnet_proxy(void *node_data) {
                                nodes->node1.fd);
             dump_packet(node2_to_1, buf, ret);
             ret = write(nodes->node1.fd, buf, ret);
+            if (ret == 0) {
+              logger(MSG_WARN, "%s: Failed to write at the ADSP side: %i \n",
+                __func__, ret);
+            }
           } else {
             logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
                    __func__, ret);
