@@ -80,7 +80,7 @@ static const struct {
     {69, "+QFUMOCFG"},
     {70, "+QPRINT"},
     {71, "+QSDMOUNT"},
-    {72, "+QFASTBOOT"},
+    {72, "+QFDUMMY"},
     {73, "+QPSM"},
     {74, "+QPSMCFG"},
     {75, "+QLINUXCPU"},
@@ -135,8 +135,13 @@ static const struct {
     {123, "+REBOOTDO"},
     {124, "+EN_CAT"},
     {125, "+DIS_CAT"},
+    {126, "+GETSWREV"},
+    {127, "+QFASTBOOT"}
 };
 
+
+#define AT_REG_REQ 0x0020
+#define AT_CMD_RES 0x0022
 /*
 VAR3 renamed to command_length, as it's always the length of the string being
 passed +1 but removing the "+" sign ($QCPWRDN...) VAR2: When string is 4
@@ -183,17 +188,26 @@ struct at_command_modem_response {
   // The rest I have no idea yet, more sample packets are needed..
 } __attribute__((packed));
 
-struct at_command_simple_reply {
+struct qmi_packet {
   uint8_t ctlid;           // 0x00 Control message
   uint16_t transaction_id; // incremental counter for each request, why 1 in its
-                           // response? separate counter?
   uint16_t msgid;          // 0x22 0x00// RESPONSE!
-  uint16_t length;         // 0x0b 0x00 Sizeof the entire packet
-  uint32_t handle;
-  unsigned char command[3]; // 3?
-  uint8_t result;
-  uint8_t response;
-  unsigned char raw_response[2]; // 2?
+  uint16_t length;         // 0x0b 0x00 Sizeof the entire QMI packet
+} __attribute__((packed));
+
+
+struct at_command_meta {
+  uint8_t client_handle; // 0x01 OK
+  uint16_t at_pkt_len; // at packet size, 0x08 0x00 || 0xsz 0x00
+} __attribute__ ((packed));
+
+struct at_command_respnse {
+  struct qmi_packet qmipkt;
+  struct at_command_meta meta;
+  uint32_t handle; // 0x0b 0x00 0x00 0x00
+  uint8_t result; // 1 OK 2 OTHER, 0 ERR
+  uint8_t response; // ??
+  char reply[20]; // Fucking hate fucking struct padding
 } __attribute__((packed));
 
 void set_atfwd_runtime_default();

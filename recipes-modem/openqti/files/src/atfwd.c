@@ -53,17 +53,23 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   atcmd = NULL;
 }
 
+int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt, int sz) {
+ return sendto(qmidev->fd, pkt, sz, MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+}
+
 /* When a command is requested via AT interface,
    this function is used to answer to them */
 int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                           unsigned int sz) {
-  int i, j, sckret;
+  int j, sckret;
   int packet_size;
-  uint8_t cmdsize, cmdend;
+  uint8_t cmdsize;
   char *parsedcmd;
   int cmd_id = -1;
-  struct at_command_simple_reply *cmdreply;
-  cmdreply = calloc(1, sizeof(struct at_command_simple_reply));
+  struct at_command_respnse *response;
+  int tmpsz, fullpktsz;
+  int bytes_in_reply = 0;
+
   if (sz == 14) {
     logger(MSG_DEBUG, "%s: Packet ACK\n", __func__);
     return 0;
@@ -86,12 +92,10 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
          packet_size, sz);
 
   cmdsize = buf[18];
-  cmdend = 18 + cmdsize;
-
   parsedcmd = calloc(cmdsize + 1, sizeof(char));
   strncpy(parsedcmd, (char *)buf + 19, cmdsize);
 
-  logger(MSG_INFO, "%s: Command requested is %s\n", __func__, parsedcmd);
+  logger(MSG_INFO, "%s: AT CMD: %s\n", __func__, parsedcmd);
   for (j = 0; j < (sizeof(at_commands) / sizeof(at_commands[0])); j++) {
     if (strcmp(parsedcmd, at_commands[j].cmd) == 0) {
       cmd_id = at_commands[j].command_id; // Command matched
@@ -99,174 +103,150 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   }
   free(parsedcmd);
 
-  cmdreply->ctlid = 0x00;
-  cmdreply->transaction_id = htole16(qmidev->transaction_id);
-  cmdreply->msgid = 0x0022;
+  /* Build initial response data */
+  response = calloc(1, sizeof(struct at_command_respnse));
+  response->qmipkt.ctlid = 0x00;
+  response->qmipkt.transaction_id = htole16(qmidev->transaction_id);
+  response->qmipkt.msgid = AT_CMD_RES;
+  
+  response->meta.client_handle = 0x01;//0x01000801;
+  response->handle = 0x0000000b;
+  response->result = 1; // result OK
+  response->response = 3; // completed
+  bytes_in_reply = 2;
 
-  cmdreply->length = htole16(sizeof(struct at_command_simple_reply) -
-                             (3 * sizeof(uint16_t) - sizeof(uint8_t)) -
-                             (2 * (sizeof(unsigned char))));
-  cmdreply->handle = 0x01000801;
-  cmdreply->response = 3;
-  cmdreply->result = 1;
-
+  /* Set default sizes for the response packet
+   *  If we don't write an extended response, the char array will be empty
+   */
+  fullpktsz = sizeof(struct at_command_respnse) - (20 - bytes_in_reply);// + (sizeof (char) * strlen(release_tag)); // complete packet sie
+  tmpsz =  fullpktsz - sizeof(struct qmi_packet); 
+  response->qmipkt.length = htole16(tmpsz); // QMI packet size
+  response->meta.at_pkt_len = htole16(tmpsz - sizeof(struct at_command_meta)); // AT packet size
+ 
   switch (cmd_id) {
-  case 40: // QDAI
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    break;
-  case 72: // fastboot
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-    set_next_fastboot_mode(0);
-    reboot(0x01234567);
-    break;
   case 111: // QCPowerdown
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
+    usleep(500);
     reboot(0x4321fedc);
     break;
   case 109:
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     break;
   case 112: // ADB ON
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     store_adb_setting(true);
     restart_usb_stack();
     break;
   case 113: // ADB OFF // First respond to avoid locking the AT IF
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     store_adb_setting(false);
     restart_usb_stack();
     break;
-  case 114: // reset usb
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  case 114: // Reset usb
+    sckret = send_pkt(qmidev, response, fullpktsz);
     reset_usb_port();
     break;
-  case 115: // reboot to recovery
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  case 115: // Reboot to recovery
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_next_fastboot_mode(1);
     reboot(0x01234567);
     break;
-  case 116:
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  case 116: // Is custom? alwas answer yes
+     sckret = send_pkt(qmidev, response, fullpktsz);
     break;
-  case 117: // enable PCM16k
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  case 117: // Enable PCM16k
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_auxpcm_sampling_rate(1);
     break;
-  case 118: // PCM48K
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-
+  case 118: // Enable PCM48K
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_auxpcm_sampling_rate(2);
     break;
-  case 119: // disable PCM HI EN_PCM8K
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-
+  case 119: // Enable PCM8K (disable pcmhi)
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_auxpcm_sampling_rate(0);
     break;
   case 120: // Fallback to 8K and enable USB_AUDIO
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     store_audio_output_mode(AUDIO_MODE_USB);
     restart_usb_stack();
     break;
-  case 121: // Fallback to 8K and enable USB_AUDIO
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
-
+  case 121: // Fallback to 8K and go back to I2S
+    sckret = send_pkt(qmidev, response, fullpktsz);
     store_audio_output_mode(AUDIO_MODE_I2S);
     restart_usb_stack();
     break;
-  case 122: // CMUT
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  case 122: // Mute audio while in call
+    sckret = send_pkt(qmidev, response, fullpktsz);
     if (buf[30] == 0x31) {
       set_audio_mute(true);
     } else {
       set_audio_mute(false);
     }
-    logger(MSG_ERROR, "%s: CMUT: %.2x \n", __func__,
-           buf[30]); // 31 MUTE, 30 UNMUTE
     break;
   case 123: // Gracefully restart
-    cmdreply->result = 1;
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     system("reboot");
     break;
   case 124: // Custom alert tone ON
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_custom_alert_tone(true);       // save to flash
     configure_custom_alert_tone(true); // enable in runtime
     break;
   case 125: // Custom alert tone off
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     set_custom_alert_tone(false);       // save to flash
     configure_custom_alert_tone(false); // runtime
     break;
+  case 126: // QGMR OVERRIDE TEST
+    /*  Build packet
+     *  [4 byte \r\0\r\n][RESPONSE][2 byte \r\n] === 15 char
+     *  It can do more but I can't seem to find how it is done, so...
+     */
+    bytes_in_reply = sprintf(response->reply, "\n\n\n\n");
+    bytes_in_reply+= sprintf(response->reply + bytes_in_reply, "%s",  RELEASE_VER);
+    while (bytes_in_reply < 13) {
+      bytes_in_reply+= sprintf(response->reply + bytes_in_reply, " ");
+    }
+    bytes_in_reply+= sprintf(response->reply + bytes_in_reply, "\r\n");
+
+    response->reply[0] = '\r';
+    response->reply[1] = '\0';
+    response->reply[2] = '\r';
+    response->reply[3] = '\n';
+    fullpktsz = sizeof(struct at_command_respnse) - (20 - bytes_in_reply);// + (sizeof (char) * strlen(release_tag)); // complete packet sie
+    tmpsz =  fullpktsz - sizeof(struct qmi_packet); 
+    response->qmipkt.length = htole16(tmpsz); // QMI packet size
+    response->meta.at_pkt_len = htole16(tmpsz - sizeof(struct at_command_meta)); // AT packet size
+    sckret = send_pkt(qmidev, response, fullpktsz);
+    break;
+    
+  case 127: // Fastboot
+    sckret = send_pkt(qmidev, response, fullpktsz);
+    set_next_fastboot_mode(0);
+    usleep(300); // Give it some time to be able to reach the ADSP before rebooting
+    reboot(0x01234567);
+    break;
   default:
     // Fallback for dummy commands that arent implemented
-    if ((cmd_id > 0 && cmd_id < 72) || (cmd_id > 72 && cmd_id < 111)) {
-      logger(MSG_ERROR, "%s: Dummy command requested \n", __func__);
-
-      cmdreply->result = 1;
+    if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {
+      logger(MSG_INFO, "%s: Dummy command requested \n", __func__);
+      response->result = 1;
     } else {
       logger(MSG_ERROR, "%s: Unknown command requested \n", __func__);
-      cmdreply->result = 2;
+      response->result = 2;
     }
-    sckret =
-        sendto(qmidev->fd, cmdreply, sizeof(struct at_command_simple_reply),
-               MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+    sckret = send_pkt(qmidev, response, fullpktsz);
     break;
   }
 
   qmidev->transaction_id++;
-  free(cmdreply);
-  cmdreply = NULL;
+  free(response);
+  response = NULL;
   return 0;
 }
 
-/* Register AT commands into the DSP
-   This is currently not working
-
-*/
+/* Register AT commands into the DSP */
 int init_atfwd(struct qmi_device *qmidev) {
   int i, j, ret;
   ssize_t pktsize;
