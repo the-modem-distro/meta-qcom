@@ -15,6 +15,8 @@
 /* SMD Data 3 is used by Quectel's LPM kernel driver */
 #define SMD_DATA3 "/dev/smd8"
 
+#define SMD_SEC_AT "/dev/smd10"
+
 /* ttyGS0: USB side GPS port */
 #define USB_GPS "/dev/ttyGS0"
 

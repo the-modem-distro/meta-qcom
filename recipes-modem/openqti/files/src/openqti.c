@@ -149,7 +149,7 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);
   }
 
-  /* QTI gets line state, then sets modem offline and online 
+  /* QTI gets line state, then sets modem offline and online
    * while initializing
    */
   ret = ioctl(rmnet_nodes.node1.fd, GET_LINE_STATE, &linestate);
@@ -166,24 +166,24 @@ int main(int argc, char **argv) {
   if (ret < 0)
     logger(MSG_ERROR, "%s: Set modem online: %i \n", __func__, ret);
 
-  
   logger(MSG_INFO, "%s: Init: Setup default I2S Audio settings \n", __func__);
   /* Reset Openqti's internal  audio settings first */
   set_audio_runtime_default();
 
   if (use_external_codec()) {
     if (set_external_codec_defaults() < 0) {
-      logger(MSG_ERROR, "%s: Failed to set default kernel audio params for ALC5616\n",
-            __func__);
+      logger(MSG_ERROR,
+             "%s: Failed to set default kernel audio params for ALC5616\n",
+             __func__);
     }
   } else {
     if (set_audio_defaults() < 0) {
       logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
-            __func__);
+             __func__);
     }
   }
 
-  /* Switch between I2S and usb audio 
+  /* Switch between I2S and usb audio
    * depending on the misc partition setting
    */
   set_output_device(get_audio_mode());
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
   }
 
   set_atfwd_runtime_default();
-  
+
   // Enable or disable ADB depending on the misc partition setting
   set_adb_runtime(is_adb_enabled());
 

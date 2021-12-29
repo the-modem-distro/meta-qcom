@@ -136,7 +136,9 @@ static const struct {
     {124, "+EN_CAT"},
     {125, "+DIS_CAT"},
     {126, "+GETSWREV"},
-    {127, "+QFASTBOOT"}
+    {127, "+QFASTBOOT"},
+    {128, "+GETFWBRANCH"},
+    {129, "+QGMR"},
 };
 
 
@@ -166,48 +168,28 @@ struct atcmd_reg_request {
   uint8_t command_length; // var3;
 } __attribute__((packed));
 
-struct at_command_modem_response {
-  // QMI Header
-  uint8_t ctlid;           // 0x04
-  uint16_t transaction_id; // incremental counter for each request, why 1 in its
-                           // response? separate counter?
-  uint16_t msgid;          // 0x21 0x00// RESPONSE!
-  uint16_t length;         // 0x71 0x00 Sizeof the entire packet
-
-  // the request packet itself
-  // Obviously unfinished :)
-  uint8_t dummy1;  // always 0x00 0x01
-  uint8_t var1;    // 0x12?
-  uint16_t dummy2; // always 0x00 0x01
-  uint16_t dummy3; // always 0x00 0x00
-  uint16_t dummy4; // always 0x00 0x01
-  uint16_t dummy5; // 0x00 0x00
-  uint8_t cmd_len; // 0x09?
-  char *command;
-
-  // The rest I have no idea yet, more sample packets are needed..
-} __attribute__((packed));
-
+#define MAX_REPLY_SZ 256
 struct qmi_packet {
   uint8_t ctlid;           // 0x00 Control message
-  uint16_t transaction_id; // incremental counter for each request, why 1 in its
-  uint16_t msgid;          // 0x22 0x00// RESPONSE!
-  uint16_t length;         // 0x0b 0x00 Sizeof the entire QMI packet
+  uint16_t transaction_id; // QMI Transaction ID
+  uint16_t msgid;          // For AT IF, 0x0022 is a reply
+  uint16_t length;         // QMI Packet size
 } __attribute__((packed));
 
 
 struct at_command_meta {
-  uint8_t client_handle; // 0x01 OK
-  uint16_t at_pkt_len; // at packet size, 0x08 0x00 || 0xsz 0x00
+  uint8_t client_handle; // 0x01
+  uint16_t at_pkt_len; // AT packet size
 } __attribute__ ((packed));
 
 struct at_command_respnse {
   struct qmi_packet qmipkt;
   struct at_command_meta meta;
-  uint32_t handle; // 0x0b 0x00 0x00 0x00
+  uint32_t handle; // 0x0b 0x00 0x00 0x00 
   uint8_t result; // 1 OK 2 OTHER, 0 ERR
-  uint8_t response; // ??
-  char reply[20]; // Fucking hate fucking struct padding
+  uint8_t response; // 3 == Complete response in one packet
+  uint16_t replysz;
+  char reply[MAX_REPLY_SZ]; // When there's something in here, it seems it needs \r\0\r\n[reply]\n\n
 } __attribute__((packed));
 
 void set_atfwd_runtime_default();
@@ -218,4 +200,6 @@ int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
                       uint8_t slot);
 
 void *start_atfwd_thread();
+char *get_adsp_version();
+#define GET_ADSP_VER_CMD "AT+QGMR"
 #endif

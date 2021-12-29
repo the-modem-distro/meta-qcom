@@ -10,19 +10,28 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../inc/adspfw.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
+#include "../inc/md5sum.h"
 #include "../inc/openqti.h"
 
 struct {
   bool adb_enabled;
+  char adsp_firmware_version[4];
 } atfwd_runtime_state;
 
-void set_atfwd_runtime_default() { atfwd_runtime_state.adb_enabled = false; }
+void set_atfwd_runtime_default() {
+  atfwd_runtime_state.adb_enabled = false; 
+  atfwd_runtime_state.adsp_firmware_version[0] = '-';
+  atfwd_runtime_state.adsp_firmware_version[1] = 'U';
+  atfwd_runtime_state.adsp_firmware_version[2] = 'N';
+  atfwd_runtime_state.adsp_firmware_version[3] = 'K';
+}
 
 void set_adb_runtime(bool mode) { atfwd_runtime_state.adb_enabled = mode; }
 
@@ -54,7 +63,52 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
 }
 
 int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt, int sz) {
- return sendto(qmidev->fd, pkt, sz, MSG_DONTWAIT, (void *)&qmidev->socket, sizeof(qmidev->socket));
+  pkt->qmipkt.length = htole16(sz - sizeof(struct qmi_packet)); // QMI packet size
+  pkt->meta.at_pkt_len = htole16(sz - sizeof(struct qmi_packet) -
+              sizeof(struct at_command_meta)); // AT packet size
+  return sendto(qmidev->fd, pkt, sz, MSG_DONTWAIT, (void *)&qmidev->socket,
+                sizeof(qmidev->socket));
+}
+
+char *get_adsp_version() { 
+  return atfwd_runtime_state.adsp_firmware_version; 
+}
+
+int read_adsp_version() {
+  char *md5_result;
+  char *hex_md5_res;
+  int ret, i, j;
+  int offset = 0;
+  md5_result = calloc(64, sizeof(char));
+  hex_md5_res = calloc(64, sizeof(char));
+  bool matched = false;
+  
+  ret = md5_file(ADSPFW_GEN_FILE, md5_result);
+  if (strlen(md5_result) < 16) {
+    logger(MSG_ERROR, "%s: Error calculating the MD5 for your firmware (%s) \n",
+           __func__, md5_result);
+  } else {
+    for (j = 0; j < strlen(md5_result); j++) {
+      offset += sprintf(hex_md5_res + offset, "%02x", md5_result[j]);
+    }
+    for (i = 0; i < (sizeof(known_adsp_fw) / sizeof(known_adsp_fw[0])); i++) {
+      if (strcmp(hex_md5_res, known_adsp_fw[i].md5sum) == 0) {
+        logger(MSG_INFO, "%s: Found your ADSP firmware: (%s) \n", __func__,
+               known_adsp_fw[i].fwstring);
+        atfwd_runtime_state.adsp_firmware_version[1] = '0';
+        atfwd_runtime_state.adsp_firmware_version[2] = '0';
+        atfwd_runtime_state.adsp_firmware_version[3] = known_adsp_fw[i].variant;
+        matched = true;
+        break;
+      }
+    }
+  }
+  if (!matched) {
+    logger(MSG_WARN, "%s: Could not detect your ADSP firmware! \n", __func__);
+  }
+  free(md5_result);
+  free(hex_md5_res);
+  return 0;
 }
 
 /* When a command is requested via AT interface,
@@ -67,7 +121,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   char *parsedcmd;
   int cmd_id = -1;
   struct at_command_respnse *response;
-  int tmpsz, fullpktsz;
+  int pkt_size;
   int bytes_in_reply = 0;
 
   if (sz == 14) {
@@ -108,76 +162,72 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   response->qmipkt.ctlid = 0x00;
   response->qmipkt.transaction_id = htole16(qmidev->transaction_id);
   response->qmipkt.msgid = AT_CMD_RES;
-  
-  response->meta.client_handle = 0x01;//0x01000801;
+
+  response->meta.client_handle = 0x01; // 0x01000801;
   response->handle = 0x0000000b;
-  response->result = 1; // result OK
+  response->result = 1;   // result OK
   response->response = 3; // completed
-  bytes_in_reply = 2;
 
   /* Set default sizes for the response packet
    *  If we don't write an extended response, the char array will be empty
    */
-  fullpktsz = sizeof(struct at_command_respnse) - (20 - bytes_in_reply);// + (sizeof (char) * strlen(release_tag)); // complete packet sie
-  tmpsz =  fullpktsz - sizeof(struct qmi_packet); 
-  response->qmipkt.length = htole16(tmpsz); // QMI packet size
-  response->meta.at_pkt_len = htole16(tmpsz - sizeof(struct at_command_meta)); // AT packet size
- 
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
   switch (cmd_id) {
   case 111: // QCPowerdown
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     usleep(500);
     reboot(0x4321fedc);
     break;
   case 109:
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     break;
   case 112: // ADB ON
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     store_adb_setting(true);
     restart_usb_stack();
     break;
   case 113: // ADB OFF // First respond to avoid locking the AT IF
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     store_adb_setting(false);
     restart_usb_stack();
     break;
   case 114: // Reset usb
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     reset_usb_port();
     break;
   case 115: // Reboot to recovery
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_next_fastboot_mode(1);
     reboot(0x01234567);
     break;
   case 116: // Is custom? alwas answer yes
-     sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     break;
   case 117: // Enable PCM16k
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_auxpcm_sampling_rate(1);
     break;
   case 118: // Enable PCM48K
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_auxpcm_sampling_rate(2);
     break;
   case 119: // Enable PCM8K (disable pcmhi)
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_auxpcm_sampling_rate(0);
     break;
   case 120: // Fallback to 8K and enable USB_AUDIO
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     store_audio_output_mode(AUDIO_MODE_USB);
     restart_usb_stack();
     break;
   case 121: // Fallback to 8K and go back to I2S
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     store_audio_output_mode(AUDIO_MODE_I2S);
     restart_usb_stack();
     break;
   case 122: // Mute audio while in call
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     if (buf[30] == 0x31) {
       set_audio_mute(true);
     } else {
@@ -185,48 +235,40 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     }
     break;
   case 123: // Gracefully restart
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     system("reboot");
     break;
   case 124: // Custom alert tone ON
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_custom_alert_tone(true);       // save to flash
     configure_custom_alert_tone(true); // enable in runtime
     break;
   case 125: // Custom alert tone off
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_custom_alert_tone(false);       // save to flash
     configure_custom_alert_tone(false); // runtime
     break;
-  case 126: // QGMR OVERRIDE TEST
-    /*  Build packet
-     *  [4 byte \r\0\r\n][RESPONSE][2 byte \r\n] === 15 char
-     *  It can do more but I can't seem to find how it is done, so...
-     */
-    bytes_in_reply = sprintf(response->reply, "\n\n\n\n");
-    bytes_in_reply+= sprintf(response->reply + bytes_in_reply, "%s",  RELEASE_VER);
-    while (bytes_in_reply < 13) {
-      bytes_in_reply+= sprintf(response->reply + bytes_in_reply, " ");
-    }
-    bytes_in_reply+= sprintf(response->reply + bytes_in_reply, "\r\n");
-
-    response->reply[0] = '\r';
-    response->reply[1] = '\0';
-    response->reply[2] = '\r';
-    response->reply[3] = '\n';
-    fullpktsz = sizeof(struct at_command_respnse) - (20 - bytes_in_reply);// + (sizeof (char) * strlen(release_tag)); // complete packet sie
-    tmpsz =  fullpktsz - sizeof(struct qmi_packet); 
-    response->qmipkt.length = htole16(tmpsz); // QMI packet size
-    response->meta.at_pkt_len = htole16(tmpsz - sizeof(struct at_command_meta)); // AT packet size
-    sckret = send_pkt(qmidev, response, fullpktsz);
+  case 129: // QGMR
+  case 126: // GETSWREV
+    bytes_in_reply = sprintf(response->reply, "\r\n%s\r\n", RELEASE_VER); // Either you add a line break or it overwrites current line
+    response->replysz = htole16(bytes_in_reply); // Size of the string to reply
+    pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+    sckret = send_pkt(qmidev, response, pkt_size);
     break;
-    
   case 127: // Fastboot
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     set_next_fastboot_mode(0);
-    usleep(300); // Give it some time to be able to reach the ADSP before rebooting
+    usleep(
+        300); // Give it some time to be able to reach the ADSP before rebooting
     reboot(0x01234567);
     break;
+  case 128: // QGMR OVERRIDE TEST
+    bytes_in_reply = sprintf(response->reply, "\r\nFOSS%s\r\n", get_adsp_version());
+    response->replysz = htole16(bytes_in_reply);
+    pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+    sckret = send_pkt(qmidev, response, pkt_size);
+    break;
+
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {
@@ -236,7 +278,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       logger(MSG_ERROR, "%s: Unknown command requested \n", __func__);
       response->result = 2;
     }
-    sckret = send_pkt(qmidev, response, fullpktsz);
+    sckret = send_pkt(qmidev, response, pkt_size);
     break;
   }
 
@@ -328,6 +370,7 @@ void *start_atfwd_thread() {
     logger(MSG_ERROR, "%s: Error setting up ATFWD!\n", __func__);
   }
 
+  read_adsp_version();
   while (1) {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));

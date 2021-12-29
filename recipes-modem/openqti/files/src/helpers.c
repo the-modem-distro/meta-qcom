@@ -158,7 +158,6 @@ void store_audio_output_mode(uint8_t mode) {
   close(fd);
 }
 
-
 int use_custom_alert_tone() {
   int fd;
   char buff[32];
@@ -177,7 +176,8 @@ int use_custom_alert_tone() {
     return 1;
   }
 
-  logger(MSG_DEBUG, "%s: Using default alert tone provided by the carrier \n", __func__);
+  logger(MSG_DEBUG, "%s: Using default alert tone provided by the carrier \n",
+         __func__);
   return 0;
 }
 
@@ -194,7 +194,8 @@ void set_custom_alert_tone(bool en) {
   }
   fd = open("/dev/mtdblock12", O_RDWR);
   if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening misc partition to set alert tone flag \n",
+    logger(MSG_ERROR,
+           "%s: Error opening misc partition to set alert tone flag \n",
            __func__);
     return;
   }
@@ -204,7 +205,6 @@ void set_custom_alert_tone(bool en) {
   }
   close(fd);
 }
-
 
 void reset_usb_port() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
@@ -277,7 +277,7 @@ int get_transceiver_suspend_state() {
   if (val > 0 && is_usb_suspended == 0) {
     is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
   } else if (val == 0 && is_usb_suspended == 1) {
-    usleep(1000);        // Allow time to finish wakeup
+    usleep(1000);         // Allow time to finish wakeup
     is_usb_suspended = 0; // Then allow transfers again
   }
   close(fd);
@@ -361,7 +361,6 @@ void *gps_proxy() {
   }
 }
 
-
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;
   int pret, ret;
@@ -395,7 +394,7 @@ void *rmnet_proxy(void *node_data) {
             ret = write(nodes->node2.fd, buf, ret);
             if (ret == 0) {
               logger(MSG_WARN, "%s: Failed to write at the USB side: %i \n",
-                __func__, ret);
+                     __func__, ret);
             }
           } else {
             logger(MSG_ERROR, "%s: Closed descriptor at the USB side: %i \n",
@@ -411,7 +410,7 @@ void *rmnet_proxy(void *node_data) {
             ret = write(nodes->node1.fd, buf, ret);
             if (ret == 0) {
               logger(MSG_WARN, "%s: Failed to write at the ADSP side: %i \n",
-                __func__, ret);
+                     __func__, ret);
             }
           } else {
             logger(MSG_ERROR, "%s: Closed descriptor at the ADSP side: %i \n",
