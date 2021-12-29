@@ -139,6 +139,8 @@ static const struct {
     {127, "+QFASTBOOT"},
     {128, "+GETFWBRANCH"},
     {129, "+QGMR"},
+    {130, "+DMESG"},
+    {131, "+OQLOG"},
 };
 
 
@@ -168,7 +170,7 @@ struct atcmd_reg_request {
   uint8_t command_length; // var3;
 } __attribute__((packed));
 
-#define MAX_REPLY_SZ 256
+#define MAX_REPLY_SZ 4096
 struct qmi_packet {
   uint8_t ctlid;           // 0x00 Control message
   uint16_t transaction_id; // QMI Transaction ID

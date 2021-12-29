@@ -26,7 +26,7 @@ struct {
 } atfwd_runtime_state;
 
 void set_atfwd_runtime_default() {
-  atfwd_runtime_state.adb_enabled = false; 
+  atfwd_runtime_state.adb_enabled = false;
   atfwd_runtime_state.adsp_firmware_version[0] = '-';
   atfwd_runtime_state.adsp_firmware_version[1] = 'U';
   atfwd_runtime_state.adsp_firmware_version[2] = 'N';
@@ -62,17 +62,18 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   atcmd = NULL;
 }
 
-int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt, int sz) {
-  pkt->qmipkt.length = htole16(sz - sizeof(struct qmi_packet)); // QMI packet size
-  pkt->meta.at_pkt_len = htole16(sz - sizeof(struct qmi_packet) -
+int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt,
+             int sz) {
+  pkt->qmipkt.length =
+      htole16(sz - sizeof(struct qmi_packet)); // QMI packet size
+  pkt->meta.at_pkt_len =
+      htole16(sz - sizeof(struct qmi_packet) -
               sizeof(struct at_command_meta)); // AT packet size
   return sendto(qmidev->fd, pkt, sz, MSG_DONTWAIT, (void *)&qmidev->socket,
                 sizeof(qmidev->socket));
 }
 
-char *get_adsp_version() { 
-  return atfwd_runtime_state.adsp_firmware_version; 
-}
+char *get_adsp_version() { return atfwd_runtime_state.adsp_firmware_version; }
 
 int read_adsp_version() {
   char *md5_result;
@@ -82,7 +83,7 @@ int read_adsp_version() {
   md5_result = calloc(64, sizeof(char));
   hex_md5_res = calloc(64, sizeof(char));
   bool matched = false;
-  
+
   ret = md5_file(ADSPFW_GEN_FILE, md5_result);
   if (strlen(md5_result) < 16) {
     logger(MSG_ERROR, "%s: Error calculating the MD5 for your firmware (%s) \n",
@@ -115,7 +116,7 @@ int read_adsp_version() {
    this function is used to answer to them */
 int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                           unsigned int sz) {
-  int j, sckret;
+  int j, sckret, ret;
   int packet_size;
   uint8_t cmdsize;
   char *parsedcmd;
@@ -123,7 +124,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   struct at_command_respnse *response;
   int pkt_size;
   int bytes_in_reply = 0;
-
+  char filebuff[MAX_REPLY_SZ];
+  FILE *fp;
   if (sz == 14) {
     logger(MSG_DEBUG, "%s: Packet ACK\n", __func__);
     return 0;
@@ -250,9 +252,13 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 129: // QGMR
   case 126: // GETSWREV
-    bytes_in_reply = sprintf(response->reply, "\r\n%s\r\n", RELEASE_VER); // Either you add a line break or it overwrites current line
+    bytes_in_reply = sprintf(response->reply, "\r\n%s\r\n",
+                             RELEASE_VER); // Either you add a line break or it
+                                           // overwrites current line
     response->replysz = htole16(bytes_in_reply); // Size of the string to reply
-    pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
   case 127: // Fastboot
@@ -262,13 +268,82 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
         300); // Give it some time to be able to reach the ADSP before rebooting
     reboot(0x01234567);
     break;
-  case 128: // QGMR OVERRIDE TEST
-    bytes_in_reply = sprintf(response->reply, "\r\nFOSS%s\r\n", get_adsp_version());
+  case 128: // GETFWBRANCH
+    bytes_in_reply =
+        sprintf(response->reply, "\r\nFOSS%s\r\n", get_adsp_version());
     response->replysz = htole16(bytes_in_reply);
-    pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
-
+  case 130: // DMESG
+    fp = fopen("/var/log/messages", "r");
+    if (fp == NULL) {
+      logger(MSG_ERROR, "%s: Error opening file \n", __func__);
+      response->result = 2;
+      sckret = send_pkt(qmidev, response, pkt_size);
+    } else {
+      bytes_in_reply = sprintf(response->reply, "\r\n");
+      response->response = 0;
+      response->replysz = htole16(bytes_in_reply);
+      pkt_size = sizeof(struct at_command_respnse) -(MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      sckret = send_pkt(qmidev, response, pkt_size);
+      do {
+        memset(response->reply, 0, MAX_REPLY_SZ);
+        ret = fread(filebuff, 1, MAX_REPLY_SZ - 2, fp);
+        if (ret > 0) {
+          response->response = 2;
+          for (j = 0; j < ret-1; j++) {
+            if (filebuff[j] == 0x00) {
+              filebuff[j] = ' ';
+            }
+          }
+          strncpy(response->reply, filebuff, MAX_REPLY_SZ);
+          response->replysz = htole16(ret);
+          pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - ret); // total size - (max string - used string)
+          sckret = send_pkt(qmidev, response, pkt_size);
+        }
+      } while (ret > 0);
+      fclose(fp);
+      bytes_in_reply = sprintf(response->reply, "\r\nEOF\r\n");
+      response->response = 1;
+      response->replysz = htole16(bytes_in_reply);
+      pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      sckret = send_pkt(qmidev, response, pkt_size);
+    }
+    break;
+  case 131: // OPENQTI LOG
+    fp = fopen("/var/log/openqti.log", "r");
+    if (fp == NULL) {
+      logger(MSG_ERROR, "%s: Error opening file \n", __func__);
+      response->result = 2;
+      sckret = send_pkt(qmidev, response, pkt_size);
+    } else {
+      bytes_in_reply = sprintf(response->reply, "\r\n");
+      response->response = 0;
+      response->replysz = htole16(bytes_in_reply);
+      pkt_size = sizeof(struct at_command_respnse) -(MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      sckret = send_pkt(qmidev, response, pkt_size);
+      do {
+        memset(response->reply, 0, MAX_REPLY_SZ);
+        ret = fread(filebuff, 1, MAX_REPLY_SZ - 2, fp);
+        if (ret > 0) {
+          response->response = 2;
+          strncpy(response->reply, filebuff, MAX_REPLY_SZ);
+          response->replysz = htole16(ret);
+          pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - ret); // total size - (max string - used string)
+          sckret = send_pkt(qmidev, response, pkt_size);
+        }
+      } while (ret > 0);
+      fclose(fp);
+      bytes_in_reply = sprintf(response->reply, "\r\nEOF\r\n");
+      response->response = 1;
+      response->replysz = htole16(bytes_in_reply);
+      pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      sckret = send_pkt(qmidev, response, pkt_size);
+    }
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {
