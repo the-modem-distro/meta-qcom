@@ -202,78 +202,9 @@ int set_params(struct pcm *pcm, int path) {
   return 0;
 }
 
-/*
-static int enable_timer(struct pcm *pcm) {
-
-    pcm->timer_fd = open("/dev/snd/timer", O_RDWR | O_NONBLOCK);
-    if (pcm->timer_fd < 0) {
-       close(pcm->fd);
-       logger(MSG_ERROR, "cannot open timer device 'timer'");
-       return -1;
-    }
-    int arg = 1;
-    struct snd_timer_params timer_param;
-    struct snd_timer_select sel;
-    if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_TREAD, &arg) < 0) {
-           logger(MSG_ERROR, "extended read is not supported (SNDRV_TIMER_IOCTL_TREAD)\n");
-    }
-    memset(&sel, 0, sizeof(sel));
-    sel.id.dev_class = SNDRV_TIMER_CLASS_PCM;
-    sel.id.dev_sclass = SNDRV_TIMER_SCLASS_NONE;
-    sel.id.card = pcm->card_no;
-    sel.id.device = pcm->device_no;
-    if (pcm->flags & PCM_IN)
-        sel.id.subdevice = 1;
-    else
-        sel.id.subdevice = 0;
-
-    if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_SELECT, &sel) < 0) {
-          logger(MSG_ERROR, "SNDRV_TIMER_IOCTL_SELECT failed.\n");
-          close(pcm->timer_fd);
-          close(pcm->fd);
-          return -1;
-    }
-    memset(&timer_param, 0, sizeof(struct snd_timer_params));
-    timer_param.flags |= SNDRV_TIMER_PSFLG_AUTO;
-    timer_param.ticks = 1;
-    timer_param.filter = (1<<SNDRV_TIMER_EVENT_MSUSPEND) |
-(1<<SNDRV_TIMER_EVENT_MRESUME) | (1<<SNDRV_TIMER_EVENT_TICK);
-
-    if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_PARAMS, &timer_param)< 0) {
-           logger(MSG_ERROR, "SNDRV_TIMER_IOCTL_PARAMS failed\n");
-    }
-    if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_START) < 0) {
-           close(pcm->timer_fd);
-           logger(MSG_ERROR, "SNDRV_TIMER_IOCTL_START failed\n");
-    }
-    return 0;
-}
-
-static int disable_timer(struct pcm *pcm) {
-     if (pcm == -1)
-         return 0;
-     if (ioctl(pcm->timer_fd, SNDRV_TIMER_IOCTL_STOP) < 0)
-         logger(MSG_ERROR, "SNDRV_TIMER_IOCTL_STOP failed\n");
-     return close(pcm->timer_fd);
-}*/
-
 int pcm_close(struct pcm *pcm) {
   if (pcm == NULL)
     return 0;
-  /*
-      if (pcm->flags & PCM_MMAP) {
-          disable_timer(pcm);
-          if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_DROP) < 0) {
-              logger(MSG_ERROR, "Reset failed\n");
-          }
-
-          if (munmap(pcm->addr, pcm->buffer_size))
-              logger(MSG_ERROR, "munmap failed\n");
-
-          if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_FREE) < 0) {
-              logger(MSG_ERROR, "HW_FREE failed\n");
-          }
-      }*/
 
   if (pcm->fd >= 0)
     close(pcm->fd);
@@ -345,107 +276,56 @@ struct pcm *pcm_open(unsigned flags, char *device) {
   return pcm;
 }
 
-int sync_ptr(struct pcm *pcm)
-{
-    int err;
-    err = ioctl(pcm->fd, SNDRV_PCM_IOCTL_SYNC_PTR, pcm->sync_ptr);
-    if (err < 0) {
-        err = errno;
-        logger(MSG_ERROR, "SNDRV_PCM_IOCTL_SYNC_PTR failed %d \n", err);
-        return err;
-    }
-    return 0;
+int sync_ptr(struct pcm *pcm) {
+  int err;
+  err = ioctl(pcm->fd, SNDRV_PCM_IOCTL_SYNC_PTR, pcm->sync_ptr);
+  if (err < 0) {
+    err = errno;
+    logger(MSG_ERROR, "SNDRV_PCM_IOCTL_SYNC_PTR failed %d \n", err);
+    return err;
+  }
+  return 0;
 }
 
-int pcm_prepare(struct pcm *pcm)
-{
-    if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_PREPARE)) {
-           logger(MSG_ERROR, "cannot prepare channel: errno =%d\n", -errno);
-           return -errno;
-    }
-    pcm->running = 1;
-    return 0;
+int pcm_prepare(struct pcm *pcm) {
+  if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_PREPARE)) {
+    logger(MSG_ERROR, "cannot prepare channel: errno =%d\n", -errno);
+    return -errno;
+  }
+  pcm->running = 1;
+  return 0;
 }
-static int pcm_write_mmap(struct pcm *pcm, void *data, unsigned count)
-{
-    long frames;
-    int err;
-    int bytes_written;
-    frames = (pcm->flags & PCM_MONO) ? (count / 2) : (count / 4);
-    pcm->sync_ptr->flags = SNDRV_PCM_SYNC_PTR_APPL | SNDRV_PCM_SYNC_PTR_AVAIL_MIN;
-    err = sync_ptr(pcm);
-    if (err == EPIPE) {
-        logger(MSG_ERROR, "Failed in sync_ptr\n");
+
+static int pcm_write_nmmap(struct pcm *pcm, void *data, unsigned count) {
+  struct snd_xferi x;
+  int channels =
+      (pcm->flags & PCM_MONO) ? 1 : ((pcm->flags & PCM_5POINT1) ? 6 : 2);
+  if (pcm->flags & PCM_IN)
+    return -EINVAL;
+  x.buf = data;
+  x.frames = (count / (channels * 2));
+  for (;;) {
+    if (!pcm->running) {
+      if (pcm_prepare(pcm))
+        return -errno;
+    }
+    if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x)) {
+      if (errno == EPIPE) {
         /* we failed to make our window -- try to restart */
+        logger(MSG_ERROR, "Underrun Error\n");
         pcm->underruns++;
         pcm->running = 0;
-        pcm_prepare(pcm);
+        continue;
+      }
+      return -errno;
     }
-    pcm->sync_ptr->c.control.appl_ptr += frames;
-    pcm->sync_ptr->flags = 0;
-    err = sync_ptr(pcm);
-    if (err == EPIPE) {
-        logger(MSG_ERROR, "Failed in sync_ptr 2 \n");
-        /* we failed to make our window -- try to restart */
-        pcm->underruns++;
-        pcm->running = 0;
-        pcm_prepare(pcm);
-    }
-    bytes_written = pcm->sync_ptr->c.control.appl_ptr - pcm->sync_ptr->s.status.hw_ptr;
-    if ((bytes_written >= pcm->sw_p->start_threshold) && (!pcm->start)) {
-        if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_START)) {
-            err = -errno;
-            if (errno == EPIPE) {
-                logger(MSG_ERROR, "Failed in SNDRV_PCM_IOCTL_START\n");
-                /* we failed to make our window -- try to restart */
-                pcm->underruns++;
-                pcm->running = 0;
-                pcm_prepare(pcm);
-            } else {
-                logger(MSG_ERROR, "Error no %d \n", errno);
-                return -errno;
-            }
-        } else {
-             logger(MSG_ERROR, " start\n");
-             pcm->start = 1;
-        }
-    }
+    if (pcm->flags & DEBUG_ON)
+      logger(MSG_ERROR, "Sent frame\n");
     return 0;
+  }
 }
-static int pcm_write_nmmap(struct pcm *pcm, void *data, unsigned count)
-{
-    struct snd_xferi x;
-    int channels = (pcm->flags & PCM_MONO) ? 1 : ((pcm->flags & PCM_5POINT1)? 6 : 2 );
-    if (pcm->flags & PCM_IN)
-        return -EINVAL;
-    x.buf = data;
-    x.frames = (count / (channels * 2)) ;
-    for (;;) {
-        if (!pcm->running) {
-            if (pcm_prepare(pcm))
-                return -errno;
-        }
-        if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x)) {
-            if (errno == EPIPE) {
-                    /* we failed to make our window -- try to restart */
-                logger(MSG_ERROR, "Underrun Error\n");
-                pcm->underruns++;
-                pcm->running = 0;
-                continue;
-            }
-            return -errno;
-        }
-        if (pcm->flags & DEBUG_ON)
-          logger(MSG_ERROR, "Sent frame\n");
-        return 0;
-    }
-}
-int pcm_write(struct pcm *pcm, void *data, unsigned count)
-{
-     if (pcm->flags & PCM_MMAP)
-         return pcm_write_mmap(pcm, data, count);
-     else
-         return pcm_write_nmmap(pcm, data, count);
+int pcm_write(struct pcm *pcm, void *data, unsigned count) {
+  return pcm_write_nmmap(pcm, data, count);
 }
 
 /** Gets the buffer size of the PCM.
@@ -453,22 +333,18 @@ int pcm_write(struct pcm *pcm, void *data, unsigned count)
  * @return The buffer size of the PCM.
  * @ingroup libtinyalsa-pcm
  */
-unsigned int pcm_get_buffer_size(const struct pcm *pcm)
-{
-    return pcm->buffer_size;
+unsigned int pcm_get_buffer_size(const struct pcm *pcm) {
+  return pcm->buffer_size;
 }
-static unsigned int pcm_format_to_bits(enum pcm_format format)
-{
-    switch (format) {
-    case PCM_FORMAT_S32_LE:
-        return 32;
-    default:
-    case PCM_FORMAT_S16_LE:
-        return 16;
-    };
+static unsigned int pcm_format_to_bits(enum pcm_format format) {
+  switch (format) {
+  case PCM_FORMAT_S32_LE:
+    return 32;
+  default:
+  case PCM_FORMAT_S16_LE:
+    return 16;
+  };
 }
-unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames)
-{
-    return frames * pcm->channels *
-        (pcm_format_to_bits(pcm->format) >> 3);
+unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames) {
+  return frames * pcm->channels * (pcm_format_to_bits(pcm->format) >> 3);
 }
