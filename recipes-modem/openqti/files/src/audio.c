@@ -143,6 +143,11 @@ void *play_alerting_tone() {
     mixer_close(mymixer);
 
     pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
+    if (pcm0 == NULL) {
+      logger(MSG_INFO, "%s: Error opening %s, custom alert tone won't play\n", __func__, PCM_DEV_HIFI);
+      return NULL;
+    }
+    
     pcm0->channels = 1;
     pcm0->flags = PCM_OUT | PCM_MONO;
     pcm0->format = PCM_FORMAT_S16_LE;
