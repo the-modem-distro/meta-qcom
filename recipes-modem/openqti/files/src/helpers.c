@@ -302,9 +302,9 @@ void *gps_proxy() {
            nodes->node2.name);
 
   while (1) {
-    logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
     get_transceiver_suspend_state();
     if (!is_usb_suspended) {
+      logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
       nodes->allow_exit = false;
       nodes->node1.fd = open(SMD_GPS, O_RDWR);
       if (nodes->node1.fd < 0) {
@@ -322,8 +322,6 @@ void *gps_proxy() {
         usleep(10000);
       }
     } else {
-      logger(MSG_ERROR, "%s: Delaying GPS thread restart until USB ready\n",
-             __func__);
       nodes->allow_exit = true;
     }
 

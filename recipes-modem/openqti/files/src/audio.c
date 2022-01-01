@@ -133,7 +133,6 @@ void *play_alerting_tone() {
   while (audio_runtime_state.is_alerting) {
 
     logger(MSG_INFO, "%s: Playing custom alert tone\n", __func__);
-
     mymixer = mixer_open(SND_CTL);
     if (!mymixer) {
       logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
@@ -320,9 +319,12 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
       start_audio(mode);
       break;
     case AUDIO_CALL_ALERTING:
-      audio_runtime_state.is_alerting = 1;
-      logger(MSG_INFO, "%s: ALERTING! %i \n", __func__, mode);
-      if (audio_runtime_state.custom_alert_tone) {
+      logger(MSG_INFO, "%s: Call is in alerting state \n", __func__);
+      if (!audio_runtime_state.custom_alert_tone) {
+        start_audio(mode);
+      } else if (audio_runtime_state.custom_alert_tone && 
+                 !audio_runtime_state.is_alerting) {
+        audio_runtime_state.is_alerting = 1;
         stop_audio();
         if ((ret = pthread_create(&tone_thread, NULL, &play_alerting_tone,
                                   NULL))) {
@@ -330,7 +332,7 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
                  __func__);
         }
       } else {
-        start_audio(mode);
+        logger(MSG_INFO, "%s: Call is in alerting state but dont know what to do\n", __func__);
       }
       break;
     case AUTIO_CALL_DISCONNECTING:
