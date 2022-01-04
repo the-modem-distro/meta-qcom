@@ -94,3 +94,25 @@ void dump_packet(char *direction, uint8_t *buf, int pktsize) {
     }
   }
 }
+
+void dump_pkt_raw(uint8_t *buf, int pktsize) {
+  int i;
+  FILE *fd;
+  if (!log_to_file) {
+    fd = stdout;
+  } else {
+    fd = fopen("/var/log/openqti.log", "a");
+    if (fd < 0) {
+      fprintf(stderr, "[%s] Error opening logfile \n", __func__);
+      fd = stdout;
+    }
+  }
+  fprintf(fd, "RAW :");
+  for (i = 0; i < pktsize; i++) {
+    fprintf(fd, "0x%02x ", buf[i]);
+  }
+  fprintf(fd, "\n");
+  if (fd != stdout) {
+    fclose(fd);
+  }
+}
