@@ -7,6 +7,7 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/sms.h"
 #include "../inc/tracking.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -16,7 +17,6 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 #include <unistd.h>
-
 int is_usb_suspended = 0;
 
 int write_to(const char *path, const char *val, int flags) {
@@ -367,6 +367,9 @@ void *rmnet_proxy(void *node_data) {
   uint8_t buf[MAX_PACKET_SIZE];
   char node1_to_2[64];
   char node2_to_1[64];
+  struct timeval tv;
+  tv.tv_sec = 2;
+  tv.tv_usec = 0;
   logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
   snprintf(node1_to_2, sizeof(node1_to_2), "%s-->%s", nodes->node1.name,
            nodes->node2.name);
@@ -378,11 +381,16 @@ void *rmnet_proxy(void *node_data) {
     while (!nodes->allow_exit) {
       get_transceiver_suspend_state();
       if (!is_usb_suspended) {
+
+        /* Tap into SMS here */
+        if (is_message_pending()) {
+          inject_message(nodes->node1.fd, 0);
+        }
         FD_ZERO(&readfds);
         memset(buf, 0, sizeof(buf));
         FD_SET(nodes->node1.fd, &readfds);
         FD_SET(nodes->node2.fd, &readfds);
-        pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+        pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
         if (FD_ISSET(nodes->node1.fd, &readfds)) {
           ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
           if (ret > 0) {

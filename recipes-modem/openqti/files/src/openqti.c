@@ -18,6 +18,7 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/sms.h"
 #include "../inc/tracking.h"
 /*
   OpenQTI reworked.
@@ -196,7 +197,7 @@ int main(int argc, char **argv) {
   }
 
   set_atfwd_runtime_default();
-
+  reset_sms_runtime();
   // Enable or disable ADB depending on the misc partition setting
   set_adb_runtime(is_adb_enabled());
 
