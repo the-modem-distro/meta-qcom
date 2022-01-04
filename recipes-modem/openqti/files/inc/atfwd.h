@@ -3,6 +3,7 @@
 #define _ATFWD_H_
 #include <stdbool.h>
 #include <stdint.h>
+#include "../inc/qmi.h"
 
 static const struct {
   unsigned int command_id;
@@ -141,6 +142,9 @@ static const struct {
     {129, "+QGMR"},
     {130, "+DMESG"},
     {131, "+OQLOG"},
+    {132, "+SETLOGDBG"},
+    {133, "+SETLOGNFO"},
+    {134, "+SIMUSMS"}
 };
 
 
@@ -171,13 +175,6 @@ struct atcmd_reg_request {
 } __attribute__((packed));
 
 #define MAX_REPLY_SZ 4096
-struct qmi_packet {
-  uint8_t ctlid;           // 0x00 Control message
-  uint16_t transaction_id; // QMI Transaction ID
-  uint16_t msgid;          // For AT IF, 0x0022 is a reply
-  uint16_t length;         // QMI Packet size
-} __attribute__((packed));
-
 
 struct at_command_meta {
   uint8_t client_handle; // 0x01
