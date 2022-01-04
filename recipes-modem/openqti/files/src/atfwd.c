@@ -19,6 +19,7 @@
 #include "../inc/logger.h"
 #include "../inc/md5sum.h"
 #include "../inc/openqti.h"
+#include "../inc/sms.h"
 
 struct {
   bool adb_enabled;
@@ -287,21 +288,25 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       bytes_in_reply = sprintf(response->reply, "\r\n");
       response->response = 0;
       response->replysz = htole16(bytes_in_reply);
-      pkt_size = sizeof(struct at_command_respnse) -(MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      pkt_size = sizeof(struct at_command_respnse) -
+                 (MAX_REPLY_SZ -
+                  bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
       do {
         memset(response->reply, 0, MAX_REPLY_SZ);
         ret = fread(filebuff, 1, MAX_REPLY_SZ - 2, fp);
         if (ret > 0) {
           response->response = 2;
-          for (j = 0; j < ret-1; j++) {
+          for (j = 0; j < ret - 1; j++) {
             if (filebuff[j] == 0x00) {
               filebuff[j] = ' ';
             }
           }
           strncpy(response->reply, filebuff, MAX_REPLY_SZ);
           response->replysz = htole16(ret);
-          pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - ret); // total size - (max string - used string)
+          pkt_size =
+              sizeof(struct at_command_respnse) -
+              (MAX_REPLY_SZ - ret); // total size - (max string - used string)
           sckret = send_pkt(qmidev, response, pkt_size);
         }
       } while (ret > 0);
@@ -309,7 +314,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       bytes_in_reply = sprintf(response->reply, "\r\nEOF\r\n");
       response->response = 1;
       response->replysz = htole16(bytes_in_reply);
-      pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      pkt_size = sizeof(struct at_command_respnse) -
+                 (MAX_REPLY_SZ -
+                  bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
     }
     break;
@@ -323,7 +330,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       bytes_in_reply = sprintf(response->reply, "\r\n");
       response->response = 0;
       response->replysz = htole16(bytes_in_reply);
-      pkt_size = sizeof(struct at_command_respnse) -(MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      pkt_size = sizeof(struct at_command_respnse) -
+                 (MAX_REPLY_SZ -
+                  bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
       do {
         memset(response->reply, 0, MAX_REPLY_SZ);
@@ -332,7 +341,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
           response->response = 2;
           strncpy(response->reply, filebuff, MAX_REPLY_SZ);
           response->replysz = htole16(ret);
-          pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - ret); // total size - (max string - used string)
+          pkt_size =
+              sizeof(struct at_command_respnse) -
+              (MAX_REPLY_SZ - ret); // total size - (max string - used string)
           sckret = send_pkt(qmidev, response, pkt_size);
         }
       } while (ret > 0);
@@ -340,9 +351,29 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       bytes_in_reply = sprintf(response->reply, "\r\nEOF\r\n");
       response->response = 1;
       response->replysz = htole16(bytes_in_reply);
-      pkt_size = sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply); // total size - (max string - used string)
+      pkt_size = sizeof(struct at_command_respnse) -
+                 (MAX_REPLY_SZ -
+                  bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
     }
+    break;
+  case 132: // Runtime set log level to debug
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_log_level(0);
+    break;
+  case 133: // Runtime set log level to info
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_log_level(1);
+    break;
+  case 134: // Simulate SMS
+    bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
+    response->replysz = htole16(bytes_in_reply); // Size of the string to reply
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); // total size - (max string - used string)
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_notif_pending(true);
+    //+CMTI: "ME",0
     break;
   default:
     // Fallback for dummy commands that arent implemented
