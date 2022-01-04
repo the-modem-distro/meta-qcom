@@ -24,5 +24,4 @@ struct qmi_packet {
   uint16_t length;         // QMI Packet size
 } __attribute__((packed));
 
-
 #endif
