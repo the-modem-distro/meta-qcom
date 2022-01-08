@@ -24,7 +24,5 @@ void set_custom_alert_tone(bool en);
 void reset_usb_port();
 void restart_usb_stack();
 void enable_usb_port();
-int get_transceiver_suspend_state();
-void *gps_proxy();
-void *rmnet_proxy(void *node_data);
+
 #endif
