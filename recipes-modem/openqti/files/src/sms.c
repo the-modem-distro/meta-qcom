@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-#include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../inc/helpers.h"
@@ -29,57 +26,35 @@
  *
  */
 
-
 struct {
   bool notif_pending;
+  uint8_t source;
   uint16_t curr_transaction_id;
   uint8_t demo_text_no;
 } sms_runtime;
 
-void reset_sms_runtime() { 
-  sms_runtime.notif_pending = false; 
-  sms_runtime.curr_transaction_id = 7; 
+void reset_sms_runtime() {
+  sms_runtime.notif_pending = false;
+  sms_runtime.curr_transaction_id = 7;
   sms_runtime.demo_text_no = 0;
-  }
+  sms_runtime.source = -1;
+}
 
-void set_notif_pending(bool en) { sms_runtime.notif_pending = en; }
+void set_notif_pending(bool pending) { sms_runtime.notif_pending = pending; }
+
+void set_pending_notification_source(uint8_t source) {
+  sms_runtime.source = source;
+}
+
+uint8_t get_notification_source() { return sms_runtime.source; }
+
 bool is_message_pending() {
   if (sms_runtime.notif_pending)
-   logger(MSG_INFO, "%s: Is message pending? %i \n", __func__,
-         sms_runtime.notif_pending);
+    logger(MSG_INFO, "%s: Is message pending? %i \n", __func__,
+           sms_runtime.notif_pending);
   return sms_runtime.notif_pending;
 }
 
-uint8_t get_data(char input, uint8_t *output) {
-  if (input - '0' >= 0 && '9' - input >= 0) {
-    *output = input - '0';
-  } else if (input - 'a' >= 0 && 'f' - input >= 0) {
-    *output = input - 'a' + 10;
-  } else if (input - 'A' >= 0 && 'F' - input >= 0) {
-    *output = input - 'A' + 10;
-  } else {
-    return 1;
-  }
-
-  return 0;
-}
-
-uint8_t get_data_pair(const char *input, uint8_t *output) {
-  uint8_t data;
-
-  if (get_data(*input, &data) != 0) {
-    return 1;
-  }
-
-  *output = data << 4;
-  if (get_data(*(input + 1), &data) != 0) {
-    return 2;
-  }
-
-  *output = *output | data;
-
-  return 0;
-}
 /*
  * This sends a notification message, ModemManager should answer it
  * with a request to get the message
@@ -113,7 +88,7 @@ uint8_t generate_message_notification(int fd, uint8_t pending_message_num) {
   notif_pkt->unkn12 = 0x01;
   notif_pkt->unkn13 = 0x00;
   notif_pkt->unkn14 = 0x00;
-  
+
   ret = write(fd, notif_pkt, sizeof(struct sms_notif_packet));
   sms_runtime.curr_transaction_id++;
   logger(MSG_INFO, "%s: Return %i", __func__, ret);
@@ -125,7 +100,7 @@ uint8_t generate_message_notification(int fd, uint8_t pending_message_num) {
 
 /*
  * After sending the message, we need to answer to 2 more QMI messages
- * 
+ *
  */
 uint8_t ack_message_notification_request(int fd, uint8_t pending_message_num) {
   int ret;
@@ -175,13 +150,42 @@ uint8_t build_message(uint8_t type, uint8_t method, char *origin, char *smsc,
   return 0;
 }
 
-uint8_t parse_message_data(char *buffer) { 
-  
-  return 0; 
+uint8_t parse_message_data(char *buffer) { return 0; }
+
+int gsm7_to_ascii(const unsigned char *buffer, int buffer_length,
+                  char *output_sms_text, int sms_text_length) {
+  int output_text_length = 0;
+  if (buffer_length > 0)
+    output_sms_text[output_text_length++] = BITMASK_7BITS & buffer[0];
+
+  int carry_on_bits = 1;
+  int i = 1;
+  for (; i < buffer_length; ++i) {
+
+    output_sms_text[output_text_length++] =
+        BITMASK_7BITS &
+        ((buffer[i] << carry_on_bits) | (buffer[i - 1] >> (8 - carry_on_bits)));
+
+    if (output_text_length == sms_text_length)
+      break;
+
+    carry_on_bits++;
+
+    if (carry_on_bits == 8) {
+      carry_on_bits = 1;
+      output_sms_text[output_text_length++] = buffer[i] & BITMASK_7BITS;
+      if (output_text_length == sms_text_length)
+        break;
+    }
+  }
+  if (output_text_length < sms_text_length) // Add last remainder.
+    output_sms_text[output_text_length++] =
+        buffer[i - 1] >> (8 - carry_on_bits);
+
+  return output_text_length;
 }
 
-
-uint8_t ascii_to_gsm7(const char* in, uint8_t* out) {
+uint8_t ascii_to_gsm7(const char *in, uint8_t *out) {
   unsigned bit_count = 0;
   unsigned bit_queue = 0;
   uint8_t bytes_written = 0;
@@ -189,7 +193,7 @@ uint8_t ascii_to_gsm7(const char* in, uint8_t* out) {
     bit_queue |= (*in & 0x7Fu) << bit_count;
     bit_count += 7;
     if (bit_count >= 8) {
-      *out++ = (uint8_t) bit_queue;
+      *out++ = (uint8_t)bit_queue;
       bytes_written++;
       bit_count -= 8;
       bit_queue >>= 8;
@@ -197,9 +201,9 @@ uint8_t ascii_to_gsm7(const char* in, uint8_t* out) {
     in++;
   }
   if (bit_count > 0) {
-    *out++ = (uint8_t) bit_queue;
+    *out++ = (uint8_t)bit_queue;
     bytes_written++;
-    }
+  }
 
   return bytes_written;
 }
@@ -209,10 +213,13 @@ uint8_t ascii_to_gsm7(const char* in, uint8_t* out) {
  * Sizes will have to be calculated when everything is set
  */
 int build_and_send_sms(int fd, char *msg) {
-  struct sms_packet *this_sms;
-  this_sms = calloc(1, sizeof(struct sms_packet));
+  struct incoming_sms_packet *this_sms;
+  this_sms = calloc(1, sizeof(struct incoming_sms_packet));
   int ret, fullpktsz, internal_pktsz;
-  uint8_t demotext[] = {0xd4, 0xe2, 0x94, 0xea, 0x0a, 0x0a, 0x87, 0xc4, 0xa2, 0xf1, 0x88, 0x4c, 0x2a, 0x97, 0x4c};
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  uint8_t demotext[] = {0xd4, 0xe2, 0x94, 0xea, 0x0a, 0x0a, 0x87, 0xc4,
+                        0xa2, 0xf1, 0x88, 0x4c, 0x2a, 0x97, 0x4c};
   uint8_t msgoutput[140] = {0};
 
   ret = ascii_to_gsm7(msg, msgoutput);
@@ -240,28 +247,29 @@ int build_and_send_sms(int fd, char *msg) {
   this_sms->header.unk9 = 0x01;
   this_sms->header.unk10 = 0x06;
 
-  this_sms->incoming_smsc.sz = 0x07; // SMSC NUMBER SIZE RAW, we live it hardcoded
+  this_sms->incoming_smsc.sz =
+      0x07; // SMSC NUMBER SIZE RAW, we live it hardcoded
   /* We shouldn't need to worry too much about the SMSC
    * since we're not actually sending this but...
    */
   this_sms->incoming_smsc.smsc_number[0] = 0x91;
-  this_sms->incoming_smsc.smsc_number[1] = 0x10;
-  this_sms->incoming_smsc.smsc_number[2] = 0x01;
-  this_sms->incoming_smsc.smsc_number[3] = 0x10;
-  this_sms->incoming_smsc.smsc_number[4] = 0x01;
+  this_sms->incoming_smsc.smsc_number[1] = 0x00;
+  this_sms->incoming_smsc.smsc_number[2] = 0x00;
+  this_sms->incoming_smsc.smsc_number[3] = 0x00;
+  this_sms->incoming_smsc.smsc_number[4] = 0x00;
   this_sms->incoming_smsc.smsc_number[5] = 0x00;
   this_sms->incoming_smsc.smsc_number[6] = 0xf0;
   this_sms->caller.unknown = 0x04; // Sample
-  this_sms->caller.sz = 0x0b; 
+  this_sms->caller.sz = 0x0b;
   // We leave all this hardcoded, we will only worry about ourselves
   /* We need a hardcoded number so when a reply comes we can catch it,
    * otherwise we would be sending it off to the baseband!
    */
   this_sms->caller.phone_number[0] = 0x91;
-  this_sms->caller.phone_number[1] = 0x10;
-  this_sms->caller.phone_number[2] = 0x01;
-  this_sms->caller.phone_number[3] = 0x10;
-  this_sms->caller.phone_number[4] = 0x01;
+  this_sms->caller.phone_number[1] = 0x00;
+  this_sms->caller.phone_number[2] = 0x00;
+  this_sms->caller.phone_number[3] = 0x00;
+  this_sms->caller.phone_number[4] = 0x00;
   this_sms->caller.phone_number[5] = 0x00;
   this_sms->caller.phone_number[6] = 0xf0;
   this_sms->meta.unknown = 0x00; // 0x00 0x00
@@ -275,6 +283,9 @@ int build_and_send_sms(int fd, char *msg) {
   this_sms->meta.hour = 0x60;
   this_sms->meta.minute = 0x13;
   this_sms->meta.second = 0x12;
+
+  //  printf("now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon
+  //  + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
   this_sms->meta.unknown2 = 0x40;
   /* Content size is the number of bytes _after_ conversion
    * from GSM7 to ASCII bytes (not the actual size of string)
@@ -282,22 +293,31 @@ int build_and_send_sms(int fd, char *msg) {
   this_sms->contents.content_sz = 0x11;
   // Copy the parsed string
   memcpy(this_sms->contents.contents, msgoutput, ret);
-  fullpktsz = sizeof (struct qmux_packet) +  sizeof (struct qmi_packet) +  sizeof (struct unknown_interim_data)+
-               sizeof (struct sms_pkt_header) +  sizeof (struct smsc_data) +  sizeof (struct sms_caller_data) +
-                sizeof (struct sms_metadata) + sizeof(uint8_t) + ret;
-  
-  internal_pktsz = sizeof (struct qmux_packet) +  sizeof (struct qmi_packet) +  sizeof (struct unknown_interim_data)+
-               sizeof (struct sms_pkt_header) +  sizeof (struct smsc_data) +  sizeof (struct sms_caller_data) +
-                sizeof (struct sms_metadata) + ret;
+  fullpktsz = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
+              sizeof(struct unknown_interim_data) +
+              sizeof(struct sms_incoming_header) + sizeof(struct smsc_data) +
+              sizeof(struct sms_caller_data) + sizeof(struct sms_metadata) +
+              sizeof(uint8_t) + ret;
+
+  internal_pktsz = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
+                   sizeof(struct unknown_interim_data) +
+                   sizeof(struct sms_incoming_header) +
+                   sizeof(struct smsc_data) + sizeof(struct sms_caller_data) +
+                   sizeof(struct sms_metadata) + ret;
   // sizeof(struct sms_packet) - ((MAX_MESSAGE_SIZE/2) + ret);
   // Now calculate packet lengths at different points
   this_sms->qmuxpkt.packet_length = internal_pktsz; // SIZE
-  this_sms->qmipkt.length = internal_pktsz - sizeof(struct qmux_packet) - sizeof(struct qmi_packet) + sizeof(uint8_t); // SIZE
-  this_sms->unknown_data.wms_sms_size = this_sms->qmipkt.length - sizeof (struct unknown_interim_data);
-  this_sms->header.sms_content_sz = this_sms->unknown_data.wms_sms_size - sizeof(struct sms_pkt_header);
-  this_sms->contents.content_sz = strlen(msg); // 0x11; // Size after converting to gsm7
-//  this_sms->contents.contents = {0xd4, 0xe2, 0x94, 0xea, 0x0a, 0x0a, 0x87, 0xc4, 0xa2, 0xf1, 0x88, 0x4c, 0x2a, 0x97, 0x4c};
- 
+  this_sms->qmipkt.length = internal_pktsz - sizeof(struct qmux_packet) -
+                            sizeof(struct qmi_packet) + sizeof(uint8_t); // SIZE
+  this_sms->unknown_data.wms_sms_size =
+      this_sms->qmipkt.length - sizeof(struct unknown_interim_data);
+  this_sms->header.sms_content_sz =
+      this_sms->unknown_data.wms_sms_size - sizeof(struct sms_incoming_header);
+  this_sms->contents.content_sz =
+      strlen(msg); // 0x11; // Size after converting to gsm7
+  //  this_sms->contents.contents = {0xd4, 0xe2, 0x94, 0xea, 0x0a, 0x0a, 0x87,
+  //  0xc4, 0xa2, 0xf1, 0x88, 0x4c, 0x2a, 0x97, 0x4c};
+
   ret = write(fd, this_sms, fullpktsz);
   dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
   free(this_sms);
@@ -328,6 +348,7 @@ uint8_t do_inject_message(int fd, uint8_t message_id) {
   tv.tv_sec = 2;
   tv.tv_usec = 0;
   set_notif_pending(false);
+  set_pending_notification_source(MSG_NONE);
   logger(MSG_INFO, "%s: Generating notif\n", __func__);
   generate_message_notification(fd, 0);
   logger(MSG_INFO, "%s: ACK from Pinephone?\n", __func__);
@@ -342,7 +363,7 @@ uint8_t do_inject_message(int fd, uint8_t message_id) {
     sms_runtime.curr_transaction_id = tmpbuf[7];
   }
   logger(MSG_INFO, "%s Even if we didnt, send it!\n", __func__);
-  ret  = build_and_send_sms(fd, sample_text[message_id].text);
+  ret = build_and_send_sms(fd, sample_text[message_id].text);
 
   logger(MSG_INFO, "%s: Return %i\n NOW READ AGAIN FOR AN ACK", __func__, ret);
 
@@ -366,7 +387,7 @@ uint8_t do_inject_message(int fd, uint8_t message_id) {
     logger(MSG_INFO, "%s: Second message\n", __func__);
     ret = read(fd, &tmpbuf, 512);
 
-        sms_runtime.curr_transaction_id = tmpbuf[7];
+    sms_runtime.curr_transaction_id = tmpbuf[7];
 
     logger(MSG_INFO, "%s: Got %i bytes", __func__, ret);
     dump_pkt_raw(tmpbuf, ret);
@@ -378,12 +399,140 @@ uint8_t do_inject_message(int fd, uint8_t message_id) {
   return 0;
 }
 
-uint8_t inject_message(int fd, uint8_t message_id) {
-if (sms_runtime.demo_text_no > 5) {
-  sms_runtime.demo_text_no = 0;
-} 
-do_inject_message(fd, sms_runtime.demo_text_no);
-sms_runtime.demo_text_no++;
-return 0;
+/*  QMI device should be the USB socket here, we are talking
+ *  in private with out host, ADSP doesn't need to know
+ *  anything about this
+ *  This func does the entire transaction
+ */
+uint8_t do_inject_custom_message(int fd, uint8_t *message) {
+  int ret, pret;
+  fd_set readfds;
+  struct timeval tv;
+  uint8_t tmpbuf[512];
 
+  /*
+   * 1. Send new message notification
+   * 2. Wait for answer from the Pinephone for a second (retry if no answer)
+   * 3. Send message to pinephone
+   * 4. Wait 2 ack events
+   * 5. Respond 2 acks
+   *
+   */
+  tv.tv_sec = 2;
+  tv.tv_usec = 0;
+  set_notif_pending(false);
+  set_pending_notification_source(MSG_NONE);
+  logger(MSG_INFO, "%s: Generating notif\n", __func__);
+  generate_message_notification(fd, 0);
+  logger(MSG_INFO, "%s: ACK from Pinephone?\n", __func__);
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+  if (FD_ISSET(fd, &readfds)) {
+    logger(MSG_INFO, "%s: Seems we got an ACK?? Let's get it\n", __func__);
+    ret = read(fd, &tmpbuf, 512);
+    logger(MSG_INFO, "%s: Got %i bytes", __func__, ret);
+    dump_pkt_raw(tmpbuf, ret);
+    sms_runtime.curr_transaction_id = tmpbuf[7];
+  }
+  logger(MSG_INFO, "%s Even if we didnt, send it!\n", __func__);
+  ret = build_and_send_sms(fd, message);
+
+  logger(MSG_INFO, "%s: Return %i\n NOW READ AGAIN FOR AN ACK", __func__, ret);
+
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+  if (FD_ISSET(fd, &readfds)) {
+    logger(MSG_INFO, "%s: First message\n", __func__);
+    ret = read(fd, &tmpbuf, 512);
+
+    sms_runtime.curr_transaction_id = tmpbuf[7];
+
+    logger(MSG_INFO, "%s: Got %i bytes", __func__, ret);
+    dump_pkt_raw(tmpbuf, ret);
+  }
+  ack_message_notification_request(fd, 0);
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+  if (FD_ISSET(fd, &readfds)) {
+    logger(MSG_INFO, "%s: Second message\n", __func__);
+    ret = read(fd, &tmpbuf, 512);
+
+    sms_runtime.curr_transaction_id = tmpbuf[7];
+
+    logger(MSG_INFO, "%s: Got %i bytes", __func__, ret);
+    dump_pkt_raw(tmpbuf, ret);
+  }
+  ack_message_notification_request(fd, 1);
+
+  logger(MSG_INFO, "%s: END OF INJECT\n", __func__);
+
+  return 0;
+}
+uint8_t inject_message(int fd, uint8_t message_id) {
+  if (sms_runtime.demo_text_no > 5) {
+    sms_runtime.demo_text_no = 0;
+  }
+  do_inject_message(fd, sms_runtime.demo_text_no);
+  sms_runtime.demo_text_no++;
+  return 0;
+}
+
+uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
+  int ret;
+  struct sms_received_ack *receive_ack;
+  receive_ack = calloc(1, sizeof(struct sms_received_ack));
+  receive_ack->qmuxpkt.version = 0x01;
+  receive_ack->qmuxpkt.packet_length = 0x0018; // SIZE
+  receive_ack->qmuxpkt.control = 0x80;
+  receive_ack->qmuxpkt.service = 0x05;
+  receive_ack->qmuxpkt.instance_id = 0x01;
+
+  receive_ack->qmipkt.ctlid = 0x0002;
+  receive_ack->qmipkt.transaction_id = transaction_id;
+  receive_ack->qmipkt.msgid = MSG_ACK;
+  receive_ack->qmipkt.length = 0x000c; // SIZE
+  receive_ack->unk1 = 0x02;
+  receive_ack->unk2 = 0x04;
+  receive_ack->unk3 = 0x00;
+  receive_ack->unk4 = 0x00;
+  receive_ack->unk5 = 0x00;
+  receive_ack->unk6 = 0x01;
+  receive_ack->unk7 = 0x0002;
+  receive_ack->unk8 = 0x0021;
+  ret = write(usbfd, receive_ack, sizeof(struct sms_received_ack));
+  free(receive_ack);
+  return ret;
+}
+
+/* Intercept and ACK a message */
+uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
+                            uint8_t usbfd) {
+  size_t temp_sz;
+  uint8_t *output;
+  uint8_t ret;
+  int outsize;
+  struct outgoing_sms_packet *pkt;
+
+  output = calloc(256, sizeof(uint8_t));
+
+  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
+    pkt = (struct outgoing_sms_packet *)bytes;
+
+    ret = gsm7_to_ascii(pkt->contents.contents, strlen(pkt->contents.contents),
+                        output, pkt->contents.content_sz);
+    logger(MSG_INFO, "%s: DECODED Message contents is %s \n", __func__, output);
+    send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd);
+    if (strstr(output, "repeat me:") != 0) {
+      do_inject_custom_message(usbfd, output);
+    } else {
+      do_inject_message(usbfd, 1);
+      do_inject_message(usbfd, 2);
+    }
+  }
+
+  free(output);
+  return 0;
 }

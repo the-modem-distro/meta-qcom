@@ -24,4 +24,29 @@ struct qmi_packet {
   uint16_t length;         // QMI Packet size
 } __attribute__((packed));
 
+
+struct ctl_qmi_packet {
+  uint8_t ctlid;          // 0x00 | 0x02 | 0x04, subsystem inside message service?
+  uint8_t transaction_id; // QMI Transaction ID
+  uint16_t msgid;          // 0x0022 when message arrives, 0x0002 when there are new messages
+  uint16_t length;         // QMI Packet size
+} __attribute__((packed));
+
+struct encapsulated_qmi_packet {
+  struct qmux_packet qmux;
+  struct qmi_packet qmi;
+} __attribute__((packed));
+
+struct encapsulated_control_packet {
+  struct qmux_packet qmux;
+  struct ctl_qmi_packet qmi;
+} __attribute__((packed));
+
+enum {
+  PACKET_EMPTY = 0,
+  PACKET_PASS_TRHU,
+  PACKET_BYPASS,
+};
+
+
 #endif
