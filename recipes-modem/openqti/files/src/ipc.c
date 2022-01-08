@@ -290,3 +290,12 @@ int init_port_mapper() {
   // All the rest is moved away from here and into the init
   return 0;
 }
+
+const char *get_service_name(uint8_t service_id) {
+  for (int i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+    if (common_names[i].service == service_id) {
+      return common_names[i].name;
+    }
+  }
+  return (char *)"Unknown service";
+}

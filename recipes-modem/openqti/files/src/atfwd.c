@@ -372,6 +372,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                (MAX_REPLY_SZ -
                 bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
+    set_pending_notification_source(MSG_INTERNAL);
     set_notif_pending(true);
     //+CMTI: "ME",0
     break;

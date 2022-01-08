@@ -20,11 +20,13 @@
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
-/*
-  OpenQTI reworked.
-  Attempt 2
- */
+#include "../inc/proxy.h"
 
+/*
+ * OpenQTI
+ *  Opensource reimplementation of Qualcomm's binaries for
+ *  Quectel's EG25-G modem, with a few extras
+ */
 bool debug_to_stdout;
 int connected_clients = 0;
 
@@ -43,9 +45,6 @@ int main(int argc, char **argv) {
   void *retgps, *retrmnet, *retatfwd;
   reset_logtime();
   set_log_method(false);
-
-  strncpy(rmnet_nodes.node1.name, "Pinephone", sizeof("Pinephone"));
-  strncpy(rmnet_nodes.node2.name, "Modem SMDC8", sizeof("Modem SMDC8"));
 
   logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", RELEASE_VER);
   reset_client_handler();

@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.5.1"
+#define RELEASE_VER "0.5.2"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
@@ -36,9 +36,10 @@
 #define GPIO_SYSFS_EDGE "edge"
 
 // for handle_pkt
+#define FROM_INVALID -1
 #define FROM_DSP 0
 #define FROM_HOST 1
-
+#define FROM_OPENQTI 2
 static const struct {
   const char *path;
   const char *value;
@@ -87,7 +88,6 @@ struct fastboot_command {
 // For proxy threads
 struct node_def {
   int fd;
-  char name[16];
 };
 struct node_pair {
   struct node_def node1;
