@@ -144,7 +144,10 @@ static const struct {
     {131, "+OQLOG"},
     {132, "+SETLOGDBG"},
     {133, "+SETLOGNFO"},
-    {134, "+SIMUSMS"}
+    {134, "+SIMUSMS"},
+    {135, "+SIMUNOTIF"},
+    {136, "+EN_USBSUSPEND"},
+    {137, "+DIS_USBSUSPEND"},
 };
 
 

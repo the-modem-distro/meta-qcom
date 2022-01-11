@@ -376,6 +376,25 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     set_notif_pending(true);
     //+CMTI: "ME",0
     break;
+  case 135: // Simulate SMS Notification
+    bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
+    response->replysz = htole16(bytes_in_reply);
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); 
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_pending_notification_source(MSG_EXTERNAL);
+    set_notif_pending(true);
+    //+CMTI: "ME",0
+    break;
+  case 136:
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_suspend_inhibit(false);
+    break;
+  case 137:
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_suspend_inhibit(true);
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {
