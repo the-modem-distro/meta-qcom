@@ -11,7 +11,7 @@
 #define MSG_ACK 0x0020
 #define MSG_INDICATION 0x0022
 #define MSG_CONTROL_ACK 0x0024
-#define MAX_MESSAGE_SIZE 80
+#define MAX_MESSAGE_SIZE 150
 
 enum {
     MSG_NONE = -1,
@@ -31,17 +31,6 @@ enum {
 	SMS_SUBMIT              = 0x11,
 
 	SMS_MAX_7BIT_TEXT_LENGTH  = 160,
-};
-static const struct {
-  unsigned int id;
-  const char *text;
-} sample_text[] = {
-    {0, "Hello Biktor"},
-    {1, "How is your day going?"},
-    {2, "Hope you're having a great day!"},
-    {3, "Now I can write you :)"},
-    {4, "Hopefully, soon you'll be able to write me back!"},
-    {5, "See you soon!"},
 };
 
 /*
@@ -185,7 +174,7 @@ bool is_message_pending();
 uint8_t generate_message_notification(int fd, uint8_t pending_message_num);
 uint8_t ack_message_notification(int fd, uint8_t pending_message_num);
 uint8_t inject_message(int fd, uint8_t message_id);
-
+uint8_t do_inject_notification(int fd);
 
 uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t hostfd, uint8_t adspfd);
 #endif

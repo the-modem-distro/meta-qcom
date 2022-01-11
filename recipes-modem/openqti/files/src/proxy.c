@@ -142,7 +142,7 @@ void *gps_proxy() {
 
 int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
   size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0};
+  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   int needs_rerouting = 0;
   struct outgoing_sms_packet *pkt;
   if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
@@ -150,15 +150,11 @@ int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
     // is it for us?
     if (memcmp(pkt->target.phone_number, our_phone,
                sizeof(pkt->target.phone_number)) == 0) {
-      logger(MSG_INFO, "%s: There's a message for us!\n", __func__);
+      logger(MSG_INFO, "%s: We got a message \n", __func__);
       intercept_and_parse(bytes, len, adspfd, usbfd);
       needs_rerouting = 1;
     }
   }
-
-  dump_pkt_raw(bytes, len);
-
-  logger(MSG_INFO, "%s: Needs rerouting: %i\n", __func__, needs_rerouting);
   return needs_rerouting;
 }
 
@@ -167,6 +163,8 @@ uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     inject_message(usbfd, 0);
     return 0; // We bypass response
+  } else if (is_message_pending()  && get_notification_source() == MSG_EXTERNAL) { // we trigger a notification only
+    do_inject_notification(usbfd);
   }
   return 0;
 }
@@ -180,10 +178,10 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   // By default everything should just go to its place
   int action = PACKET_PASS_TRHU;
   if (source == FROM_HOST) {
-    logger(MSG_INFO, "%s: New packet from HOST of %i bytes\n", __func__,
+    logger(MSG_DEBUG, "%s: New packet from HOST of %i bytes\n", __func__,
            pkt_size);
   } else {
-    logger(MSG_INFO, "%s: New packet from ADSP of %i bytes\n", __func__,
+    logger(MSG_DEBUG, "%s: New packet from ADSP of %i bytes\n", __func__,
            pkt_size);
   }
   dump_packet(source == FROM_HOST ? "HOST<-SMD" : "HOST->SMD", pkt, pkt_size);
@@ -194,10 +192,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 
   /* There are two different types of QMI packets, and we don't know
    * which one we're handling right now, so cast both and then check
-   *
-   *
-   *
-   *
    */
 
   if (pkt_size >= sizeof(struct encapsulated_qmi_packet) ||
@@ -205,7 +199,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     packet = (struct encapsulated_qmi_packet *)pkt;
     ctl_packet = (struct encapsulated_control_packet *)pkt;
   }
-  logger(MSG_INFO, "%s: Pkt: FULL:%i, REPORTED: %i | Service %s\n", __func__,
+  logger(MSG_DEBUG, "%s: Pkt: FULL:%i, REPORTED: %i | Service %s\n", __func__,
          pkt_size, packet->qmux.packet_length,
          get_service_name(packet->qmux.service));
 
@@ -215,7 +209,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
    */
   switch (ctl_packet->qmux.service) {
   case 0: // Control packet with no service
-    logger(MSG_INFO, "%s Control packet \n",
+    logger(MSG_DEBUG, "%s Control packet \n",
            __func__); // reroute to the tracker for further inspection
     if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
       track_client_count(pkt, source, pkt_size, adspfd, usbfd);
@@ -223,11 +217,11 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
 
   /* Here we'll trap messages to the Modem */
-  /* FIXME: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
+  /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
+  /* FIXME: Track message notifications too */
   case 5: // Message for the WMS service
-    logger(MSG_INFO, "%s WMS Packet\n", __func__);
+    logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
     if (check_wms_message(pkt, pkt_size, adspfd, usbfd)) {
-      logger(MSG_INFO, "%s: Master is talking, let's listen\n", __func__);
       action = PACKET_BYPASS; // We bypass response
     }
 
@@ -236,7 +230,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   /* Here we'll handle in call audio and simulated voicecalls */
   /* REMEMBER: 0x002e -> Call indication, 0x0024 -> Call metadata */
   case 9: // Voice service
-    logger(MSG_INFO, "%s Voice Service packet, MSG ID = %.4x \n", __func__,
+    logger(MSG_DEBUG, "%s Voice Service packet, MSG ID = %.4x \n", __func__,
            packet->qmi.msgid);
     if (packet->qmi.ctlid == 0x04 && packet->qmi.msgid == 0x002e) {
       handle_call_pkt(pkt, FROM_DSP, pkt_size);
@@ -246,26 +240,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   default:
     break;
   }
-  /*
-   ctl   pktlen ---  ctl   svc   inst
-  {0x01, 0x10, 0x00, 0x00, 0x00, 0x00,
-    ctl   tid    msgid --  len ------
-   0x00, 0x04, 0x23, 0x00, 0x05, 0x00,
-   0x01, 0x02, 0x00, 0x1a, 0x01};
-                                   */
-  /* Tap into SMS here */
-  /* if (is_message_pending()) {
-     inject_message(nodes->node1.fd, 0);
-   }
-       handle_call_pkt(buf, FROM_DSP, bytes_read);
-       track_client_count(buf, FROM_DSP, bytes_read, nodes->node2.fd,
-                          nodes->node1.fd);
-       dump_packet("HOST<-SMD", buf, bytes_read);
-
-if (!identify_and_reroute(buf, ret, nodes->node1.fd,
-                                 nodes->node2.fd))
-
-*/
   packet = NULL;
   ctl_packet = NULL;
   return action; // 1 == Pass through
@@ -332,7 +306,7 @@ void *rmnet_proxy(void *node_data) {
                (source == FROM_HOST ? "HOST" : "ADSP"));
         break;
       case PACKET_PASS_TRHU:
-        logger(MSG_INFO, "%s Pass through\n", __func__); // MSG_DEBUG
+        logger(MSG_DEBUG, "%s Pass through\n", __func__); // MSG_DEBUG
         if (!get_transceiver_suspend_state() || source == FROM_HOST) {
           bytes_written = write(targetfd, buf, bytes_read);
           if (bytes_written < 1) {
