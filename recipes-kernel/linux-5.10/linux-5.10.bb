@@ -15,7 +15,7 @@ COMPATIBLE_MACHINE = "mdm9607"
 DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
 
 # Base paths
-SRC_URI   =  "git://github.com/SoMainline/linux.git;branch=konrad/pinemodem"
+SRC_URI   =  "git://github.com/SoMainline/linux.git;protocol=https;branch=konrad/pinemodem"
 SRCREV = "${AUTOREV}"
 S = "${WORKDIR}/git"
 

@@ -15,7 +15,7 @@ COMPATIBLE_MACHINE = "mdm9607"
 DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
 
 # Base paths
-SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git;branch=linux-3.18.140"
+SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git;protocol=https;branch=linux-3.18.140"
 SRCREV = "${AUTOREV}"
 S = "${WORKDIR}/git"
 
