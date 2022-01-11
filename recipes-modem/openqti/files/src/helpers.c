@@ -18,7 +18,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-
 int write_to(const char *path, const char *val, int flags) {
   int ret;
   int fd = open(path, flags);
@@ -256,5 +255,19 @@ void restart_usb_stack() {
 void enable_usb_port() {
   if (write_to(USB_EN_PATH, "1", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error enabling USB \n", __func__);
+  }
+}
+
+void set_suspend_inhibit(bool mode) {
+  if (mode == true) {
+    logger(MSG_INFO, "%s: Blocking USB suspend\n", __func__);
+    if (write_to(SUSPEND_INHIBIT_PATH, "1", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting USB suspend \n", __func__);
+    }
+  } else {
+    logger(MSG_INFO, "%s: USB suspend is allowed\n", __func__);
+    if (write_to(SUSPEND_INHIBIT_PATH, "0", O_RDWR) < 0) {
+      logger(MSG_ERROR, "%s: Error setting USB suspend \n", __func__);
+    }
   }
 }

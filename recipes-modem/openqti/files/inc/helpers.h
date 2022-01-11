@@ -24,5 +24,5 @@ void set_custom_alert_tone(bool en);
 void reset_usb_port();
 void restart_usb_stack();
 void enable_usb_port();
-
+void set_suspend_inhibit(bool mode);
 #endif

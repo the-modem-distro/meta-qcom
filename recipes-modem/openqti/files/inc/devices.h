@@ -33,4 +33,5 @@
 #define USB_FUNC_PATH "/sys/class/android_usb/android0/functions"
 #define USB_EN_PATH "/sys/class/android_usb/android0/enable"
 #define USB_EN_PATH "/sys/class/android_usb/android0/enable"
+#define SUSPEND_INHIBIT_PATH "/sys/devices/78d9000.usb/msm_hsusb/isr_inhibit_suspend"
 #endif
