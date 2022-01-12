@@ -26,6 +26,7 @@
 #define GPIO_DTR "5"        // 0 low, 1 high, input
 #define GPIO_WAKEUP_IN "25" // input
 #define GPIO_SLEEP_IND "74" // output
+#define GPIO_RING_IN "75" // switch in-out-in?
 #define GPIO_MODE_INPUT "in"
 #define GPIO_MODE_OUTPUT "out"
 
@@ -40,6 +41,7 @@
 #define FROM_DSP 0
 #define FROM_HOST 1
 #define FROM_OPENQTI 2
+
 static const struct {
   const char *path;
   const char *value;
