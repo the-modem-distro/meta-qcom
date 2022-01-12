@@ -18,9 +18,9 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/proxy.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
-#include "../inc/proxy.h"
 
 /*
  * OpenQTI
@@ -144,6 +144,8 @@ int main(int argc, char **argv) {
     usleep(100);
   } while (rmnet_nodes.node2.fd < 0);
 
+  prepare_dtr_gpio();
+  prepare_ring_in_gpio();
   logger(MSG_INFO, "%s: Init: AT Command forwarder \n", __func__);
   if ((ret = pthread_create(&atfwd_thread, NULL, &start_atfwd_thread, NULL))) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);
