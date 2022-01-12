@@ -162,9 +162,12 @@ uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
                                  uint8_t usbfd) {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     inject_message(usbfd, 0);
-    return 0; // We bypass response
+    return 0;
   } else if (is_message_pending()  && get_notification_source() == MSG_EXTERNAL) { // we trigger a notification only
+    logger(MSG_WARN, "%s: Generating artificial message notification\n", __func__);
     do_inject_notification(usbfd);
+    set_pending_notification_source(MSG_NONE);
+    set_notif_pending(false);
   }
   return 0;
 }
@@ -247,6 +250,10 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 
 uint8_t is_inject_needed() {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
+    return 1;
+  }
+  
+  if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
     return 1;
   }
   return 0;
