@@ -271,3 +271,81 @@ void set_suspend_inhibit(bool mode) {
     }
   }
 }
+
+char *get_gpio_dirpath(char *gpio) {
+  char *path;
+  path = calloc(256, sizeof(char));
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_DIRECTION);
+
+  return path;
+}
+void prepare_dtr_gpio() {
+  logger(MSG_INFO, "%s: Getting GPIO ready\n", __func__);
+  if (write_to(GPIO_EXPORT_PATH, GPIO_DTR, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
+  }
+}
+
+void prepare_ring_in_gpio() {
+  logger(MSG_INFO, "%s: Getting GPIO ready\n", __func__);
+  if (write_to(GPIO_EXPORT_PATH, GPIO_RING_IN, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_RING_IN pin\n", __func__);
+  }
+}
+char *get_gpio_value_path(char *gpio) {
+  char *path;
+  path = calloc(256, sizeof(char));
+  snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_VALUE);
+  return path;
+}
+
+uint8_t get_dtr_state() {
+  int dtr, ret;
+  char dtrval;
+  dtr = open(get_gpio_value_path(GPIO_DTR), O_RDONLY | O_NONBLOCK);
+  if (dtr < 0) {
+    logger(MSG_WARN, "%s: DTR not available: %s \n", __func__,
+           get_gpio_value_path(GPIO_DTR));
+    return 0;
+  }
+
+  lseek(dtr, 0, SEEK_SET);
+  read(dtr, &dtrval, 1);
+  if ((int)(dtrval - '0') == 1) {
+    ret = 1;
+  } else {
+    ret = 0;
+  }
+
+  close(dtr);
+  return ret;
+}
+
+uint8_t pulse_ring_in() {
+  int i;
+  logger(MSG_INFO, "%s: [[[RING IN]]]\n", __func__);
+  if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_OUTPUT, O_RDWR) < 0) {
+    logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin\n", __func__);
+  }
+  usleep(300);
+  for (i = 0; i < 10; i++) {
+    if (i % 2 == 0) {
+      if (write_to(get_gpio_value_path(GPIO_RING_IN), "1", O_RDWR) < 0) {
+        logger(MSG_ERROR, "%s: Error Writing to Ring in\n", __func__);
+      }
+    } else {
+      if (write_to(get_gpio_value_path(GPIO_RING_IN), "0", O_RDWR) < 0) {
+        logger(MSG_ERROR, "%s: Error Writing to Ring in\n", __func__);
+      }
+    }
+    usleep(300);
+  }
+
+  usleep(300);
+  if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_INPUT, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin at %s\n",
+           __func__);
+  }
+
+  return 0;
+}
