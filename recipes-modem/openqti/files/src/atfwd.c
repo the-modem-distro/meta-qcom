@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "../inc/adspfw.h"
@@ -20,7 +21,7 @@
 #include "../inc/md5sum.h"
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
-
+#include "../inc/proxy.h"
 struct {
   bool adb_enabled;
   char adsp_firmware_version[4];
@@ -375,6 +376,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     set_pending_notification_source(MSG_INTERNAL);
     set_notif_pending(true);
     //+CMTI: "ME",0
+    pulse_ring_in();
     break;
   case 135: // Simulate SMS Notification
     bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
@@ -385,6 +387,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     set_pending_notification_source(MSG_EXTERNAL);
     set_notif_pending(true);
+    pulse_ring_in();
     //+CMTI: "ME",0
     break;
   case 136:
@@ -407,6 +410,48 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
   }
+
+  qmidev->transaction_id++;
+  free(response);
+  response = NULL;
+  return 0;
+}
+
+
+/* Send an URC indicating a new message and trigger the same
+ * via QMI
+ */
+int at_send_cmti_urc(struct qmi_device *qmidev) {
+  int sckret;
+  struct at_command_respnse *response;
+  int pkt_size;
+  int bytes_in_reply = 0;
+
+  /* Build initial response data */
+  response = calloc(1, sizeof(struct at_command_respnse));
+  response->qmipkt.ctlid = 0x00;
+  response->qmipkt.transaction_id = htole16(qmidev->transaction_id);
+  response->qmipkt.msgid = AT_CMD_RES;
+
+  response->meta.client_handle = 0x01; // 0x01000801;
+  response->handle = 0x0000000b;
+  response->result = 1;   // result OK
+  response->response = 3; // completed
+
+  /* Set default sizes for the response packet
+   *  If we don't write an extended response, the char array will be empty
+   */
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+ 
+    bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
+    response->replysz = htole16(bytes_in_reply);
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); 
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_pending_notification_source(MSG_EXTERNAL);
+    set_notif_pending(true);
 
   qmidev->transaction_id++;
   free(response);
@@ -489,6 +534,11 @@ void *start_atfwd_thread() {
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *at_qmi_dev;
+  struct timeval tv;
+  int cur_suspend_state = 0;
+  int prev_suspend_state = 0;
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
   logger(MSG_DEBUG, "%s: Initialize AT forwarding thread.\n", __func__);
   ret = init_atfwd(at_qmi_dev);
@@ -496,12 +546,14 @@ void *start_atfwd_thread() {
     logger(MSG_ERROR, "%s: Error setting up ATFWD!\n", __func__);
   }
 
+  
   read_adsp_version();
   while (1) {
+
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(at_qmi_dev->fd, &readfds);
-    pret = select(MAX_FD, &readfds, NULL, NULL, NULL);
+    pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(at_qmi_dev->fd, &readfds)) {
       ret = read(at_qmi_dev->fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
@@ -509,6 +561,14 @@ void *start_atfwd_thread() {
         handle_atfwd_response(at_qmi_dev, buf, ret);
       }
     }
+   /* 
+   Ends up dying
+   cur_suspend_state = get_dtr_state();
+    if (cur_suspend_state == 1 && prev_suspend_state == 0) {
+      logger(MSG_INFO, "%s: We just woke up, send CMTI\n", __func__);
+      at_send_cmti_urc(at_qmi_dev);
+    }
+    prev_suspend_state = cur_suspend_state;*/
   }
   // Close AT socket
   close(at_qmi_dev->fd);
