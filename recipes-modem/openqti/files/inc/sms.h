@@ -113,10 +113,23 @@ struct outgoing_sms_packet {
     struct sms_outgoing_header header_tlv2;
 
     uint8_t unk2; // 0x00
-    uint8_t unk3; // 0x31
+    uint8_t padded_tlv; // 0x31
     struct sms_caller_data target; // 7bit gsm encoded htole, 0xf on last item if padding needed
     uint16_t unk4; // 0x00 0x00
     uint8_t date_tlv; // 0x21
+    struct sms_content contents; // 7bit gsm encoded data
+} __attribute__((packed));
+
+struct outgoing_no_date_sms_packet {
+    struct qmux_packet qmuxpkt;
+    struct qmi_packet qmipkt;
+    struct sms_outgoing_header header;
+    struct sms_outgoing_header header_tlv2;
+
+    uint8_t unk2; // 0x00
+    uint8_t padded_tlv; // 0x01
+    struct sms_caller_data target; // 7bit gsm encoded htole, 0xf on last item if padding needed
+    uint16_t unk4; // 0x00 0x00
     struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 

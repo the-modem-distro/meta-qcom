@@ -113,7 +113,7 @@ uint8_t ack_message_notification_request(int fd, uint8_t pending_message_num) {
   ctl_pkt->qmipkt.length = 0x07; // SIZE
 
   if (pending_message_num) {
-    logger(MSG_INFO, "%s: Send message %i\n", __func__, pending_message_num);
+    logger(MSG_DEBUG, "%s: Send message %i\n", __func__, pending_message_num);
     ctl_pkt->unk1 = 0x02;
     ctl_pkt->unk2 = 0x04;
     ctl_pkt->unk3 = 0x00;
@@ -123,7 +123,7 @@ uint8_t ack_message_notification_request(int fd, uint8_t pending_message_num) {
     ctl_pkt->unk7 = 0x00;
     ret = write(fd, ctl_pkt, sizeof(struct sms_control_packet));
   } else {
-    logger(MSG_INFO, "%s: Send message %i\n", __func__, pending_message_num);
+    logger(MSG_DEBUG, "%s: Send message %i\n", __func__, pending_message_num);
     ctl_pkt->unk1 = 0x02;
     ctl_pkt->unk2 = 0x04;
     ctl_pkt->unk3 = 0x00;
@@ -203,12 +203,12 @@ int build_and_send_sms(int fd, uint8_t *msg) {
   struct incoming_sms_packet *this_sms;
   this_sms = calloc(1, sizeof(struct incoming_sms_packet));
   int ret, fullpktsz, internal_pktsz;
+  int tmpyear;
   time_t t = time(NULL);
   struct tm tm = *localtime(&t);
-
   uint8_t msgoutput[140] = {0};
   ret = ascii_to_gsm7(msg, msgoutput);
-  logger(MSG_INFO, "%s: Bytes to write %i\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Bytes to write %i\n", __func__, ret);
   this_sms->qmuxpkt.version = 0x01;
   this_sms->qmuxpkt.packet_length = 0x00; // SIZE
   this_sms->qmuxpkt.control = 0x80;
@@ -263,14 +263,25 @@ int build_and_send_sms(int fd, uint8_t *msg) {
    * 0x40 at the end
    */
 
-  //  printf("now: %d-%02d-%02d %02d:%02d:%02d\n", tm.tm_year + 1900, tm.tm_mon
-  //  + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-  this_sms->meta.year = (((tm.tm_year + 1900) % 100) & 0xff);
-  this_sms->meta.month = ((tm.tm_mon + 1) & 0xff);
-  this_sms->meta.day = ((tm.tm_mday) & 0xff);
-  this_sms->meta.hour = ((tm.tm_hour) & 0xff);
-  this_sms->meta.minute = ((tm.tm_min) & 0xff);
-  this_sms->meta.second = ((tm.tm_sec) & 0xff);
+  /*
+   * tm_year should return number of years from 1900
+   * If time hasn't synced yet it will say we're in
+   * the 70s, so we don't know the correct date yet
+   * In this case, we fall back to 2022, otherwise
+   * the message would be end up being shown as 
+   * received in 2070.
+   */
+  if (tm.tm_year > 100) {
+    tmpyear = tm.tm_year - 100;
+  } else {
+    tmpyear = 22;
+  }
+  this_sms->meta.year = (tmpyear << 4) | (tmpyear >> 4);
+  this_sms->meta.month = ((tm.tm_mon + 1) << 4) | ((tm.tm_mon + 1) >> 4);
+  this_sms->meta.day = (tm.tm_mday << 4) | (tm.tm_mday >> 4);
+  this_sms->meta.hour = (tm.tm_hour << 4) | (tm.tm_hour >> 4);
+  this_sms->meta.minute = (tm.tm_min << 4) | (tm.tm_min >> 4);
+  this_sms->meta.second = (tm.tm_sec << 4) | (tm.tm_sec >> 4);
   this_sms->meta.unknown2 = 0x40;
 
   // Copy the parsed string
@@ -301,7 +312,7 @@ int build_and_send_sms(int fd, uint8_t *msg) {
   this_sms->contents.content_sz = strlen((char *)msg);
 
   ret = write(fd, this_sms, fullpktsz);
-  dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
+ // dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
   free(this_sms);
   this_sms = NULL;
   sms_runtime.curr_transaction_id++;
@@ -363,7 +374,6 @@ uint8_t do_inject_custom_message(int fd, uint8_t *message) {
   FD_SET(fd, &readfds);
   pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
   if (FD_ISSET(fd, &readfds)) {
-    logger(MSG_INFO, "%s: Second message\n", __func__);
     ret = read(fd, &tmpbuf, 512);
     if (ret > 7) {
       sms_runtime.curr_transaction_id = tmpbuf[7];
@@ -412,15 +422,24 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
   uint8_t ret;
   int outsize;
   struct outgoing_sms_packet *pkt;
+  struct outgoing_no_date_sms_packet *nodate_pkt;
 
   output = calloc(256, sizeof(uint8_t));
   reply = calloc(256, sizeof(uint8_t));
 
   if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
     pkt = (struct outgoing_sms_packet *)bytes;
-    ret = gsm7_to_ascii(pkt->contents.contents,
-                        strlen((char *)pkt->contents.contents), (char *)output,
-                        pkt->contents.content_sz);
+    nodate_pkt = (struct outgoing_no_date_sms_packet *)bytes;
+    if (pkt->padded_tlv == 0x31) {
+      ret = gsm7_to_ascii(pkt->contents.contents,
+                          strlen((char *)pkt->contents.contents),
+                          (char *)output, pkt->contents.content_sz);
+    } else if (pkt->padded_tlv == 0x01) {
+      ret = gsm7_to_ascii(nodate_pkt->contents.contents,
+                          strlen((char *)nodate_pkt->contents.contents),
+                          (char *)output, nodate_pkt->contents.content_sz);
+    }
+
     send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd);
     if (strstr((char *)output, "repeat me:") != 0) {
       do_inject_custom_message(usbfd, output);
