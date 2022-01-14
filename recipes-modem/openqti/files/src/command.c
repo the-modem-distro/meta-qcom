@@ -95,6 +95,7 @@ uint8_t parse_command(uint8_t *command, uint8_t *reply) {
   int ret = 0;
   int cmd_id = -1;
   int strcount = 0;
+  struct pkt_stats packet_stats;
   uint8_t *tmpbuf = calloc(128, sizeof(unsigned char));
   set_cmd_runtime_defaults();
   for (int i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
@@ -140,6 +141,16 @@ uint8_t parse_command(uint8_t *command, uint8_t *reply) {
     } else {
       strcount = snprintf((char *)reply, 256, "Error getting laodavg\n");
     }
+    break;
+  case 6:
+    packet_stats = get_rmnet_stats();
+    strcount = snprintf((char *)reply, 256, "RMNET IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i",
+    packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed);
+    break;
+  case 7:
+    packet_stats = get_gps_stats();
+    strcount = snprintf((char *)reply, 256, "GPS IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i",
+    packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed);
     break;
   default:
     strcount = snprintf((char *)reply, 256, "Invalid command id %i\n", cmd_id);

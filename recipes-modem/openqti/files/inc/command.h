@@ -12,11 +12,14 @@ static const struct {
   const char *cmd;
 } bot_commands[] = {
     {0, "tell me your name"},
+    {0, "name"},
     {1, "uptime"},
     {2, "load"},
     {3, "version"},
     {4, "usbsuspend"},
     {5, "memory"},
+    {6, "net stats"},
+    {7, "gps stats"},
 };
 
 uint8_t parse_command(uint8_t *command, uint8_t *reply);
