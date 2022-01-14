@@ -260,6 +260,12 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       }
       break;
 
+      case 16: // Location service
+      logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
+            packet->qmi.msgid);
+      gps_packet_stats.other++;
+      break;
+
     default:
       break;
   }

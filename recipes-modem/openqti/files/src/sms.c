@@ -203,7 +203,7 @@ int build_and_send_sms(int fd, uint8_t *msg) {
   struct incoming_sms_packet *this_sms;
   this_sms = calloc(1, sizeof(struct incoming_sms_packet));
   int ret, fullpktsz, internal_pktsz;
-  int tmpyear;
+  uint8_t tmpyear;
   time_t t = time(NULL);
   struct tm tm = *localtime(&t);
   uint8_t msgoutput[140] = {0};
@@ -274,9 +274,10 @@ int build_and_send_sms(int fd, uint8_t *msg) {
   if (tm.tm_year > 100) {
     tmpyear = tm.tm_year - 100;
   } else {
-    tmpyear = 22;
+    tmpyear = 0x22;
   }
   this_sms->meta.year = (tmpyear << 4) | (tmpyear >> 4);
+  this_sms->meta.year = 0x22; 
   this_sms->meta.month = ((tm.tm_mon + 1) << 4) | ((tm.tm_mon + 1) >> 4);
   this_sms->meta.day = (tm.tm_mday << 4) | (tm.tm_mday >> 4);
   this_sms->meta.hour = (tm.tm_hour << 4) | (tm.tm_hour >> 4);

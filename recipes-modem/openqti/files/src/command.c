@@ -20,6 +20,7 @@ struct {
   bool is_unlocked;
   uint32_t unlock_time;
   uint8_t cmd_history[1024];
+  uint32_t last_cmd_timestamp;
   char user_name[32];
   char bot_name[32];
 } cmd_runtime;
@@ -27,8 +28,8 @@ struct {
 void set_cmd_runtime_defaults() {
   cmd_runtime.is_unlocked = false;
   cmd_runtime.unlock_time = 0;
-  strncpy(cmd_runtime.user_name, "User", 32);
-  strncpy(cmd_runtime.bot_name, "Modem McModemFace", 32);
+  strncpy(cmd_runtime.user_name, "User", 32); //FIXME: Allow user to set a custom name
+  strncpy(cmd_runtime.bot_name, "Modem", 32); //FIXME: Allow to change modem name
 }
 
 int get_uptime(uint8_t *output) {
@@ -149,9 +150,31 @@ uint8_t parse_command(uint8_t *command, uint8_t *reply) {
     break;
   case 7:
     packet_stats = get_gps_stats();
-    strcount = snprintf((char *)reply, 256, "GPS IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i",
-    packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed);
+    strcount = snprintf((char *)reply, 256, "GPS IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i\nQMI Location svc.: %i",
+    packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed, packet_stats.other);
     break;
+  case 8:
+    strcount = snprintf((char *)reply, 256, "Commands:\nhelp\nname\nuptime\nload\nversion\nmemory\nnet stats\ngps stats\ncaffeinate\ndecaff\nenable adb\ndisable adb\n");
+    break;
+  case 9:
+    strcount = snprintf((char *)reply, 256, "Blocking USB suspend until reboot or until you tell me otherwise!\n");
+    set_suspend_inhibit(false);
+    break;
+  case 10:
+    strcount = snprintf((char *)reply, 256, "Allowing USB tu suspend again\n");
+    set_suspend_inhibit(false);
+    break;
+  case 11:
+    strcount = snprintf((char *)reply, 256, "Turning ADB *ON*\n");
+    store_adb_setting(true);
+    restart_usb_stack();   
+    break;
+  case 12:
+    strcount = snprintf((char *)reply, 256, "Turning ADB *OFF*\n");
+    store_adb_setting(false);
+    restart_usb_stack();
+    break;
+
   default:
     strcount = snprintf((char *)reply, 256, "Invalid command id %i\n", cmd_id);
     logger(MSG_INFO, "%s: Unknown command %i\n", __func__, cmd_id);
@@ -162,3 +185,4 @@ uint8_t parse_command(uint8_t *command, uint8_t *reply) {
   tmpbuf = NULL;
   return ret;
 }
+

@@ -12,6 +12,7 @@ struct pkt_stats {
   uint32_t discarded;
   uint32_t allowed;
   uint32_t failed;
+  uint32_t other;
 };
 struct pkt_stats get_rmnet_stats();
 struct pkt_stats get_gps_stats();

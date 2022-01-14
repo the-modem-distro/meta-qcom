@@ -20,6 +20,11 @@ static const struct {
     {5, "memory"},
     {6, "net stats"},
     {7, "gps stats"},
+    {8, "help"},
+    {9, "caffeinate"},
+    {10, "decaff"},
+    {11, "enable adb"},
+    {12, "disable adb"},
 };
 
 uint8_t parse_command(uint8_t *command, uint8_t *reply);
