@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "../inc/proxy.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
@@ -19,7 +20,15 @@
 #include <unistd.h>
 
 int is_usb_suspended = 0;
+struct pkt_stats rmnet_packet_stats;
+struct pkt_stats gps_packet_stats;
 
+struct pkt_stats get_rmnet_stats() {
+  return rmnet_packet_stats;
+}
+struct pkt_stats get_gps_stats() {
+  return gps_packet_stats;
+}
 int get_transceiver_suspend_state() {
   int fd, val = 0;
   char readval[6];
@@ -109,13 +118,18 @@ void *gps_proxy() {
       if (ret > 0) {
         dump_packet("GPS_SMD-->USB", buf, ret);
         if (!get_transceiver_suspend_state() && nodes->node2.fd >= 0) {
+          gps_packet_stats.allowed++;
           ret = write(nodes->node2.fd, buf, ret);
           if (ret == 0) {
+            gps_packet_stats.failed++;
             logger(MSG_ERROR, "%s: [GPS_TRACK Failed to write to USB\n",
                    __func__);
           }
+        } else {
+          gps_packet_stats.discarded++;
         }
       } else {
+        gps_packet_stats.empty++;
         logger(MSG_WARN, "%s: Closing at the ADSP side \n", __func__);
         close(nodes->node1.fd);
         nodes->node1.fd = -1;
@@ -125,12 +139,15 @@ void *gps_proxy() {
 
       ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
+        gps_packet_stats.allowed++;
         dump_packet("GPS_SMD<--USB", buf, ret);
         ret = write(nodes->node1.fd, buf, ret);
         if (ret == 0) {
+          gps_packet_stats.failed++;
           logger(MSG_ERROR, "%s: Failed to write to the ADSP\n", __func__);
         }
       } else {
+        gps_packet_stats.empty++;
         logger(MSG_ERROR, "%s: Closing at the USB side \n", __func__);
         nodes->allow_exit = true;
         close(nodes->node2.fd);
@@ -163,8 +180,11 @@ uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     inject_message(usbfd, 0);
     return 0;
-  } else if (is_message_pending()  && get_notification_source() == MSG_EXTERNAL) { // we trigger a notification only
-    logger(MSG_WARN, "%s: Generating artificial message notification\n", __func__);
+  } else if (is_message_pending() &&
+             get_notification_source() ==
+                 MSG_EXTERNAL) { // we trigger a notification only
+    logger(MSG_WARN, "%s: Generating artificial message notification\n",
+           __func__);
     do_inject_notification(usbfd);
     set_pending_notification_source(MSG_NONE);
     set_notif_pending(false);
@@ -211,37 +231,37 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
    * need to do too much
    */
   switch (ctl_packet->qmux.service) {
-  case 0: // Control packet with no service
-    logger(MSG_DEBUG, "%s Control packet \n",
-           __func__); // reroute to the tracker for further inspection
-    if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
-      track_client_count(pkt, source, pkt_size, adspfd, usbfd);
-    }
-    break;
+    case 0: // Control packet with no service
+      logger(MSG_DEBUG, "%s Control packet \n",
+            __func__); // reroute to the tracker for further inspection
+      if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
+        track_client_count(pkt, source, pkt_size, adspfd, usbfd);
+      }
+      break;
 
-  /* Here we'll trap messages to the Modem */
-  /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
-  /* FIXME: Track message notifications too */
-  case 5: // Message for the WMS service
-    logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
-    if (check_wms_message(pkt, pkt_size, adspfd, usbfd)) {
-      action = PACKET_BYPASS; // We bypass response
-    }
+    /* Here we'll trap messages to the Modem */
+    /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
+    /* FIXME: Track message notifications too */
+    case 5: // Message for the WMS service
+      logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
+      if (check_wms_message(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_BYPASS; // We bypass response
+      }
 
-    break;
+      break;
 
-  /* Here we'll handle in call audio and simulated voicecalls */
-  /* REMEMBER: 0x002e -> Call indication, 0x0024 -> Call metadata */
-  case 9: // Voice service
-    logger(MSG_DEBUG, "%s Voice Service packet, MSG ID = %.4x \n", __func__,
-           packet->qmi.msgid);
-    if (packet->qmi.ctlid == 0x04 && packet->qmi.msgid == 0x002e) {
-      handle_call_pkt(pkt, FROM_DSP, pkt_size);
-    }
-    break;
+    /* Here we'll handle in call audio and simulated voicecalls */
+    /* REMEMBER: 0x002e -> Call indication, 0x0024 -> Call metadata */
+    case 9: // Voice service
+      logger(MSG_DEBUG, "%s Voice Service packet, MSG ID = %.4x \n", __func__,
+            packet->qmi.msgid);
+      if (packet->qmi.ctlid == 0x04 && packet->qmi.msgid == 0x002e) {
+        handle_call_pkt(pkt, FROM_DSP, pkt_size);
+      }
+      break;
 
-  default:
-    break;
+    default:
+      break;
   }
   packet = NULL;
   ctl_packet = NULL;
@@ -252,7 +272,7 @@ uint8_t is_inject_needed() {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     return 1;
   }
-  
+
   if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
     return 1;
   }
@@ -308,31 +328,36 @@ void *rmnet_proxy(void *node_data) {
       bytes_read = read(sourcefd, &buf, MAX_PACKET_SIZE);
       switch (process_packet(source, buf, bytes_read, nodes->node2.fd,
                              nodes->node1.fd)) {
-      case PACKET_EMPTY:
-        logger(MSG_WARN, "%s Empty packet on %s\n", __func__,
-               (source == FROM_HOST ? "HOST" : "ADSP"));
-        break;
-      case PACKET_PASS_TRHU:
-        logger(MSG_DEBUG, "%s Pass through\n", __func__); // MSG_DEBUG
-        if (!get_transceiver_suspend_state() || source == FROM_HOST) {
-          bytes_written = write(targetfd, buf, bytes_read);
-          if (bytes_written < 1) {
-            logger(MSG_WARN, "%s Error writing to %s\n", __func__,
-                   (source == FROM_HOST ? "ADSP" : "HOST"));
+        case PACKET_EMPTY:
+          logger(MSG_WARN, "%s Empty packet on %s, (device closed?)\n", __func__,
+                (source == FROM_HOST ? "HOST" : "ADSP"));
+          rmnet_packet_stats.empty++;
+          break;
+        case PACKET_PASS_TRHU:
+          logger(MSG_DEBUG, "%s Pass through\n", __func__); // MSG_DEBUG
+          if (!get_transceiver_suspend_state() || source == FROM_HOST) {
+            rmnet_packet_stats.allowed++;
+            bytes_written = write(targetfd, buf, bytes_read);
+            if (bytes_written < 1) {
+              logger(MSG_WARN, "%s Error writing to %s\n", __func__,
+                    (source == FROM_HOST ? "ADSP" : "HOST"));
+              rmnet_packet_stats.failed++;
+            }
+          } else {
+            rmnet_packet_stats.discarded++;
+            logger(MSG_DEBUG, "%s Data discarded from %s to %s\n", __func__,
+                  (source == FROM_HOST ? "HOST" : "ADSP"),
+                  (source == FROM_HOST ? "ADSP" : "HOST"));
           }
-        } else {
-          logger(MSG_ERROR, "%s Data discarded from %s to %s\n", __func__,
-                 (source == FROM_HOST ? "HOST" : "ADSP"),
-                 (source == FROM_HOST ? "ADSP" : "HOST"));
-        }
-        break;
-      case PACKET_BYPASS:
-        logger(MSG_WARN, "%s Packet bypassed\n", __func__);
-        break;
+          break;
+        case PACKET_BYPASS:
+          rmnet_packet_stats.bypassed++;
+          logger(MSG_INFO, "%s Packet bypassed\n", __func__);
+          break;
 
-      default:
-        logger(MSG_WARN, "%s Default case\n", __func__);
-        break;
+        default:
+          logger(MSG_WARN, "%s Default case\n", __func__);
+          break;
       }
     }
   } // end of infinite loop
