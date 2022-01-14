@@ -17,8 +17,3 @@ do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${S}/mbnloader ${D}${bindir}
 }
-
-pkg_postinst:${PN}() {
-   #!/bin/sh
-   echo "TS:12345:boot:/usr/bin/mbnloader" >> $D/etc/inittab
-}
