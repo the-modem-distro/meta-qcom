@@ -194,6 +194,7 @@ struct at_command_respnse {
   char reply[MAX_REPLY_SZ]; // When there's something in here, it seems it needs \r\0\r\n[reply]\n\n
 } __attribute__((packed));
 
+void set_sms_notification_pending_state(bool en);
 void set_atfwd_runtime_default();
 void set_adb_runtime(bool mode);
 void build_atcommand_reg_request(int tid, const char *command, char *buf);

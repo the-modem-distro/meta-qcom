@@ -145,7 +145,6 @@ int main(int argc, char **argv) {
   } while (rmnet_nodes.node2.fd < 0);
 
   prepare_dtr_gpio();
-  prepare_ring_in_gpio();
   logger(MSG_INFO, "%s: Init: AT Command forwarder \n", __func__);
   if ((ret = pthread_create(&atfwd_thread, NULL, &start_atfwd_thread, NULL))) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);

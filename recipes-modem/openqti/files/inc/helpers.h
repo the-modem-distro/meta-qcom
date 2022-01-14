@@ -26,7 +26,6 @@ void restart_usb_stack();
 void enable_usb_port();
 void set_suspend_inhibit(bool mode);
 void prepare_dtr_gpio();
-void prepare_ring_in_gpio();
 uint8_t get_dtr_state();
 uint8_t pulse_ring_in();
 #endif

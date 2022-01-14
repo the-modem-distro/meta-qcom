@@ -23,6 +23,7 @@ int is_usb_suspended = 0;
 struct pkt_stats rmnet_packet_stats;
 struct pkt_stats gps_packet_stats;
 
+
 struct pkt_stats get_rmnet_stats() {
   return rmnet_packet_stats;
 }
@@ -82,8 +83,8 @@ void *gps_proxy() {
   struct timeval tv;
   logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
 
-  tv.tv_sec = 1;
-  tv.tv_usec = 0;
+  tv.tv_sec = 0;
+  tv.tv_usec = 500;
   nodes->node1.fd = -1;
   nodes->node2.fd = -1;
 
@@ -175,6 +176,29 @@ int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
   return needs_rerouting;
 }
 
+int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
+  size_t temp_sz;
+  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+  int needs_pass_through = 0;
+  struct sms_notif_packet *pkt;
+  if (len >= sizeof(struct sms_notif_packet)) {
+    pkt = (struct sms_notif_packet *)bytes;
+    // is it for us?
+    if (pkt->qmipkt.msgid == MSG_NOTIFICATION &&
+       get_transceiver_suspend_state()) {
+       logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
+       pulse_ring_in(); // try to wake the host
+       sleep(5); // sleep for 300ms
+       // Enqueue an incoming notification
+       set_pending_notification_source(MSG_EXTERNAL);
+       set_notif_pending(true);
+       needs_pass_through = 1;
+       set_sms_notification_pending_state(true);
+     } 
+  }
+  return needs_pass_through;
+}
+
 uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
                                  uint8_t usbfd) {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
@@ -246,6 +270,10 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
       if (check_wms_message(pkt, pkt_size, adspfd, usbfd)) {
         action = PACKET_BYPASS; // We bypass response
+      } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_FORCED_PT;
+      } else {
+        action = PACKET_FORCED_PT;
       }
 
       break;
@@ -258,6 +286,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       if (packet->qmi.ctlid == 0x04 && packet->qmi.msgid == 0x002e) {
         handle_call_pkt(pkt, FROM_DSP, pkt_size);
       }
+      action = PACKET_FORCED_PT;
       break;
 
       case 16: // Location service
@@ -301,8 +330,8 @@ void *rmnet_proxy(void *node_data) {
 
   logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
 
-  tv.tv_sec = 2;
-  tv.tv_usec = 0;
+  tv.tv_sec = 0;
+  tv.tv_usec = 500;
 
   while (1) {
     source = -1;
@@ -355,6 +384,16 @@ void *rmnet_proxy(void *node_data) {
                   (source == FROM_HOST ? "HOST" : "ADSP"),
                   (source == FROM_HOST ? "ADSP" : "HOST"));
           }
+          break;
+        case PACKET_FORCED_PT:
+          logger(MSG_DEBUG, "%s Force pass through\n", __func__); // MSG_DEBUG
+            rmnet_packet_stats.allowed++;
+            bytes_written = write(targetfd, buf, bytes_read);
+            if (bytes_written < 1) {
+              logger(MSG_WARN, "%s [FPT] Error writing to %s\n", __func__,
+                    (source == FROM_HOST ? "ADSP" : "HOST"));
+              rmnet_packet_stats.failed++;
+            }
           break;
         case PACKET_BYPASS:
           rmnet_packet_stats.bypassed++;

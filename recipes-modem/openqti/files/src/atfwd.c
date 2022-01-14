@@ -25,6 +25,7 @@
 struct {
   bool adb_enabled;
   char adsp_firmware_version[4];
+  bool is_sms_notification_pending;
 } atfwd_runtime_state;
 
 void set_atfwd_runtime_default() {
@@ -33,6 +34,15 @@ void set_atfwd_runtime_default() {
   atfwd_runtime_state.adsp_firmware_version[1] = 'U';
   atfwd_runtime_state.adsp_firmware_version[2] = 'N';
   atfwd_runtime_state.adsp_firmware_version[3] = 'K';
+  atfwd_runtime_state.is_sms_notification_pending = false;
+}
+
+void set_sms_notification_pending_state(bool en) {
+  atfwd_runtime_state.is_sms_notification_pending = en;
+}
+
+bool get_sms_notification_pending_state() {
+  return atfwd_runtime_state.is_sms_notification_pending;
 }
 
 void set_adb_runtime(bool mode) { atfwd_runtime_state.adb_enabled = mode; }
@@ -535,10 +545,8 @@ void *start_atfwd_thread() {
   uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *at_qmi_dev;
   struct timeval tv;
-  int cur_suspend_state = 0;
-  int prev_suspend_state = 0;
-  tv.tv_sec = 10;
-  tv.tv_usec = 0;
+  tv.tv_sec = 0;
+  tv.tv_usec = 500;
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
   logger(MSG_DEBUG, "%s: Initialize AT forwarding thread.\n", __func__);
   ret = init_atfwd(at_qmi_dev);
@@ -561,14 +569,12 @@ void *start_atfwd_thread() {
         handle_atfwd_response(at_qmi_dev, buf, ret);
       }
     }
-   /* 
-   Ends up dying
-   cur_suspend_state = get_dtr_state();
-    if (cur_suspend_state == 1 && prev_suspend_state == 0) {
-      logger(MSG_INFO, "%s: We just woke up, send CMTI\n", __func__);
+   
+    if (get_sms_notification_pending_state()) {
+      logger(MSG_DEBUG, "%s: We just woke up, send CMTI\n", __func__);
       at_send_cmti_urc(at_qmi_dev);
+      set_sms_notification_pending_state(false);
     }
-    prev_suspend_state = cur_suspend_state;*/
   }
   // Close AT socket
   close(at_qmi_dev->fd);

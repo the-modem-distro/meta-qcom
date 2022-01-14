@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.5.2"
+#define RELEASE_VER "0.5.3"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
@@ -31,6 +31,7 @@
 #define GPIO_MODE_OUTPUT "out"
 
 #define GPIO_EXPORT_PATH "/sys/class/gpio/export"
+#define GPIO_UNEXPORT_PATH "/sys/class/gpio/unexport"
 #define GPIO_SYSFS_BASE "/sys/class/gpio/gpio"
 #define GPIO_SYSFS_DIRECTION "direction"
 #define GPIO_SYSFS_VALUE "value"
