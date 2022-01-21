@@ -19,10 +19,7 @@ static const struct {
     {2, '1', "EG25GGBR07A08M2G_01.001.10", "64bf3d938fb21a0104d01fcacb37bc8e"},
     {3, '1', "EG25GGBR07A07M2G_01.001.02", "6a92799327a56905f6496613671f56df"},
     {4, '1', "EG25GGBR07A07M2G_OCPU_01.001.01.001", "00f6763a96bc702eaf710cc928b6fa99"},
-    {5, '1', "EG25GGBR07A08M2G_30.004.30.004", "74fcbcdd4abed713ce8cd3f8818e7afd"},
-
-
-    
+    {5, '1', "EG25GGBR07A08M2G_30.004.30.004", "74fcbcdd4abed713ce8cd3f8818e7afd"},   
 };
 
 #endif

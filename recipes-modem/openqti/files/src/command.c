@@ -3,10 +3,12 @@
 #include "../inc/command.h"
 #include "../inc/logger.h"
 #include "../inc/proxy.h"
+#include "../inc/sms.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/reboot.h>
@@ -15,15 +17,41 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 struct {
   bool is_unlocked;
   uint32_t unlock_time;
   uint8_t cmd_history[1024];
+  uint16_t cmd_position;
   uint32_t last_cmd_timestamp;
   char user_name[32];
   char bot_name[32];
 } cmd_runtime;
+
+void add_to_history(uint8_t command_id) {
+  if (cmd_runtime.cmd_position >= 1023) {
+    cmd_runtime.cmd_position = 0;
+  }
+  cmd_runtime.cmd_history[cmd_runtime.cmd_position] = command_id;
+  cmd_runtime.cmd_position++;
+}
+
+uint16_t find_cmd_history_match(uint8_t command_id) {
+  uint16_t match = 0;
+  uint16_t countdown;
+  if (cmd_runtime.cmd_position > 5) {
+    countdown = cmd_runtime.cmd_position -5;
+    for (uint16_t i = cmd_runtime.cmd_position; i >= countdown; i--) {
+      if (cmd_runtime.cmd_history[i] == command_id) {
+        match++;
+      }
+    }
+
+  }
+  return match;
+}
 
 void set_cmd_runtime_defaults() {
   cmd_runtime.is_unlocked = false;
@@ -43,19 +71,19 @@ int get_uptime(uint8_t *output) {
 
   sysinfo(&info);
 
-  bytes_written = snprintf((char *)output, 256, "%02u:%02u:%02u up ", current_time->tm_hour,
+  bytes_written = snprintf((char *)output, MAX_MESSAGE_SIZE, "%02u:%02u:%02u up ", current_time->tm_hour,
            current_time->tm_min, current_time->tm_sec);
   updays = (unsigned)info.uptime / (unsigned)(60 * 60 * 24);
   if (updays)
-    bytes_written += snprintf((char *)output + bytes_written, 256 - bytes_written, "%u day%s, ", updays,
+    bytes_written += snprintf((char *)output + bytes_written, MAX_MESSAGE_SIZE - bytes_written, "%u day%s, ", updays,
              (updays != 1) ? "s" : "");
   upminutes = (unsigned)info.uptime / (unsigned)60;
   uphours = (upminutes / (unsigned)60) % (unsigned)24;
   upminutes %= 60;
   if (uphours)
-    bytes_written += snprintf((char *)output + bytes_written, 256 - bytes_written, "%2u:%02u", uphours, upminutes);
+    bytes_written += snprintf((char *)output + bytes_written, MAX_MESSAGE_SIZE - bytes_written, "%2u:%02u", uphours, upminutes);
   else
-    bytes_written += snprintf((char *)output + bytes_written, 256 - bytes_written, "%u min", upminutes);
+    bytes_written += snprintf((char *)output + bytes_written, MAX_MESSAGE_SIZE - bytes_written, "%u min", upminutes);
 
   return 0;
 }
@@ -81,7 +109,7 @@ int get_memory(uint8_t *output) {
   struct sysinfo info;
   sysinfo(&info);
 
-  snprintf((char *)output, 256, "Total:%luM\nFree:%luM\nShared:%luK\nBuffer:%luK\nProcs:%i\n",
+  snprintf((char *)output, MAX_MESSAGE_SIZE, "Total:%luM\nFree:%luM\nShared:%luK\nBuffer:%luK\nProcs:%i\n",
            (info.totalram / 1024/ 1024),
            (info.freeram / 1024/ 1024),
            (info.sharedram / 1024),
@@ -94,92 +122,110 @@ int get_memory(uint8_t *output) {
 
 uint8_t parse_command(uint8_t *command, uint8_t *reply) {
   int ret = 0;
+  uint16_t i, random;
   int cmd_id = -1;
   int strcount = 0;
   struct pkt_stats packet_stats;
   uint8_t *tmpbuf = calloc(128, sizeof(unsigned char));
+  srand(time(NULL));
   set_cmd_runtime_defaults();
-  for (int i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
+  for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
     if (strcmp((char*)command, bot_commands[i].cmd) == 0) {
       cmd_id = bot_commands[i].id;
     }
   }
+  ret = find_cmd_history_match(cmd_id);
+  logger(MSG_INFO, "Repeated cmds %i\n", ret);
+  if (ret >= 5) {
+    logger(MSG_WARN, "You're pissing me off\n");
+    random = rand() % 10;
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "%s\n", repeated_cmd[random].answer);
 
+  }
   switch (cmd_id) {
   case -1:
     logger(MSG_INFO, "%s: Nothing to do\n", __func__);
-    strcount = snprintf((char *)reply, 256, "Command not found %s!\n", command);
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Command not found: %s\n", command);
     break;
   case 0:
-    strcount =
-        snprintf((char *)reply, 256, "My name is %s\n", cmd_runtime.bot_name);
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "%s %s\n", bot_commands[cmd_id].cmd_text, cmd_runtime.bot_name);
     break;
   case 1:
     if (get_uptime(tmpbuf) == 0) {
-      strcount = snprintf((char *)reply, 256,
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE - strcount ,
                           "This is my uptime:\n %s\n", tmpbuf);
     } else {
-      strcount = snprintf((char *)reply, 256, "Error getting the uptime\n");
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Error getting the uptime\n");
     }
     break;
   case 2:
     if (get_load_avg(tmpbuf) == 0) {
-      strcount = snprintf((char *)reply, 256, "My current load avg is: %s\n", tmpbuf);
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "My current load avg is: %s\n", tmpbuf);
     } else {
-      strcount = snprintf((char *)reply, 256, "Error getting laodavg\n");
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Error getting laodavg\n");
     }
     break;
   case 3:
-    strcount = snprintf((char *)reply, 256, "I'm at version %s\n", RELEASE_VER);
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "I'm at version %s\n", RELEASE_VER);
     break;
   case 4:
-    strcount = snprintf((char *)reply, 256, "USB Suspend state: %i\n",
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "USB Suspend state: %i\n",
                         get_transceiver_suspend_state());
     break;
   case 5:
     if (get_memory(tmpbuf) == 0) {
-      strcount = snprintf((char *)reply, 256, "Memory stats:\n%s\n", tmpbuf);
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Memory stats:\n%s\n", tmpbuf);
     } else {
-      strcount = snprintf((char *)reply, 256, "Error getting laodavg\n");
+      strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Error getting laodavg\n");
     }
     break;
   case 6:
     packet_stats = get_rmnet_stats();
-    strcount = snprintf((char *)reply, 256, "RMNET IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i",
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "RMNET IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i",
     packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed);
     break;
   case 7:
     packet_stats = get_gps_stats();
-    strcount = snprintf((char *)reply, 256, "GPS IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i\nQMI Location svc.: %i",
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "GPS IF stats:\nBypassed: %i\nEmpty:%i\nDiscarded:%i\nFailed:%i\nAllowed:%i\nQMI Location svc.: %i",
     packet_stats.bypassed, packet_stats.empty, packet_stats.discarded, packet_stats.failed, packet_stats.allowed, packet_stats.other);
     break;
   case 8:
-    strcount = snprintf((char *)reply, 256, "Commands:\nhelp\nname\nuptime\nload\nversion\nmemory\nnet stats\ngps stats\ncaffeinate\ndecaff\nenable adb\ndisable adb\n");
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Commands:\nhelp\nname\nuptime\nload\nversion\nmemory\nnet stats\ngps stats\ncaffeinate\ndecaf\nenable adb\ndisable adb\n");
     break;
   case 9:
-    strcount = snprintf((char *)reply, 256, "Blocking USB suspend until reboot or until you tell me otherwise!\n");
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Blocking USB suspend until reboot or until you tell me otherwise!\n");
     set_suspend_inhibit(false);
     break;
   case 10:
-    strcount = snprintf((char *)reply, 256, "Allowing USB tu suspend again\n");
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Allowing USB tu suspend again\n");
     set_suspend_inhibit(false);
     break;
   case 11:
-    strcount = snprintf((char *)reply, 256, "Turning ADB *ON*\n");
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Turning ADB *ON*\n");
     store_adb_setting(true);
     restart_usb_stack();   
     break;
   case 12:
-    strcount = snprintf((char *)reply, 256, "Turning ADB *OFF*\n");
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Turning ADB *OFF*\n");
     store_adb_setting(false);
     restart_usb_stack();
     break;
+  
+  case 13:
+    for (i = 0; i < cmd_runtime.cmd_position; i++) {
+      if (strcount < 160) {
+        strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "%i ", cmd_runtime.cmd_history[i]);
+      }
+    }
+    break;
 
   default:
-    strcount = snprintf((char *)reply, 256, "Invalid command id %i\n", cmd_id);
+    strcount+= snprintf((char *)reply+strcount, MAX_MESSAGE_SIZE-strcount, "Invalid command id %i\n", cmd_id);
     logger(MSG_INFO, "%s: Unknown command %i\n", __func__, cmd_id);
     break;
   }
+
+  add_to_history(cmd_id);
 
   free(tmpbuf);
   tmpbuf = NULL;

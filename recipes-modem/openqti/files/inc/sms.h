@@ -7,61 +7,178 @@
 #include <sys/types.h>
 #include "../inc/qmi.h"
 
-#define MSG_NOTIFICATION 0x0001
-#define MSG_ACK 0x0020
-#define MSG_INDICATION 0x0022
-#define MSG_CONTROL_ACK 0x0024
 #define MAX_MESSAGE_SIZE 150
+#define MAX_PHONE_NUMBER_SIZE 20
 
+/* OpenQTI's way of knowing if it
+  needs to trigger an internal or 
+  external indication message */
 enum {
     MSG_NONE = -1,
     MSG_EXTERNAL = 0,
     MSG_INTERNAL = 1,
 };
+
+/* QMI message IDs for SMS/MMS */
+enum {
+    WMS_RESET = 0x000,
+    WMS_EVENT_REPORT = 0x0001,
+    WMS_GET_SUPPORTED_MESSAGES = 0x001e,
+    WMS_GET_SUPPORTED_FIELDS = 0x001f,
+    WMS_RAW_SEND = 0x0020,
+    WMS_RAW_WRITE = 0x0021,
+    WMS_READ_MESSAGE = 0x0022,
+    WMS_DELETE = 0x0024,
+    WMS_GET_MSG_PROTOCOL = 0x0030,
+};
+
+/* For GSM7 message decoding */
 enum {
 	BITMASK_7BITS = 0x7F,
 	BITMASK_8BITS = 0xFF,
 	BITMASK_HIGH_4BITS = 0xF0,
 	BITMASK_LOW_4BITS = 0x0F,
-
 	TYPE_OF_ADDRESS_INTERNATIONAL_PHONE = 0x91,
 	TYPE_OF_ADDRESS_NATIONAL_SUBSCRIBER = 0xC8,
-
 	SMS_DELIVER_ONE_MESSAGE = 0x04,
 	SMS_SUBMIT              = 0x11,
-
 	SMS_MAX_7BIT_TEXT_LENGTH  = 160,
 };
 
+enum {
+   TLV_QMI_RESULT = 0x02,
+   TLV_MESSAGE_TYPE = 0x10,
+   TLV_MESSAGE_MODE = 0x12,
+   TLV_SMS_OVER_IMS = 0x16,
+};
+
 /*
- *  MSG IDs
- * 0x0002 -> New messages
- * 0x0022 -> Message data
- * 0x0024 -> ACK of message to delete it in ME?
- *
- *  <-- ipc.h [struct qmux_packet]
- *  <-- ipc.h [struct qmi_packet]
- * Too many unknowns to guess what they do
+ *  <-- qmi.h [struct qmux_packet]
+ *  <-- qmi.h [struct qmi_packet]
+ *  <-- qmi.h [struct qmi_generic_result_ind]
  */
 
-// Could be anything: 0x02 0x04 0x00 0x00 0x00 0x00 0x00 0x01
-struct unknown_interim_data { 
-    uint8_t unk1; // 0x02
-    uint8_t unk2; // 0x04
-    uint8_t unk3; // 0x00
-    uint8_t unk4; // 0x00
-    uint8_t unk5; // 0x00
-    uint8_t unk6; // 0x00
-    uint8_t unk7; // 0x00
-    uint8_t unk8; // 0x01
-    uint16_t wms_sms_size; // Size of the remaining part of the packet so far
+struct sms_storage_type {
+    /* Message storage */
+    uint8_t tlv_message_type; // 0x10
+    uint16_t tlv_msg_type_size; //  5 bytes
+    uint8_t storage_type; // 00 -> UIM, 01 -> NV
+    uint32_t message_id; // Index! +CMTI: "ME", [MESSAGE_ID]
 } __attribute__((packed));
 
-struct sms_incoming_header {
-    uint8_t unk9;  // 0x01
-    uint8_t unk10; // 0x06
-    uint16_t sms_content_sz;
-}__attribute__((packed));
+struct sms_message_mode {
+    /* Message mode */
+    uint8_t tlv_message_mode; // 0x12
+    uint16_t tlv_mode_size; // 0x01
+    uint8_t message_mode; // 0x01 GSM
+} __attribute__((packed));
+
+struct sms_over_ims {
+    /* SMS on IMS? */
+    uint8_t tlv_sms_on_ims; // 0x16
+    uint16_t tlv_sms_on_ims_size; // 0x01
+    uint8_t is_sms_sent_over_ims; // 0x00 || 0x01 [no | yes]
+} __attribute__((packed));
+
+struct wms_message_indication_packet { // 0x0001
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Storage - where is the message? */
+    struct sms_storage_type storage;
+    /* Mode - type of message? */
+    struct sms_message_mode mode;
+    /* SMS over IMS? Yes or no */
+    struct sms_over_ims ims;
+} __attribute__((packed));
+
+struct wms_message_delete_packet { // 0x0024
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Did we delete it from our (false) storage? */
+    struct qmi_generic_result_ind indication;
+} __attribute__((packed));
+
+struct wms_message_settings {
+    uint8_t message_tlv; // 0x01
+    uint16_t size; // REMAINING SIZE OF PKT (!!)
+ //??   uint8_t message_tag; // 0x00 read, 1 unread, 2 sent, 3, unsent, 4??
+    uint8_t message_storage; // 0x00 || 0x01 (sim/mem?)
+    uint8_t format; // always 0x06
+} __attribute__((packed));
+
+struct wms_raw_message_header {
+    uint8_t message_tlv; // 0x01 RAW MSG
+    uint16_t size; // REMAINING SIZE OF PKT (!!)
+    uint8_t tlv_version; // 0x01
+} __attribute__((packed));
+
+struct wms_message_target_data {
+    uint16_t message_size; // what remains in the packet
+
+} __attribute__((packed));
+
+struct wms_phone_number {
+    uint8_t phone_number_size; // SMSC counts in gsm7, target in ascii (??!!?)
+    uint8_t is_international_number; // 0x91 => +
+    uint8_t number[MAX_PHONE_NUMBER_SIZE];
+} __attribute__((packed));
+
+struct wms_hardcoded_phone_number {
+    uint8_t phone_number_size; // SMSC counts in gsm7, target in ascii (??!!?)
+    uint8_t is_international_number; // 0x91 => +
+    uint8_t number[6];
+} __attribute__((packed));
+
+struct wms_datetime {
+    uint8_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+} __attribute__((packed));
+
+struct wms_message_contents {
+    uint8_t content_tlv; // 0x40 ??
+    uint8_t content_sz; // Size *AFTER* conversion
+    uint8_t contents[MAX_MESSAGE_SIZE];
+} __attribute__((packed));
+
+struct wms_user_data {
+    uint8_t tlv; // 0x06
+    uint16_t user_data_size;
+    struct wms_hardcoded_phone_number smsc; // source smsc
+    uint8_t unknown; // 0x04 (!)
+    struct wms_hardcoded_phone_number phone; // source numb
+    uint8_t tp_pid; // Not sure at all, 0x00
+    uint8_t tp_dcs; // Not sure at all, 0x00
+    struct wms_datetime date;
+    /* Actual data for the message */
+    struct wms_message_contents contents;
+} __attribute__((packed)); 
+
+struct wms_build_message { 
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Did it succeed? */
+    struct qmi_generic_result_ind indication;
+    /* This message tag and format */
+    struct wms_raw_message_header header;
+    /* Size of smsc + phone + date + tp* + contents */
+    struct wms_user_data data;
+} __attribute__((packed));
+
+
+
+/* Messages outgoing from the
+ * host to the modem. This needs
+ * rebuilding too */
 
 struct sms_outgoing_header {
     uint8_t unknown; // 0x01
@@ -79,31 +196,9 @@ struct sms_caller_data {
     uint8_t phone_number[7];
 } __attribute__((packed));
 
-struct sms_metadata {
-    uint16_t unknown;
-    uint8_t year;
-    uint8_t month;
-    uint8_t day;
-    uint8_t hour;
-    uint8_t minute;
-    uint8_t second;
-    uint8_t unknown2;
-} __attribute__((packed));
-
 struct sms_content {
     uint8_t content_sz; // Size *AFTER* conversion
     uint8_t contents[MAX_MESSAGE_SIZE];
-} __attribute__((packed));
-
-struct incoming_sms_packet {
-    struct qmux_packet qmuxpkt;
-    struct qmi_packet qmipkt;
-    struct unknown_interim_data unknown_data;
-    struct sms_incoming_header header;
-    struct smsc_data incoming_smsc;  // 7bit gsm encoded htole, 0xf on last item if padding needed
-    struct sms_caller_data caller; // 7bit gsm encoded htole, 0xf on last item if padding needed
-    struct sms_metadata meta;
-    struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
 struct outgoing_sms_packet {
@@ -133,58 +228,22 @@ struct outgoing_no_date_sms_packet {
     struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
-struct sms_notif_packet {
-    struct qmux_packet qmuxpkt;
-    struct qmi_packet qmipkt;
-    uint8_t size;
-    uint16_t service;
-    uint16_t instance;
-    uint8_t unkn4;
-    uint8_t unkn5;
-    uint8_t unkn6;
-    uint8_t unkn7;
-    uint8_t unkn8;
-    uint8_t unkn9;
-    uint8_t unkn10;
-    uint8_t unkn11;
-    uint8_t unkn12;
-    uint8_t unkn13;
-    uint8_t unkn14;
-}__attribute__((packed));
-
-struct sms_control_packet {
-    struct qmux_packet qmuxpkt;
-    struct qmi_packet qmipkt;
-    uint8_t unk1;
-    uint8_t unk2;
-    uint8_t unk3;
-    uint8_t unk4;
-    uint8_t unk5;
-    uint8_t unk6;
-    uint8_t unk7;
-}__attribute__((packed));
-
-
 struct sms_received_ack {
     struct qmux_packet qmuxpkt;
     struct qmi_packet qmipkt;
-    uint8_t unk1;
-    uint8_t unk2;
-    uint16_t unk3;
-    uint16_t unk4;
-    uint8_t unk5;
-    uint8_t unk6;
-    uint16_t unk7;
-    uint16_t unk8;
+    struct qmi_generic_result_ind indication;
+  
+    uint8_t user_data_tlv;
+    uint16_t user_data_length;
+    uint16_t user_data_value;
 }__attribute__((packed));
-
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);
 void set_pending_notification_source(uint8_t source);
 uint8_t get_notification_source();
 bool is_message_pending();
-uint8_t generate_message_notification(int fd, uint8_t pending_message_num);
+uint8_t generate_message_notification(int fd, uint32_t message_id);
 uint8_t ack_message_notification(int fd, uint8_t pending_message_num);
 uint8_t inject_message(int fd, uint8_t message_id);
 uint8_t do_inject_notification(int fd);

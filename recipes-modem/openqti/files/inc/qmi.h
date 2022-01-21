@@ -24,6 +24,12 @@ struct qmi_packet {
   uint16_t length;         // QMI Packet size
 } __attribute__((packed));
 
+struct qmi_generic_result_ind {
+    uint8_t result_code_type; // 0x02
+    uint16_t generic_result_size; // 0x04 0x00
+    uint16_t result;
+    uint16_t response;
+} __attribute__((packed));
 
 struct ctl_qmi_packet {
   uint8_t ctlid;          // 0x00 | 0x02 | 0x04, subsystem inside message service?

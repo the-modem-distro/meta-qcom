@@ -180,11 +180,11 @@ int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd, uint8_
   size_t temp_sz;
   uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   int needs_pass_through = 0;
-  struct sms_notif_packet *pkt;
-  if (len >= sizeof(struct sms_notif_packet)) {
-    pkt = (struct sms_notif_packet *)bytes;
+  struct wms_message_indication_packet *pkt;
+  if (len >= sizeof(struct wms_message_indication_packet)) {
+    pkt = (struct wms_message_indication_packet *)bytes;
     // is it for us?
-    if (pkt->qmipkt.msgid == MSG_NOTIFICATION &&
+    if (pkt->qmipkt.msgid == WMS_EVENT_REPORT &&
        get_transceiver_suspend_state()) {
        logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
        pulse_ring_in(); // try to wake the host
