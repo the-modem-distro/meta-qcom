@@ -148,6 +148,7 @@ static const struct {
     {135, "+SIMUNOTIF"},
     {136, "+EN_USBSUSPEND"},
     {137, "+DIS_USBSUSPEND"},
+    {138, "+GETADSPVER"},
 };
 
 

@@ -24,16 +24,11 @@
 #include "../inc/proxy.h"
 struct {
   bool adb_enabled;
-  char adsp_firmware_version[4];
   bool is_sms_notification_pending;
 } atfwd_runtime_state;
 
 void set_atfwd_runtime_default() {
   atfwd_runtime_state.adb_enabled = false;
-  atfwd_runtime_state.adsp_firmware_version[0] = '-';
-  atfwd_runtime_state.adsp_firmware_version[1] = 'U';
-  atfwd_runtime_state.adsp_firmware_version[2] = 'N';
-  atfwd_runtime_state.adsp_firmware_version[3] = 'K';
   atfwd_runtime_state.is_sms_notification_pending = false;
 }
 
@@ -85,12 +80,11 @@ int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt,
                 sizeof(qmidev->socket));
 }
 
-char *get_adsp_version() { return atfwd_runtime_state.adsp_firmware_version; }
-
 int read_adsp_version() {
   char *md5_result;
   char *hex_md5_res;
   int ret, i, j;
+  int element = -1;
   int offset = 0;
   md5_result = calloc(64, sizeof(char));
   hex_md5_res = calloc(64, sizeof(char));
@@ -108,9 +102,7 @@ int read_adsp_version() {
       if (strcmp(hex_md5_res, known_adsp_fw[i].md5sum) == 0) {
         logger(MSG_INFO, "%s: Found your ADSP firmware: (%s) \n", __func__,
                known_adsp_fw[i].fwstring);
-        atfwd_runtime_state.adsp_firmware_version[1] = '0';
-        atfwd_runtime_state.adsp_firmware_version[2] = '0';
-        atfwd_runtime_state.adsp_firmware_version[3] = known_adsp_fw[i].variant;
+        element = i;
         matched = true;
         break;
       }
@@ -121,7 +113,7 @@ int read_adsp_version() {
   }
   free(md5_result);
   free(hex_md5_res);
-  return 0;
+  return element;
 }
 
 /* When a command is requested via AT interface,
@@ -282,7 +274,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 128: // GETFWBRANCH
     bytes_in_reply =
-        sprintf(response->reply, "\r\nFOSS%s\r\n", get_adsp_version());
+        sprintf(response->reply, "\r\nFOSS\r\n");
     response->replysz = htole16(bytes_in_reply);
     pkt_size = sizeof(struct at_command_respnse) -
                (MAX_REPLY_SZ -
@@ -407,6 +399,19 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   case 137:
     sckret = send_pkt(qmidev, response, pkt_size);
     set_suspend_inhibit(true);
+    break;
+  case 138: // GETADSPVER
+    j = read_adsp_version();
+    if (j > 0) {
+      bytes_in_reply = sprintf(response->reply, "\r\n%s\r\n", known_adsp_fw[j].fwstring);
+    } else {
+      bytes_in_reply = sprintf(response->reply, "\r\nUnknown ADSP Firmware\r\n");
+    }
+    response->replysz = htole16(bytes_in_reply);
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); // total size - (max string - used string)
+    sckret = send_pkt(qmidev, response, pkt_size);
     break;
   default:
     // Fallback for dummy commands that arent implemented
