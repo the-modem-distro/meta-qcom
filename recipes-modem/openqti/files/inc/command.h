@@ -46,6 +46,6 @@ static const struct {
   {10, "I hate you" },
 };
 
-uint8_t parse_command(uint8_t *command, uint8_t *reply);
+uint8_t parse_command(uint8_t *command);
 
 #endif

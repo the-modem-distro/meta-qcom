@@ -143,10 +143,11 @@ void *play_alerting_tone() {
 
     pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
     if (pcm0 == NULL) {
-      logger(MSG_INFO, "%s: Error opening %s, custom alert tone won't play\n", __func__, PCM_DEV_HIFI);
+      logger(MSG_INFO, "%s: Error opening %s, custom alert tone won't play\n",
+             __func__, PCM_DEV_HIFI);
       return NULL;
     }
-    
+
     pcm0->channels = 1;
     pcm0->flags = PCM_OUT | PCM_MONO;
     pcm0->format = PCM_FORMAT_S16_LE;
@@ -322,7 +323,7 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
       logger(MSG_INFO, "%s: Call is in alerting state \n", __func__);
       if (!audio_runtime_state.custom_alert_tone) {
         start_audio(mode);
-      } else if (audio_runtime_state.custom_alert_tone && 
+      } else if (audio_runtime_state.custom_alert_tone &&
                  !audio_runtime_state.is_alerting) {
         audio_runtime_state.is_alerting = 1;
         stop_audio();
@@ -332,7 +333,9 @@ void handle_call_pkt(uint8_t *pkt, int from, int sz) {
                  __func__);
         }
       } else {
-        logger(MSG_INFO, "%s: Call is in alerting state but dont know what to do\n", __func__);
+        logger(MSG_INFO,
+               "%s: Call is in alerting state but dont know what to do\n",
+               __func__);
       }
       break;
     case AUTIO_CALL_DISCONNECTING:

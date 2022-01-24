@@ -116,6 +116,12 @@ struct wms_raw_message_header {
     uint8_t tlv_version; // 0x01
 } __attribute__((packed));
 
+struct generic_tlv_onebyte {
+    uint8_t id; // 0x01 RAW MSG
+    uint16_t size; // REMAINING SIZE OF PKT (!!)
+    uint8_t data; // 0x01
+} __attribute__((packed));
+
 struct wms_message_target_data {
     uint16_t message_size; // what remains in the packet
 
@@ -174,6 +180,16 @@ struct wms_build_message {
     struct wms_user_data data;
 } __attribute__((packed));
 
+struct wms_request_message {
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Number of TLVs in request? */
+    struct generic_tlv_onebyte tlvnum;
+    /* Request data */
+    struct sms_storage_type storage;
+} __attribute__((packed));
 
 
 /* Messages outgoing from the
@@ -245,8 +261,14 @@ uint8_t get_notification_source();
 bool is_message_pending();
 uint8_t generate_message_notification(int fd, uint32_t message_id);
 uint8_t ack_message_notification(int fd, uint8_t pending_message_num);
-uint8_t inject_message(int fd, uint8_t message_id);
+uint8_t inject_message(uint8_t message_id);
 uint8_t do_inject_notification(int fd);
 
 uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t hostfd, uint8_t adspfd);
+
+
+int process_message_queue(int fd);
+void add_message_to_queue(uint8_t *message, size_t len);
+void notify_wms_event(uint8_t *bytes, int fd);
+
 #endif

@@ -318,7 +318,7 @@ uint8_t get_dtr_state() {
 uint8_t pulse_ring_in() {
   int i;
   logger(MSG_INFO, "%s: [[[RING IN]]]\n", __func__);
-  
+
   if (write_to(GPIO_EXPORT_PATH, GPIO_RING_IN, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error exporting GPIO_RING_IN pin\n", __func__);
   }
@@ -340,11 +340,11 @@ uint8_t pulse_ring_in() {
   }
 
   usleep(300);
- /* if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_INPUT, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin at %s\n",
-           __func__);
-  }
-*/
+  /* if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_INPUT, O_WRONLY) <
+   0) { logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin at %s\n",
+            __func__);
+   }
+ */
   if (write_to(GPIO_UNEXPORT_PATH, GPIO_RING_IN, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error unexporting GPIO_RING_IN pin\n", __func__);
   }

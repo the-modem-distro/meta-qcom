@@ -20,8 +20,8 @@
 #include "../inc/logger.h"
 #include "../inc/md5sum.h"
 #include "../inc/openqti.h"
-#include "../inc/sms.h"
 #include "../inc/proxy.h"
+#include "../inc/sms.h"
 struct {
   bool adb_enabled;
   bool is_sms_notification_pending;
@@ -273,8 +273,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     reboot(0x01234567);
     break;
   case 128: // GETFWBRANCH
-    bytes_in_reply =
-        sprintf(response->reply, "\r\nFOSS\r\n");
+    bytes_in_reply = sprintf(response->reply, "\r\nFOSS\r\n");
     response->replysz = htole16(bytes_in_reply);
     pkt_size = sizeof(struct at_command_respnse) -
                (MAX_REPLY_SZ -
@@ -375,17 +374,15 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                (MAX_REPLY_SZ -
                 bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_pending_notification_source(MSG_INTERNAL);
-    set_notif_pending(true);
+    inject_message(0);
     //+CMTI: "ME",0
     pulse_ring_in();
     break;
   case 135: // Simulate SMS Notification
     bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
     response->replysz = htole16(bytes_in_reply);
-    pkt_size = sizeof(struct at_command_respnse) -
-               (MAX_REPLY_SZ -
-                bytes_in_reply); 
+    pkt_size =
+        sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
     sckret = send_pkt(qmidev, response, pkt_size);
     set_pending_notification_source(MSG_EXTERNAL);
     set_notif_pending(true);
@@ -403,9 +400,11 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   case 138: // GETADSPVER
     j = read_adsp_version();
     if (j > 0) {
-      bytes_in_reply = sprintf(response->reply, "\r\n%s\r\n", known_adsp_fw[j].fwstring);
+      bytes_in_reply =
+          sprintf(response->reply, "\r\n%s\r\n", known_adsp_fw[j].fwstring);
     } else {
-      bytes_in_reply = sprintf(response->reply, "\r\nUnknown ADSP Firmware\r\n");
+      bytes_in_reply =
+          sprintf(response->reply, "\r\nUnknown ADSP Firmware\r\n");
     }
     response->replysz = htole16(bytes_in_reply);
     pkt_size = sizeof(struct at_command_respnse) -
@@ -432,7 +431,6 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   return 0;
 }
 
-
 /* Send an URC indicating a new message and trigger the same
  * via QMI
  */
@@ -458,15 +456,14 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
    */
   pkt_size =
       sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
- 
-    bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
-    response->replysz = htole16(bytes_in_reply);
-    pkt_size = sizeof(struct at_command_respnse) -
-               (MAX_REPLY_SZ -
-                bytes_in_reply); 
-    sckret = send_pkt(qmidev, response, pkt_size);
-    set_pending_notification_source(MSG_EXTERNAL);
-    set_notif_pending(true);
+
+  bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",0\r\n");
+  response->replysz = htole16(bytes_in_reply);
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+  sckret = send_pkt(qmidev, response, pkt_size);
+  set_pending_notification_source(MSG_EXTERNAL);
+  set_notif_pending(true);
 
   qmidev->transaction_id++;
   free(response);
@@ -559,7 +556,6 @@ void *start_atfwd_thread() {
     logger(MSG_ERROR, "%s: Error setting up ATFWD!\n", __func__);
   }
 
-  
   read_adsp_version();
   while (1) {
 
@@ -574,7 +570,7 @@ void *start_atfwd_thread() {
         handle_atfwd_response(at_qmi_dev, buf, ret);
       }
     }
-   
+
     if (get_sms_notification_pending_state()) {
       logger(MSG_DEBUG, "%s: We just woke up, send CMTI\n", __func__);
       at_send_cmti_urc(at_qmi_dev);
