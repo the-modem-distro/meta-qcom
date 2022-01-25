@@ -7,7 +7,8 @@
 #include <sys/types.h>
 #include "../inc/qmi.h"
 
-#define MAX_MESSAGE_SIZE 150
+#define MAX_MESSAGE_SIZE 160
+#define QUEUE_SIZE 100
 #define MAX_PHONE_NUMBER_SIZE 20
 
 /* OpenQTI's way of knowing if it
@@ -231,6 +232,16 @@ struct outgoing_sms_packet {
     struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
+struct sms_received_ack {
+    struct qmux_packet qmuxpkt;
+    struct qmi_packet qmipkt;
+    struct qmi_generic_result_ind indication;
+  
+    uint8_t user_data_tlv;
+    uint16_t user_data_length;
+    uint16_t user_data_value;
+}__attribute__((packed));
+
 struct outgoing_no_date_sms_packet {
     struct qmux_packet qmuxpkt;
     struct qmi_packet qmipkt;
@@ -244,15 +255,6 @@ struct outgoing_no_date_sms_packet {
     struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
-struct sms_received_ack {
-    struct qmux_packet qmuxpkt;
-    struct qmi_packet qmipkt;
-    struct qmi_generic_result_ind indication;
-  
-    uint8_t user_data_tlv;
-    uint16_t user_data_length;
-    uint16_t user_data_value;
-}__attribute__((packed));
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);

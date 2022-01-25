@@ -220,8 +220,6 @@ uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
   int needs_rerouting = 0;
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
-  logger(MSG_WARN, "%s: --> QMI Message ID: %.4x, TID: %i\n", __func__,
-         pkt->qmi.msgid, pkt->qmi.transaction_id);
 
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     logger(MSG_WARN, "%s: We need to do stuff\n", __func__);
@@ -374,7 +372,7 @@ void *rmnet_proxy(void *node_data) {
       targetfd = nodes->node2.fd;
     } else if (is_inject_needed()) {
       source = FROM_OPENQTI;
-      logger(MSG_WARN, "%s: OpenQTI needs to inject something \n", __func__);
+      logger(MSG_DEBUG, "%s: OpenQTI needs to inject data into USB \n", __func__);
       process_simulated_packet(source, nodes->node2.fd, nodes->node1.fd);
     }
 

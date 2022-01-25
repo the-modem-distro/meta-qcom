@@ -21,11 +21,13 @@ void set_log_method(bool ttyout) {
     log_to_file = true;
   }
 }
+
 void set_log_level(uint8_t level) {
   if (level >= 0 && level <= 2) {
     log_level = level;
   }
 }
+
 void logger(uint8_t level, char *format, ...) {
   FILE *fd;
   va_list args;

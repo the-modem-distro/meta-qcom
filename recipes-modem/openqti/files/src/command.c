@@ -126,6 +126,7 @@ int get_memory(uint8_t *output) {
 uint8_t parse_command(uint8_t *command) {
   int ret = 0;
   uint16_t i, random;
+  FILE *fp;
   int cmd_id = -1;
   int strcount = 0;
   struct pkt_stats packet_stats;
@@ -151,11 +152,13 @@ uint8_t parse_command(uint8_t *command) {
     logger(MSG_INFO, "%s: Nothing to do\n", __func__);
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "Command not found: %s\n", command);
+    add_message_to_queue(reply, strcount);
     break;
   case 0:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "%s %s\n", bot_commands[cmd_id].cmd_text,
                          cmd_runtime.bot_name);
+    add_message_to_queue(reply, strcount);
     break;
   case 1:
     if (get_uptime(tmpbuf) == 0) {
@@ -167,6 +170,7 @@ uint8_t parse_command(uint8_t *command) {
           snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                    "Error getting the uptime\n");
     }
+    add_message_to_queue(reply, strcount);
     break;
   case 2:
     if (get_load_avg(tmpbuf) == 0) {
@@ -178,15 +182,18 @@ uint8_t parse_command(uint8_t *command) {
           snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                    "Error getting laodavg\n");
     }
+    add_message_to_queue(reply, strcount);
     break;
   case 3:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "I'm at version %s\n", RELEASE_VER);
+    add_message_to_queue(reply, strcount);
     break;
   case 4:
     strcount +=
         snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                  "USB Suspend state: %i\n", get_transceiver_suspend_state());
+    add_message_to_queue(reply, strcount);
     break;
   case 5:
     if (get_memory(tmpbuf) == 0) {
@@ -198,6 +205,7 @@ uint8_t parse_command(uint8_t *command) {
           snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                    "Error getting laodavg\n");
     }
+    add_message_to_queue(reply, strcount);
     break;
   case 6:
     packet_stats = get_rmnet_stats();
@@ -207,6 +215,7 @@ uint8_t parse_command(uint8_t *command) {
                          packet_stats.bypassed, packet_stats.empty,
                          packet_stats.discarded, packet_stats.failed,
                          packet_stats.allowed);
+    add_message_to_queue(reply, strcount);
     break;
   case 7:
     packet_stats = get_gps_stats();
@@ -217,37 +226,48 @@ uint8_t parse_command(uint8_t *command) {
                          packet_stats.bypassed, packet_stats.empty,
                          packet_stats.discarded, packet_stats.failed,
                          packet_stats.allowed, packet_stats.other);
+    add_message_to_queue(reply, strcount);
     break;
   case 8:
-    strcount += snprintf(
-        (char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
-        "Commands:\nhelp\nname\nuptime\nload\nversion\nmemory\nnet stats\ngps "
-        "stats\ncaffeinate\ndecaf\nenable adb\ndisable adb\n");
+    strcount = 0;
+    for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
+    if (strlen(bot_commands[i].cmd) + 
+        (3* sizeof(uint8_t)) + strlen(bot_commands[i].help) + 
+        strcount > MAX_MESSAGE_SIZE) {
+          add_message_to_queue(reply, strcount);
+          strcount = 0;
+        }
+        strcount+= snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount, "%s: %s\n", bot_commands[i].cmd, bot_commands[i].help );
+    }
+    add_message_to_queue(reply, strcount);
     break;
   case 9:
     strcount += snprintf(
         (char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
         "Blocking USB suspend until reboot or until you tell me otherwise!\n");
     set_suspend_inhibit(false);
+    add_message_to_queue(reply, strcount);
     break;
   case 10:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "Allowing USB tu suspend again\n");
     set_suspend_inhibit(false);
+    add_message_to_queue(reply, strcount);
     break;
   case 11:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "Turning ADB *ON*\n");
     store_adb_setting(true);
     restart_usb_stack();
+    add_message_to_queue(reply, strcount);
     break;
   case 12:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "Turning ADB *OFF*\n");
     store_adb_setting(false);
     restart_usb_stack();
+    add_message_to_queue(reply, strcount);
     break;
-
   case 13:
     for (i = 0; i < cmd_runtime.cmd_position; i++) {
       if (strcount < 160) {
@@ -256,8 +276,58 @@ uint8_t parse_command(uint8_t *command) {
                      "%i ", cmd_runtime.cmd_history[i]);
       }
     }
+    add_message_to_queue(reply, strcount);
     break;
-
+    case 14:
+    fp = fopen("/var/log/openqti.log", "r");
+    if (fp == NULL) {
+      logger(MSG_ERROR, "%s: Error opening file \n", __func__);
+          strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
+                         "Error opening file\n");
+    } else {
+      strcount = snprintf((char *)reply , MAX_MESSAGE_SIZE, "OpenQTI Log\n");
+      add_message_to_queue(reply, strcount);
+      if (ret > (MAX_MESSAGE_SIZE * QUEUE_SIZE)) {
+        fseek(fp, (ret - (MAX_MESSAGE_SIZE * QUEUE_SIZE)), SEEK_SET);
+      } else {
+        fseek(fp, 0L, SEEK_SET);
+      }
+      do {
+        memset(reply, 0, MAX_MESSAGE_SIZE);
+        ret = fread(reply, 1, MAX_MESSAGE_SIZE - 2, fp);
+        if (ret > 0) {
+            add_message_to_queue(reply, ret);
+        }
+      } while (ret > 0);
+      fclose(fp);
+    }
+    break;
+  case 15:
+    fp = fopen("/var/log/messages", "r");
+    if (fp == NULL) {
+      logger(MSG_ERROR, "%s: Error opening file \n", __func__);
+          strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
+                         "Error opening file\n");
+    } else {
+      strcount = snprintf((char *)reply , MAX_MESSAGE_SIZE, "DMESG:\n");
+      add_message_to_queue(reply, strcount);
+      fseek(fp, 0L, SEEK_END);
+      ret = ftell(fp);
+      if (ret > (MAX_MESSAGE_SIZE * QUEUE_SIZE)) {
+        fseek(fp, (ret - (MAX_MESSAGE_SIZE * QUEUE_SIZE)), SEEK_SET);
+      } else {
+        fseek(fp, 0L, SEEK_SET);
+      }
+      do {
+        memset(reply, 0, MAX_MESSAGE_SIZE);
+        ret = fread(reply, 1, MAX_MESSAGE_SIZE - 2, fp);
+        if (ret > 0) {
+            add_message_to_queue(reply, ret);
+        }
+      } while (ret > 0);
+      fclose(fp);
+    }
+    break;
   default:
     strcount += snprintf((char *)reply + strcount, MAX_MESSAGE_SIZE - strcount,
                          "Invalid command id %i\n", cmd_id);
@@ -266,8 +336,6 @@ uint8_t parse_command(uint8_t *command) {
   }
 
   add_to_history(cmd_id);
-
-  add_message_to_queue(reply, strcount);
 
   free(tmpbuf);
   free(reply);

@@ -46,7 +46,7 @@ struct message {
 struct message_queue {
   bool needs_intercept;
   int queue_pos;
-  struct message msg[10]; // max 10 message to keep, we use the array as MSGID
+  struct message msg[QUEUE_SIZE]; // max 10 message to keep, we use the array as MSGID
 };
 
 struct {
@@ -62,17 +62,25 @@ void reset_sms_runtime() {
   sms_runtime.curr_transaction_id = 0;
   sms_runtime.source = -1;
   sms_runtime.queue.queue_pos = -1;
+  sms_runtime.current_message_id = 0;
+
 }
 
-void set_notif_pending(bool pending) { sms_runtime.notif_pending = pending; }
+void set_notif_pending(bool pending) { 
+  sms_runtime.notif_pending = pending; 
+}
 
 void set_pending_notification_source(uint8_t source) {
   sms_runtime.source = source;
 }
 
-uint8_t get_notification_source() { return sms_runtime.source; }
+uint8_t get_notification_source() { 
+  return sms_runtime.source; 
+}
 
-bool is_message_pending() { return sms_runtime.notif_pending; }
+bool is_message_pending() { 
+  return sms_runtime.notif_pending; 
+}
 
 int gsm7_to_ascii(const unsigned char *buffer, int buffer_length,
                   char *output_sms_text, int sms_text_length) {
@@ -379,7 +387,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
 int handle_message_state(int fd, uint32_t message_id) {
   switch (sms_runtime.queue.msg[message_id].state) {
   case 0: // Generate -> RECEIVE TID
-    logger(MSG_WARN, "%s: Notify Message ID: %i\n", __func__, message_id);
+    logger(MSG_INFO, "%s: Notify Message ID: %i\n", __func__, message_id);
     generate_message_notification(fd, message_id);
     clock_gettime(CLOCK_MONOTONIC,
                   &sms_runtime.queue.msg[message_id].timestamp);
@@ -388,11 +396,11 @@ int handle_message_state(int fd, uint32_t message_id) {
         sms_runtime.queue.msg[message_id].message_id;
     break;
   case 1: // GET TID AND MOVE to 2
-    logger(MSG_WARN, "%s: Waiting for ACK %i : state %i\n", __func__,
+    logger(MSG_DEBUG, "%s: Waiting for ACK %i : state %i\n", __func__,
            message_id, sms_runtime.queue.msg[message_id].state);
     break;
   case 2: // SEND MESSAGE AND WAIT FOR TID
-    logger(MSG_WARN, "%s: Send message. Message ID: %i\n", __func__,
+    logger(MSG_INFO, "%s: Send message. Message ID: %i\n", __func__,
            message_id);
     if (build_and_send_message(fd, message_id) > 0) {
       sms_runtime.queue.msg[message_id].state = 3;
@@ -404,11 +412,11 @@ int handle_message_state(int fd, uint32_t message_id) {
                   &sms_runtime.queue.msg[message_id].timestamp);
     break;
   case 3: // GET TID AND DELETE MESSAGE
-    logger(MSG_WARN, "%s: Waiting for ACK %i: state %i\n", __func__, message_id,
+    logger(MSG_DEBUG, "%s: Waiting for ACK %i: state %i\n", __func__, message_id,
            sms_runtime.queue.msg[message_id].state);
     break;
   case 4:
-    logger(MSG_WARN, "%s: ACK Deletion. Message ID: %i\n", __func__,
+    logger(MSG_INFO, "%s: ACK Deletion. Message ID: %i\n", __func__,
            message_id);
     if (sms_runtime.queue.msg[message_id].len > 0) {
       process_message_deletion(fd, 0, 0);
@@ -417,7 +425,6 @@ int handle_message_state(int fd, uint32_t message_id) {
     }
     clock_gettime(CLOCK_MONOTONIC,
                   &sms_runtime.queue.msg[message_id].timestamp);
-    logger(MSG_WARN, "%s: All done. Message ID: %i\n", __func__, message_id);
     sms_runtime.queue.msg[message_id].state = 9;
     memset(sms_runtime.queue.msg[message_id].pkt, 0, MAX_MESSAGE_SIZE);
     sms_runtime.queue.msg[message_id].len = 0;
@@ -471,20 +478,10 @@ void notify_wms_event(uint8_t *bytes, int fd) {
   case WMS_RAW_SEND:
     logger(MSG_WARN, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
-    /*   sms_runtime.queue.msg[sms_runtime.current_message_id].state++;
-       handle_message_state(fd, sms_runtime.current_message_id);
-       clock_gettime(
-           CLOCK_MONOTONIC,
-           &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);*/
     break;
   case WMS_RAW_WRITE:
     logger(MSG_WARN, "%s: WMS_RAW_WRITE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
-    // sms_runtime.queue.msg[sms_runtime.current_message_id].state++;
-    /* handle_message_state(fd, sms_runtime.current_message_id);
-      clock_gettime(
-          CLOCK_MONOTONIC,
-          &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);*/
     break;
   case WMS_READ_MESSAGE:
     /*
@@ -540,9 +537,6 @@ int process_message_queue(int fd) {
 
   clock_gettime(CLOCK_MONOTONIC, &cur_time);
 
-  logger(MSG_INFO, "%s: Queue: %i CURID: %i\n", __func__,
-         sms_runtime.queue.queue_pos + 1, sms_runtime.current_message_id);
-
   if (sms_runtime.queue.queue_pos < 0) {
     logger(MSG_INFO, "%s: Nothing yet \n", __func__);
     return 0;
@@ -552,8 +546,6 @@ int process_message_queue(int fd) {
     logger(MSG_INFO, "%s: We finished the queue \n", __func__);
   }
 
-  /*
-   */
   if (sms_runtime.queue.queue_pos >= 0) {
     for (i = 0; i <= sms_runtime.queue.queue_pos; i++) {
 
@@ -565,8 +557,6 @@ int process_message_queue(int fd) {
       if (elapsed_time < 0) {
         clock_gettime(CLOCK_MONOTONIC, &sms_runtime.queue.msg[i].timestamp);
       }
-      logger(MSG_INFO, "%s: ** CHECK message id %i time: %.4d \n", __func__, i,
-             elapsed_time);
       switch (sms_runtime.queue.msg[i].state) {
       case 0: // We're beginning, we need to send the notification
         sms_runtime.current_message_id = sms_runtime.queue.msg[i].message_id;
@@ -593,15 +583,10 @@ int process_message_queue(int fd) {
           sms_runtime.queue.msg[i].len = 0;
           sms_runtime.current_message_id++;
         } else {
-          logger(MSG_INFO, "-->%s: Waiting on message delete request for %i \n",
+          logger(MSG_DEBUG, "-->%s: Waiting on message delete request for %i \n",
                  __func__, i);
         }
         return 0;
-      case 9:
-        logger(MSG_INFO,
-               "-->%s: This message was already finished or skipped \n",
-               __func__);
-        break;
       }
     }
   }
@@ -616,18 +601,22 @@ int process_message_queue(int fd) {
  * to the array
  */
 void add_message_to_queue(uint8_t *message, size_t len) {
-  set_notif_pending(true);
-  set_pending_notification_source(MSG_INTERNAL);
-  if (sms_runtime.queue.queue_pos > 8) {
+  if (sms_runtime.queue.queue_pos > QUEUE_SIZE-2) {
     logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
     return;
   }
-  logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
-         sms_runtime.queue.queue_pos + 1);
-  sms_runtime.queue.queue_pos++;
-  memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message, len);
-  sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
-      sms_runtime.queue.queue_pos;
+  if (len > 0) {
+    set_notif_pending(true);
+    set_pending_notification_source(MSG_INTERNAL);
+    logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
+           sms_runtime.queue.queue_pos + 1);
+    sms_runtime.queue.queue_pos++;
+    memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message, len);
+    sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
+        sms_runtime.queue.queue_pos;
+  } else {
+    logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
+  }
 };
 
 /* Generate a notification indication */
@@ -644,11 +633,11 @@ uint8_t do_inject_notification(int fd) {
  */
 uint8_t inject_message(uint8_t message_id) {
   add_message_to_queue((uint8_t *)"Hello world!", strlen("Hello world!"));
-  add_message_to_queue((uint8_t *)"Hello again!", strlen("Hello again!"));
   return 0;
 }
 
 /** TO BE REVIEWED WHEN ALL THE REST IS WORKING PERFECTLY **/
+
 uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
   int ret;
   struct sms_received_ack *receive_ack;
@@ -664,7 +653,7 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
   receive_ack->qmipkt.msgid = WMS_RAW_SEND;
   receive_ack->qmipkt.length = 0x000c; // SIZE
   receive_ack->indication.result_code_type = TLV_QMI_RESULT;
-  receive_ack->indication.generic_result_size = 0x04;
+  receive_ack->indication.generic_result_size = htole16(4);
   receive_ack->indication.result = 0x00;
   receive_ack->indication.response = 0x00;
 
@@ -675,7 +664,11 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
   free(receive_ack);
   return ret;
 }
+uint32_t find_data_tlv(void *bytes, size_t len) {
+  uint32_t ret_position = 0;
 
+  return ret_position;
+}
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
                             uint8_t usbfd) {
@@ -691,7 +684,12 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
   if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
     pkt = (struct outgoing_sms_packet *)bytes;
     nodate_pkt = (struct outgoing_no_date_sms_packet *)bytes;
-    if (pkt->padded_tlv == 0x31) {
+    /* This will need to be rebuilt for oFono, probably
+     *  0x31 -> Most of ModemManager stuff
+     *  0x11 -> From jeremy, still keeps 0x21
+     *  0x01 -> Skips the 0x21 and jumps to content
+     */
+    if (pkt->padded_tlv == 0x31 || pkt->padded_tlv == 0x11) {
       ret = gsm7_to_ascii(pkt->contents.contents,
                           strlen((char *)pkt->contents.contents),
                           (char *)output, pkt->contents.content_sz);
@@ -699,45 +697,20 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
       ret = gsm7_to_ascii(nodate_pkt->contents.contents,
                           strlen((char *)nodate_pkt->contents.contents),
                           (char *)output, nodate_pkt->contents.content_sz);
+    } else {
+      set_log_level(0);
+
+      logger(MSG_ERROR, "%s: Don't know how to handle this. Please contact biktorgj and get him the following dump:\n", __func__);
+      dump_pkt_raw(bytes, len);
+      logger(MSG_ERROR, "%s: Don't know how to handle this. Please contact biktorgj and get him the following dump:\n", __func__);
+      set_log_level(1);
     }
 
     send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd);
     parse_command(output);
   }
-
-  free(output);
-  return 0;
-}
-
-/* Intercept and ACK a message */
-uint8_t decode(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
-  size_t temp_sz;
-  uint8_t *output, *reply;
-  uint8_t ret;
-  int outsize;
-  struct outgoing_sms_packet *pkt;
-  struct outgoing_no_date_sms_packet *nodate_pkt;
-
-  output = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
-  reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
-
-  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
-    pkt = (struct outgoing_sms_packet *)bytes;
-    nodate_pkt = (struct outgoing_no_date_sms_packet *)bytes;
-    if (pkt->padded_tlv == 0x31) {
-      ret = gsm7_to_ascii(pkt->contents.contents,
-                          strlen((char *)pkt->contents.contents),
-                          (char *)output, pkt->contents.content_sz);
-    } else if (pkt->padded_tlv == 0x01) {
-      ret = gsm7_to_ascii(nodate_pkt->contents.contents,
-                          strlen((char *)nodate_pkt->contents.contents),
-                          (char *)output, nodate_pkt->contents.content_sz);
-    }
-
-    send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd);
-    parse_command(output);
-  }
-
+  pkt = NULL;
+  nodate_pkt = NULL;
   free(output);
   return 0;
 }
