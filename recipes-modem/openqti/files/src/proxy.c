@@ -82,8 +82,6 @@ void *gps_proxy() {
   struct timeval tv;
   logger(MSG_INFO, "%s: Initialize GPS proxy thread.\n", __func__);
 
-  tv.tv_sec = 0;
-  tv.tv_usec = 500;
   nodes->node1.fd = -1;
   nodes->node2.fd = -1;
 
@@ -112,6 +110,8 @@ void *gps_proxy() {
       FD_SET(nodes->node2.fd, &readfds);
     }
 
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
     pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(nodes->node1.fd, &readfds)) {
       ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
@@ -348,8 +348,6 @@ void *rmnet_proxy(void *node_data) {
 
   logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
 
-  tv.tv_sec = 0;
-  tv.tv_usec = 500;
 
   while (1) {
     source = -1;
@@ -361,6 +359,8 @@ void *rmnet_proxy(void *node_data) {
     if (!get_transceiver_suspend_state()) { // Only add USB if active
       FD_SET(nodes->node1.fd, &readfds);
     }
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
     ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(nodes->node2.fd, &readfds)) {
       source = FROM_DSP;

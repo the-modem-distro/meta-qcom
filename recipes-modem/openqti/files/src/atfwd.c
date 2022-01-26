@@ -547,8 +547,6 @@ void *start_atfwd_thread() {
   uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *at_qmi_dev;
   struct timeval tv;
-  tv.tv_sec = 0;
-  tv.tv_usec = 500;
   at_qmi_dev = calloc(1, sizeof(struct qmi_device));
   logger(MSG_DEBUG, "%s: Initialize AT forwarding thread.\n", __func__);
   ret = init_atfwd(at_qmi_dev);
@@ -562,6 +560,8 @@ void *start_atfwd_thread() {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(at_qmi_dev->fd, &readfds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
     pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(at_qmi_dev->fd, &readfds)) {
       ret = read(at_qmi_dev->fd, &buf, MAX_PACKET_SIZE);
