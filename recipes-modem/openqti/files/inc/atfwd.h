@@ -178,7 +178,8 @@ struct atcmd_reg_request {
   uint8_t command_length; // var3;
 } __attribute__((packed));
 
-#define MAX_REPLY_SZ 4096
+#define MAX_REPLY_SZ 2048
+#define MAX_RESPONSE_NUM 4
 
 struct at_command_meta {
   uint8_t client_handle; // 0x01

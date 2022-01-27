@@ -294,6 +294,12 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                  (MAX_REPLY_SZ -
                   bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
+      ret = ftell(fp);
+      if (ret > (MAX_REPLY_SZ * MAX_RESPONSE_NUM)) {
+        fseek(fp, (ret - (MAX_REPLY_SZ * MAX_RESPONSE_NUM)), SEEK_SET);
+      } else {
+        fseek(fp, 0L, SEEK_SET);
+      }
       do {
         memset(response->reply, 0, MAX_REPLY_SZ);
         ret = fread(filebuff, 1, MAX_REPLY_SZ - 2, fp);
@@ -310,6 +316,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
               sizeof(struct at_command_respnse) -
               (MAX_REPLY_SZ - ret); // total size - (max string - used string)
           sckret = send_pkt(qmidev, response, pkt_size);
+          usleep(500);
         }
       } while (ret > 0);
       fclose(fp);
@@ -336,6 +343,13 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                  (MAX_REPLY_SZ -
                   bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
+            fseek(fp, 0L, SEEK_END);
+      ret = ftell(fp);
+      if (ret > (MAX_REPLY_SZ * MAX_RESPONSE_NUM)) {
+        fseek(fp, (ret - (MAX_REPLY_SZ * MAX_RESPONSE_NUM)), SEEK_SET);
+      } else {
+        fseek(fp, 0L, SEEK_SET);
+      }
       do {
         memset(response->reply, 0, MAX_REPLY_SZ);
         ret = fread(filebuff, 1, MAX_REPLY_SZ - 2, fp);
@@ -347,6 +361,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
               sizeof(struct at_command_respnse) -
               (MAX_REPLY_SZ - ret); // total size - (max string - used string)
           sckret = send_pkt(qmidev, response, pkt_size);
+          usleep(500);
         }
       } while (ret > 0);
       fclose(fp);
@@ -354,7 +369,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       response->response = 1;
       response->replysz = htole16(bytes_in_reply);
       pkt_size = sizeof(struct at_command_respnse) -
-                 (MAX_REPLY_SZ -
+                  (MAX_REPLY_SZ -
                   bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
     }
@@ -375,7 +390,6 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                 bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
     inject_message(0);
-    //+CMTI: "ME",0
     pulse_ring_in();
     break;
   case 135: // Simulate SMS Notification
