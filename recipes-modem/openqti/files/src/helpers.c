@@ -205,6 +205,96 @@ void set_custom_alert_tone(bool en) {
   close(fd);
 }
 
+int get_modem_name(char *buff) {
+  int fd, i;
+  fd = open("/dev/mtdblock12", O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
+    return 0;
+  }
+  lseek(fd, 160, SEEK_SET);
+  if (read(fd, buff, 32) <= 0) {
+    logger(MSG_ERROR, "%s: Error reading modem name\n", __func__);
+    strncpy(buff, "Modem", strlen("Modem"));
+  }
+  close(fd);
+  if (buff[0] == '\0') {
+    for (i = 1; i < 32; i++) {
+      buff[i - 1] = buff[i];
+    }
+    logger(MSG_INFO, "%s: Your modem name is %s\n", __func__, buff);
+    return 1;
+  }
+
+  logger(MSG_DEBUG, "%s: Using default name \n", __func__);
+  strncpy(buff, "Modem", strlen("Modem"));
+
+  return 1;
+}
+
+int get_user_name(char *buff) {
+  int fd, i;
+  fd = open("/dev/mtdblock12", O_RDONLY);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
+    return 0;
+  }
+  lseek(fd, 200, SEEK_SET);
+  if (read(fd, buff, 32) <= 0) {
+    logger(MSG_ERROR, "%s: Error reading modem name\n", __func__);
+    strncpy(buff, "Admin", strlen("Admin"));
+  }
+  close(fd);
+  if (buff[0] == '\0') {
+    for (i = 1; i < 32; i++) {
+      buff[i - 1] = buff[i];
+    }
+    logger(MSG_INFO, "%s: Your name is %s\n", __func__, buff);
+    return 1;
+  }
+
+  logger(MSG_DEBUG, "%s: Using default name \n", __func__);
+  strncpy(buff, "Admin", strlen("Admin"));
+
+  return 1;
+}
+
+void set_modem_name(char *name) {
+  char buff[33];
+  memset(buff, 0, 33);
+
+  int fd;
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening misc partition \n", __func__);
+    return;
+  }
+  lseek(fd, 160, SEEK_SET);
+  snprintf(buff + 1, sizeof(buff) - 1, "%s", name);
+  if (write(fd, &buff, sizeof(buff)) < 0) {
+    logger(MSG_ERROR, "%s: Error writing modem's name \n", __func__);
+  }
+  close(fd);
+}
+
+void set_user_name(char *name) {
+  char buff[33];
+  memset(buff, 0, 33);
+
+  int fd;
+  fd = open("/dev/mtdblock12", O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Error opening misc partition \n", __func__);
+    return;
+  }
+  lseek(fd, 200, SEEK_SET);
+  snprintf(buff + 1, sizeof(buff) - 1, "%s", name);
+  if (write(fd, &buff, sizeof(buff)) < 0) {
+    logger(MSG_ERROR, "%s: Error writing user's name \n", __func__);
+  }
+  close(fd);
+}
+
 void reset_usb_port() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);

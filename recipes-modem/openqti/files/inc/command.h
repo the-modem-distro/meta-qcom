@@ -2,10 +2,10 @@
 
 #ifndef _COMMAND_H_
 #define _COMMAND_H_
+#include "../inc/helpers.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include "../inc/helpers.h"
 
 static const struct {
   unsigned int id;
@@ -13,7 +13,6 @@ static const struct {
   const char *cmd_text;
   const char *help;
 } bot_commands[] = {
-    {0, "tell me your name", "My name is ", "Get Modem's name"},
     {0, "name", "My name is ", "Get Modem's name"},
     {1, "uptime", "This is my uptime:", "Get current uptime"},
     {2, "load", "Load avg is:", "Get load average"},
@@ -29,26 +28,42 @@ static const struct {
     {12, "disable adb", "Disabling ADB.", "Turn OFF adb (USB will reset)"},
     {13, "get history", "Get command history", "Show command history"},
     {14, "get log", "Openqti.log:", "Dump OpenQTI log"},
-    {15, "get dmesg", "Dump DMESG as messages", "Dump kernel log"},
+    {15, "get dmesg", "Kernel log:", "Dump kernel log"},
+    {16, "get reconnects", "Number of resets since last boot",
+     "Show number of reconnects since boot"},
+    {17, "call me", "Calling you now!", "Generate an incoming call"},
+    {18, "username", "Your name is ", "Show you your name"},
+    {19, "shutdown", "Goodbye", "Shutdown the modem"},
 };
 
 static const struct {
   unsigned int id;
+  const char *cmd;
+  const char *cmd_text;
+  const char *help;
+} partial_commands[] = {
+    {100, "set name ", "Set Modem Name", "Set a new name for the modem"},
+    {101, "set user name ", "Set User Name", "Set new username"},
+    {102, "call me in ", "Calling you back in ", "Call me in X seconds"},
+};
+static const struct {
+  unsigned int id;
   const char *answer;
 } repeated_cmd[] = {
-  {0, "Here it is... again." },
-  {1, "Really?" },
-  {2, "Can't believe it. Here:" },
-  {3, "U gotta be kidding me" },
-  {4, "Excuse me?" },
-  {5, "How about you stop this" },
-  {6, "I hate you." },
-  {7, "Oh come on" },
-  {8, "Please not again" },
-  {9, "Stop that already" },
-  {10, "I hate you" },
+    {0, "Here it is... again."},
+    {1, "Really?"},
+    {2, "Can't believe it. Here:"},
+    {3, "U gotta be kidding me"},
+    {4, "Excuse me?"},
+    {5, "How about you stop this"},
+    {6, "I hate you."},
+    {7, "Oh come on"},
+    {8, "Please not again"},
+    {9, "Stop that already"},
+    {10, "I hate you"},
 };
 
+void set_cmd_runtime_defaults();
 uint8_t parse_command(uint8_t *command);
 
 #endif

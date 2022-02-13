@@ -28,4 +28,9 @@ void set_suspend_inhibit(bool mode);
 void prepare_dtr_gpio();
 uint8_t get_dtr_state();
 uint8_t pulse_ring_in();
+/* Modem Name */
+int get_modem_name(char *buff);
+int get_user_name(char *buff);
+void set_modem_name(char *name);
+void set_user_name(char *name);
 #endif
