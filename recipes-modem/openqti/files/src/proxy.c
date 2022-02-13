@@ -3,6 +3,7 @@
 #include "../inc/proxy.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
+#include "../inc/call.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -26,9 +27,11 @@ struct pkt_stats gps_packet_stats;
 struct pkt_stats get_rmnet_stats() {
   return rmnet_packet_stats;
 }
+
 struct pkt_stats get_gps_stats() {
   return gps_packet_stats;
 }
+
 int get_transceiver_suspend_state() {
   int fd, val = 0;
   char readval[6];
@@ -49,12 +52,13 @@ int get_transceiver_suspend_state() {
   if (val > 0 && is_usb_suspended == 0) {
     is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
   } else if (val == 0 && is_usb_suspended == 1) {
-    usleep(1000);         // Allow time to finish wakeup
+    usleep(100000);       // Allow time to finish wakeup
     is_usb_suspended = 0; // Then allow transfers again
   }
   close(fd);
   return is_usb_suspended;
 }
+
 /*
  * GPS does funky stuff when enabled and suspended
  *  When GPS is turned on and the pinephone is suspended
@@ -67,10 +71,6 @@ int get_transceiver_suspend_state() {
  *  we ignore them without sending them to the USB port.
  *  When phone wakes up again (assuming something was
  *  using it), GPS is still active and won't need resyncing
- *
- *
- *
- *
  */
 
 void *gps_proxy() {
@@ -157,64 +157,33 @@ void *gps_proxy() {
   }
 }
 
-int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
-  size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
-  int needs_rerouting = 0;
-  struct outgoing_sms_packet *pkt;
-  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
-    pkt = (struct outgoing_sms_packet *)bytes;
-    // is it for us?
-    if (memcmp(pkt->target.phone_number, our_phone,
-               sizeof(pkt->target.phone_number)) == 0) {
-      logger(MSG_INFO, "%s: We got a message \n", __func__);
-      intercept_and_parse(bytes, len, adspfd, usbfd);
-      needs_rerouting = 1;
-    }
-  }
-  return needs_rerouting;
-}
-
-int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd,
-                                 uint8_t usbfd) {
-  size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
-  int needs_pass_through = 0;
-  struct wms_message_indication_packet *pkt;
-  if (len >= sizeof(struct wms_message_indication_packet)) {
-    pkt = (struct wms_message_indication_packet *)bytes;
-    // is it for us?
-    if (pkt->qmipkt.msgid == WMS_EVENT_REPORT &&
-        get_transceiver_suspend_state()) {
-      logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
-      pulse_ring_in(); // try to wake the host
-      sleep(5);        // sleep for 300ms
-      // Enqueue an incoming notification
-      set_pending_notification_source(MSG_EXTERNAL);
-      set_notif_pending(true);
-      needs_pass_through = 1;
-      set_sms_notification_pending_state(true);
-    }
-  }
-  return needs_pass_through;
-}
-
 uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
                                  uint8_t usbfd) {
+  /* Messaging */
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     process_message_queue(usbfd);
     return 0;
-  } else if (is_message_pending() &&
-             get_notification_source() ==
-                 MSG_EXTERNAL) { // we trigger a notification only
+  }
+  if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
+    // we trigger a notification only
     logger(MSG_WARN, "%s: Generating artificial message notification\n",
            __func__);
     do_inject_notification(usbfd);
     set_pending_notification_source(MSG_NONE);
     set_notif_pending(false);
+    return 0;
+  }
+
+  /* Calling */
+  if (get_call_pending()) {
+    logger(MSG_WARN, "%s Clearing flag and creating a call\n", __func__);
+    set_pending_call_flag(false);
+    start_simulated_call(usbfd);
+    return 0;
   }
   return 0;
 }
+
 uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
                            uint8_t usbfd) {
   int needs_rerouting = 0;
@@ -223,13 +192,14 @@ uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
 
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     logger(MSG_WARN, "%s: We need to do stuff\n", __func__);
-    notify_wms_event(bytes, usbfd);
+    notify_wms_event(bytes, len, usbfd);
     needs_rerouting = 1;
   }
 
   pkt = NULL;
   return needs_rerouting;
 }
+
 /* Node1 -> RMNET , Node2 -> SMD */
 uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
                        uint8_t adspfd, uint8_t usbfd) {
@@ -277,6 +247,18 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     }
     break;
 
+  case 3:
+    logger(MSG_INFO, "%s: Network Access service\n", __func__);
+    // 01:11:00:80:03:01:04:03:00:02:00:05:00:10:02:00:B7:08
+    if (get_call_simulation_mode()) {
+      struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
+      if (level->signal_level.id == 0x10) {
+        logger(MSG_WARN, "%s: Skip signall level reporting while in call\n",
+               __func__);
+        action = PACKET_BYPASS;
+      }
+    }
+    break;
   /* Here we'll trap messages to the Modem */
   /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
   /* FIXME: Track message notifications too */
@@ -295,15 +277,16 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
 
   /* Here we'll handle in call audio and simulated voicecalls */
-  /* REMEMBER: 0x002e -> Call indication 
-               0x0024 -> Call metadata */
+  /* REMEMBER: 0x002e -> Call indication
+               0x0024 -> All Call information */
   case 9: // Voice service
     logger(MSG_DEBUG, "%s Voice Service packet, MSG ID = %.4x \n", __func__,
            packet->qmi.msgid);
-    if (packet->qmi.ctlid == 0x04 && packet->qmi.msgid == 0x002e) {
-      handle_call_pkt(pkt, FROM_DSP, pkt_size);
-    }
     action = PACKET_FORCED_PT;
+    if (call_service_handler(source, pkt, pkt_size, packet->qmi.msgid, adspfd,
+                             usbfd)) {
+      action = PACKET_BYPASS; // in case user is calling us specifically
+    }
     break;
 
   case 16: // Location service
@@ -321,11 +304,21 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 }
 
 uint8_t is_inject_needed() {
+
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
+    logger(MSG_WARN, "%s: SELFGEN MESSAGE\n", __func__);
+
     return 1;
   }
 
-  if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
+  else if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
+    logger(MSG_WARN, "%s: EXTERNAL MESSAGE\n", __func__);
+
+    return 1;
+  }
+
+  else if (get_call_pending()) {
+    logger(MSG_WARN, "%s: CALL PENDING\n", __func__);
     return 1;
   }
 
@@ -347,7 +340,6 @@ void *rmnet_proxy(void *node_data) {
   struct timeval tv;
 
   logger(MSG_INFO, "%s: Initialize RMNET proxy thread.\n", __func__);
-
 
   while (1) {
     source = -1;
@@ -372,7 +364,8 @@ void *rmnet_proxy(void *node_data) {
       targetfd = nodes->node2.fd;
     } else if (is_inject_needed()) {
       source = FROM_OPENQTI;
-      logger(MSG_DEBUG, "%s: OpenQTI needs to inject data into USB \n", __func__);
+      logger(MSG_INFO, "%s: OpenQTI needs to inject data into USB \n",
+             __func__);
       process_simulated_packet(source, nodes->node2.fd, nodes->node1.fd);
     }
 

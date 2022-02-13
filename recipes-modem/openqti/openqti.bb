@@ -17,6 +17,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/sms.h \
            file://inc/proxy.h \
            file://inc/command.h \
+           file://inc/call.h \
            file://src/tracking.c \
            file://src/helpers.c \
            file://src/atfwd.c \
@@ -32,13 +33,15 @@ SRC_URI = "file://inc/openqti.h \
            file://src/sms.c \
            file://src/proxy.c \
            file://src/command.c \
+           file://src/call.c \
            file://init_openqti \
-           file://external/ring8k.wav"
+           file://external/ring8k.wav \
+           file://external/hearme.wav"
 
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
+    ${CC} ${LDFLAGS} -O2 src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
 }
 
 do_install() {
@@ -52,6 +55,7 @@ do_install() {
 
     # default dialing tone
     install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
+    install -m 0644 ${S}/external/hearme.wav ${D}/usr/share/tones/
 
   #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }
