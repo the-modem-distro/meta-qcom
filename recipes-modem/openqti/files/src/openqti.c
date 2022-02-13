@@ -13,6 +13,7 @@
 
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
+#include "../inc/command.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -48,6 +49,7 @@ int main(int argc, char **argv) {
 
   logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", RELEASE_VER);
   reset_client_handler();
+  reset_dirty_reconnects();
   set_log_level(1); // By default, set log level to info
   while ((ret = getopt(argc, argv, "adulv?")) != -1)
     switch (ret) {
@@ -198,6 +200,9 @@ int main(int argc, char **argv) {
 
   set_atfwd_runtime_default();
   reset_sms_runtime();
+  reset_call_state();
+  set_cmd_runtime_defaults();
+
   // Enable or disable ADB depending on the misc partition setting
   set_adb_runtime(is_adb_enabled());
 
