@@ -9,7 +9,7 @@
 /* QMUX (so far used in sms)
  *
  */
-struct qmux_packet {
+struct qmux_packet { // 6 byte
     uint8_t version; // 0x01 ?? it's always 0x01, no idea what it is
     uint16_t packet_length; // 0x44 0x00 -> Full size of the packet being received
     uint8_t control; // 0x80 | 0x00
@@ -17,7 +17,7 @@ struct qmux_packet {
     uint8_t instance_id; // Instance is usually 1 except for the control service
 } __attribute__((packed));
 
-struct qmi_packet {
+struct qmi_packet { // 7 byte
   uint8_t ctlid;          // 0x00 | 0x02 | 0x04, subsystem inside message service?
   uint16_t transaction_id; // QMI Transaction ID
   uint16_t msgid;          // 0x0022 when message arrives, 0x0002 when there are new messages
@@ -46,6 +46,29 @@ struct encapsulated_qmi_packet {
 struct encapsulated_control_packet {
   struct qmux_packet qmux;
   struct ctl_qmi_packet qmi;
+} __attribute__((packed));
+
+
+struct tlv_header {
+  uint8_t id; // 0x00
+  uint16_t len; // 0x02 0x00
+} __attribute__((packed));
+
+struct signal_quality_tlv {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x02/ a 0xab ....
+  uint8_t network_type;  // 0x08 == LTE
+} __attribute__((packed));
+
+
+struct nas_signal_lev {
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Signal level data */
+    struct signal_quality_tlv signal_level; // 0x02,4 0 0 0 0
+
 } __attribute__((packed));
 
 enum {
