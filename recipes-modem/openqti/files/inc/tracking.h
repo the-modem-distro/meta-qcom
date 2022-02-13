@@ -27,5 +27,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd);
 void force_close_qmi(int fd);
 void send_rmnet_ioctls(int fd);
 void reset_client_handler();
+void reset_dirty_reconnects();
+uint8_t get_dirty_reconnects();
 
 #endif

@@ -19,6 +19,7 @@ struct {
   uint8_t last_active;
   uint32_t regtime;
   uint8_t host_side_managing_app;
+  uint8_t dirty_reconnects;
 } client_tracking;
 
 void reset_client_handler() {
@@ -31,6 +32,9 @@ void reset_client_handler() {
   }
 }
 
+void reset_dirty_reconnects() { client_tracking.dirty_reconnects = 0; }
+
+uint8_t get_dirty_reconnects() { return client_tracking.dirty_reconnects; }
 int get_num_instances_for_service(int service) {
   int i;
   int svcs = 0;
@@ -138,6 +142,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
       logger(MSG_WARN, "%s: Dirty re-register attempt from host \n", __func__);
       force_close_qmi(fd); // Wipe em all first, then allow them to continue
                            // registering without resetting the port
+      client_tracking.dirty_reconnects++;
     } else if (client_tracking.last_active > MAX_ACTIVE_CLIENTS) {
       // We'd hit this if host app dies mid reconnect more than once
       logger(MSG_WARN, "%s: Too many clients, resetting... \n", __func__);
