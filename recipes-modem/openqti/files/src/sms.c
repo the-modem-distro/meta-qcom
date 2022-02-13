@@ -6,10 +6,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../inc/atfwd.h"
 #include "../inc/command.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
+#include "../inc/proxy.h"
 #include "../inc/sms.h"
 
 /*
@@ -46,7 +48,8 @@ struct message {
 struct message_queue {
   bool needs_intercept;
   int queue_pos;
-  struct message msg[QUEUE_SIZE]; // max 10 message to keep, we use the array as MSGID
+  struct message
+      msg[QUEUE_SIZE]; // max 10 message to keep, we use the array as MSGID
 };
 
 struct {
@@ -63,24 +66,17 @@ void reset_sms_runtime() {
   sms_runtime.source = -1;
   sms_runtime.queue.queue_pos = -1;
   sms_runtime.current_message_id = 0;
-
 }
 
-void set_notif_pending(bool pending) { 
-  sms_runtime.notif_pending = pending; 
-}
+void set_notif_pending(bool pending) { sms_runtime.notif_pending = pending; }
 
 void set_pending_notification_source(uint8_t source) {
   sms_runtime.source = source;
 }
 
-uint8_t get_notification_source() { 
-  return sms_runtime.source; 
-}
+uint8_t get_notification_source() { return sms_runtime.source; }
 
-bool is_message_pending() { 
-  return sms_runtime.notif_pending; 
-}
+bool is_message_pending() { return sms_runtime.notif_pending; }
 
 int gsm7_to_ascii(const unsigned char *buffer, int buffer_length,
                   char *output_sms_text, int sms_text_length) {
@@ -279,12 +275,12 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->data.smsc.phone_number_size =
       0x07; // hardcoded as we use a dummy one
   this_sms->data.smsc.is_international_number = 0x91; // yes
-  this_sms->data.smsc.number[0] = 0x00;
-  this_sms->data.smsc.number[1] = 0x00;
-  this_sms->data.smsc.number[2] = 0x00;
-  this_sms->data.smsc.number[3] = 0x00;
-  this_sms->data.smsc.number[4] = 0x00;
-  this_sms->data.smsc.number[5] = 0xf0;
+  this_sms->data.smsc.number[0] = 0x51;
+  this_sms->data.smsc.number[1] = 0x55;
+  this_sms->data.smsc.number[2] = 0x10;
+  this_sms->data.smsc.number[3] = 0x99;
+  this_sms->data.smsc.number[4] = 0x99;
+  this_sms->data.smsc.number[5] = 0xf9;
 
   this_sms->data.unknown = 0x04; // This is still unknown
 
@@ -385,6 +381,15 @@ int build_and_send_message(int fd, uint32_t message_id) {
  *  This func does the entire transaction
  */
 int handle_message_state(int fd, uint32_t message_id) {
+  if (message_id > QUEUE_SIZE) {
+    logger(MSG_ERROR, "%s: Attempting to read invalid message ID: %i\n",
+           __func__, message_id);
+    return 0;
+  }
+
+  logger(MSG_ERROR, "%s: Attempting handle message ID: %i\n", __func__,
+         message_id);
+
   switch (sms_runtime.queue.msg[message_id].state) {
   case 0: // Generate -> RECEIVE TID
     logger(MSG_INFO, "%s: Notify Message ID: %i\n", __func__, message_id);
@@ -412,8 +417,8 @@ int handle_message_state(int fd, uint32_t message_id) {
                   &sms_runtime.queue.msg[message_id].timestamp);
     break;
   case 3: // GET TID AND DELETE MESSAGE
-    logger(MSG_DEBUG, "%s: Waiting for ACK %i: state %i\n", __func__, message_id,
-           sms_runtime.queue.msg[message_id].state);
+    logger(MSG_DEBUG, "%s: Waiting for ACK %i: state %i\n", __func__,
+           message_id, sms_runtime.queue.msg[message_id].state);
     break;
   case 4:
     logger(MSG_INFO, "%s: ACK Deletion. Message ID: %i\n", __func__,
@@ -454,11 +459,9 @@ void wipe_queue() {
  *  and MSG_INTERNAL is still active. We'll assume current_message_id
  *  is where we need to operate
  */
-void notify_wms_event(uint8_t *bytes, int fd) {
+void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
   int i;
-
   struct encapsulated_qmi_packet *pkt;
-  struct wms_request_message *request;
   pkt = (struct encapsulated_qmi_packet *)bytes;
   sms_runtime.curr_transaction_id = pkt->qmi.transaction_id;
   logger(MSG_INFO, "%s: Messages in queue: %i\n", __func__,
@@ -484,20 +487,42 @@ void notify_wms_event(uint8_t *bytes, int fd) {
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_READ_MESSAGE:
+
     /*
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
     logger(MSG_WARN, "%s: WMS_READ_MESSAGE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
-    request = (struct wms_request_message *)bytes;
-    sms_runtime.current_message_id = request->storage.message_id;
-    sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
-    handle_message_state(fd, sms_runtime.current_message_id);
-    clock_gettime(
-        CLOCK_MONOTONIC,
-        &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
+    if (len >= sizeof(struct wms_request_message)) {
+      logger(MSG_WARN, "%s: Size is OK\n", __func__);
+      dump_pkt_raw(bytes, len);
+      struct wms_request_message *request;
+      request = (struct wms_request_message *)bytes;
+      if (request->message_tag.id == 0x01) {
+        logger(MSG_INFO,
+               "oFono gives us the message id tlv in a different order...\n ");
+        struct wms_request_message_ofono *req2 =
+            (struct wms_request_message_ofono *)bytes;
+        sms_runtime.current_message_id = req2->storage.message_id;
+        req2 = NULL;
+      } else {
+        sms_runtime.current_message_id = request->storage.message_id;
+      }
+      request = NULL;
+      sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
+      handle_message_state(fd, sms_runtime.current_message_id);
+      clock_gettime(
+          CLOCK_MONOTONIC,
+          &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
+      //    request = NULL;
+    } else {
+      logger(MSG_ERROR,
+             "%s: WMS_READ_MESSAGE cannot proceed for Packet too small\n",
+             __func__);
 
+      dump_pkt_raw(bytes, len);
+    }
     break;
   case WMS_DELETE:
     logger(MSG_WARN, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
@@ -522,6 +547,7 @@ void notify_wms_event(uint8_t *bytes, int fd) {
 
     break;
   }
+  pkt = NULL;
 }
 
 /*
@@ -583,8 +609,7 @@ int process_message_queue(int fd) {
           sms_runtime.queue.msg[i].len = 0;
           sms_runtime.current_message_id++;
         } else {
-          logger(MSG_DEBUG, "-->%s: Waiting on message delete request for %i \n",
-                 __func__, i);
+          logger(MSG_WARN, "-->%s: Waiting on message for %i \n", __func__, i);
         }
         return 0;
       }
@@ -601,7 +626,7 @@ int process_message_queue(int fd) {
  * to the array
  */
 void add_message_to_queue(uint8_t *message, size_t len) {
-  if (sms_runtime.queue.queue_pos > QUEUE_SIZE-2) {
+  if (sms_runtime.queue.queue_pos > QUEUE_SIZE - 2) {
     logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
     return;
   }
@@ -611,7 +636,8 @@ void add_message_to_queue(uint8_t *message, size_t len) {
     logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
            sms_runtime.queue.queue_pos + 1);
     sms_runtime.queue.queue_pos++;
-    memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message, len);
+    memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message,
+           len);
     sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
         sms_runtime.queue.queue_pos;
   } else {
@@ -666,9 +692,9 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
 }
 uint32_t find_data_tlv(void *bytes, size_t len) {
   uint32_t ret_position = 0;
-
   return ret_position;
 }
+
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
                             uint8_t usbfd) {
@@ -677,32 +703,37 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
   uint8_t ret;
   int outsize;
   struct outgoing_sms_packet *pkt;
-  struct outgoing_no_date_sms_packet *nodate_pkt;
+  struct outgoing_no_validity_period_sms_packet *nodate_pkt;
 
   output = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
-
   if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
     pkt = (struct outgoing_sms_packet *)bytes;
-    nodate_pkt = (struct outgoing_no_date_sms_packet *)bytes;
+    nodate_pkt = (struct outgoing_no_validity_period_sms_packet *)bytes;
     /* This will need to be rebuilt for oFono, probably
      *  0x31 -> Most of ModemManager stuff
      *  0x11 -> From jeremy, still keeps 0x21
      *  0x01 -> Skips the 0x21 and jumps to content
      */
-    if (pkt->padded_tlv == 0x31 || pkt->padded_tlv == 0x11) {
+    if (pkt->pdu_type >= 0x11) {
       ret = gsm7_to_ascii(pkt->contents.contents,
                           strlen((char *)pkt->contents.contents),
                           (char *)output, pkt->contents.content_sz);
-    } else if (pkt->padded_tlv == 0x01) {
+    } else if (pkt->pdu_type == 0x01) {
       ret = gsm7_to_ascii(nodate_pkt->contents.contents,
                           strlen((char *)nodate_pkt->contents.contents),
                           (char *)output, nodate_pkt->contents.content_sz);
     } else {
       set_log_level(0);
 
-      logger(MSG_ERROR, "%s: Don't know how to handle this. Please contact biktorgj and get him the following dump:\n", __func__);
+      logger(MSG_ERROR,
+             "%s: Don't know how to handle this. Please contact biktorgj and "
+             "get him the following dump:\n",
+             __func__);
       dump_pkt_raw(bytes, len);
-      logger(MSG_ERROR, "%s: Don't know how to handle this. Please contact biktorgj and get him the following dump:\n", __func__);
+      logger(MSG_ERROR,
+             "%s: Don't know how to handle this. Please contact biktorgj and "
+             "get him the following dump:\n",
+             __func__);
       set_log_level(1);
     }
 
@@ -713,4 +744,46 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
   nodate_pkt = NULL;
   free(output);
   return 0;
+}
+
+int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
+  size_t temp_sz;
+  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+  int needs_rerouting = 0;
+  struct outgoing_sms_packet *pkt;
+  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
+    pkt = (struct outgoing_sms_packet *)bytes;
+    // is it for us?
+    if (memcmp(pkt->target.phone_number, our_phone,
+               sizeof(pkt->target.phone_number)) == 0) {
+      logger(MSG_INFO, "%s: We got a message \n", __func__);
+      intercept_and_parse(bytes, len, adspfd, usbfd);
+      needs_rerouting = 1;
+    }
+  }
+  return needs_rerouting;
+}
+
+int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd,
+                                 uint8_t usbfd) {
+  size_t temp_sz;
+  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+  int needs_pass_through = 0;
+  struct wms_message_indication_packet *pkt;
+  if (len >= sizeof(struct wms_message_indication_packet)) {
+    pkt = (struct wms_message_indication_packet *)bytes;
+    // is it for us?
+    if (pkt->qmipkt.msgid == WMS_EVENT_REPORT &&
+        get_transceiver_suspend_state()) {
+      logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
+      pulse_ring_in(); // try to wake the host
+      sleep(5);        // sleep for 300ms
+      // Enqueue an incoming notification
+      set_pending_notification_source(MSG_EXTERNAL);
+      set_notif_pending(true);
+      needs_pass_through = 1;
+      set_sms_notification_pending_state(true);
+    }
+  }
+  return needs_pass_through;
 }

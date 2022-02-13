@@ -20,6 +20,8 @@ enum {
     MSG_INTERNAL = 1,
 };
 
+
+
 /* QMI message IDs for SMS/MMS */
 enum {
     WMS_RESET = 0x000,
@@ -38,12 +40,8 @@ enum {
 	BITMASK_7BITS = 0x7F,
 	BITMASK_8BITS = 0xFF,
 	BITMASK_HIGH_4BITS = 0xF0,
-	BITMASK_LOW_4BITS = 0x0F,
 	TYPE_OF_ADDRESS_INTERNATIONAL_PHONE = 0x91,
 	TYPE_OF_ADDRESS_NATIONAL_SUBSCRIBER = 0xC8,
-	SMS_DELIVER_ONE_MESSAGE = 0x04,
-	SMS_SUBMIT              = 0x11,
-	SMS_MAX_7BIT_TEXT_LENGTH  = 160,
 };
 
 enum {
@@ -59,7 +57,7 @@ enum {
  *  <-- qmi.h [struct qmi_generic_result_ind]
  */
 
-struct sms_storage_type {
+struct sms_storage_type { // 8byte
     /* Message storage */
     uint8_t tlv_message_type; // 0x10
     uint16_t tlv_msg_type_size; //  5 bytes
@@ -117,7 +115,7 @@ struct wms_raw_message_header {
     uint8_t tlv_version; // 0x01
 } __attribute__((packed));
 
-struct generic_tlv_onebyte {
+struct generic_tlv_onebyte { // 4byte
     uint8_t id; // 0x01 RAW MSG
     uint16_t size; // REMAINING SIZE OF PKT (!!)
     uint8_t data; // 0x01
@@ -186,10 +184,21 @@ struct wms_request_message {
     struct qmux_packet qmuxpkt;
     /* QMI header */
     struct qmi_packet qmipkt;
-    /* Number of TLVs in request? */
-    struct generic_tlv_onebyte tlvnum;
+    /* Message tag */
+    struct generic_tlv_onebyte message_tag;
     /* Request data */
     struct sms_storage_type storage;
+} __attribute__((packed));
+
+struct wms_request_message_ofono {
+    /* QMUX header */
+    struct qmux_packet qmuxpkt;
+    /* QMI header */
+    struct qmi_packet qmipkt;
+    /* Request data */
+    struct sms_storage_type storage;
+    /* Message tag */
+    struct generic_tlv_onebyte message_tag;
 } __attribute__((packed));
 
 
@@ -221,14 +230,15 @@ struct sms_content {
 struct outgoing_sms_packet {
     struct qmux_packet qmuxpkt;
     struct qmi_packet qmipkt;
-    struct sms_outgoing_header header;
-    struct sms_outgoing_header header_tlv2;
+    struct sms_outgoing_header header; // RAW MESSAGE INDICATION
+    struct sms_outgoing_header header_tlv2; // TYPE OF MESSAGE TO BE SENT, 0x06 -> 3GPP
 
-    uint8_t unk2; // 0x00
-    uint8_t padded_tlv; // 0x31
+    uint8_t sca_length; // 0x00 Indicates if it has a SMSC set. It shouldn't, we ignore it.
+    uint8_t pdu_type; // 0xX1 == SUBMIT,  >=0x11 includes validity period
     struct sms_caller_data target; // 7bit gsm encoded htole, 0xf on last item if padding needed
-    uint16_t unk4; // 0x00 0x00
-    uint8_t date_tlv; // 0x21
+    uint8_t tp_pid; // 0x00
+    uint8_t tp_dcs; // 0x00
+    uint8_t validity_period; // 0x21 || 0xa7
     struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
@@ -242,14 +252,14 @@ struct sms_received_ack {
     uint16_t user_data_value;
 }__attribute__((packed));
 
-struct outgoing_no_date_sms_packet {
+struct outgoing_no_validity_period_sms_packet {
     struct qmux_packet qmuxpkt;
     struct qmi_packet qmipkt;
     struct sms_outgoing_header header;
     struct sms_outgoing_header header_tlv2;
 
-    uint8_t unk2; // 0x00
-    uint8_t padded_tlv; // 0x01
+    uint8_t sca_length; // 0x00 Indicates if it has a SMSC set. It shouldn't, we ignore it.
+    uint8_t pdu_type; // 0xX1 == SUBMIT, >=0x11 includes validity period
     struct sms_caller_data target; // 7bit gsm encoded htole, 0xf on last item if padding needed
     uint16_t unk4; // 0x00 0x00
     struct sms_content contents; // 7bit gsm encoded data
@@ -271,6 +281,9 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t hostfd, uint8_t ads
 
 int process_message_queue(int fd);
 void add_message_to_queue(uint8_t *message, size_t len);
-void notify_wms_event(uint8_t *bytes, int fd);
+void notify_wms_event(uint8_t *bytes,size_t len, int fd);
+int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd);
+int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd,
+                                 uint8_t usbfd);
 
 #endif
