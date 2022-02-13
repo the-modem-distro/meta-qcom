@@ -3,10 +3,10 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#include "../inc/call.h"
 #include <sound/asound.h>
 #include <stdbool.h>
 #include <stdint.h>
-
 /* Mixers used in VoLTE / VoLTE HD */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
 #define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
@@ -26,7 +26,7 @@
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
 
 #define MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
-#define AUDIO_MODE_I2S 0//SEC_AUX_PCM_RX Audio Mixer
+#define AUDIO_MODE_I2S 0 // SEC_AUX_PCM_RX Audio Mixer
 #define AUDIO_MODE_USB 1
 
 enum call_direction {
@@ -42,7 +42,7 @@ enum call_status {
   AUDIO_CALL_ALERTING = 0x05,
   AUDIO_CALL_ON_HOLD = 0x06,
   AUDIO_CALL_WAITING = 0x07,
-  AUTIO_CALL_DISCONNECTING = 0x08,
+  AUDIO_CALL_DISCONNECTING = 0x08,
   AUDIO_CALL_HANGUP = 0x09,
   AUDIO_CALL_PREPARING = 0x0a
 };
@@ -123,7 +123,7 @@ struct pcm {
   unsigned channels;
   unsigned flags;
   unsigned format;
-  unsigned running:1;
+  unsigned running : 1;
   int underruns;
   unsigned buffer_size;
   unsigned period_size;
@@ -169,11 +169,11 @@ struct pcm {
 
 /* Bit formats */
 enum pcm_format {
-    PCM_FORMAT_S16_LE = 0,
-    PCM_FORMAT_S32_LE,
-    PCM_FORMAT_MAX,
+  PCM_FORMAT_S16_LE = 0,
+  PCM_FORMAT_S32_LE,
+  PCM_FORMAT_MAX,
 };
-
+void set_record(bool en);
 void set_audio_runtime_default();
 int use_external_codec();
 void set_output_device(int device);
@@ -199,7 +199,8 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value);
 int stop_audio();
 int start_audio(int type);
 int dump_audio_mixer();
-void handle_call_pkt(uint8_t *pkt, int from, int sz);
+void handle_call_pkt(struct call_status_indication *pkt, int sz,
+                     uint8_t *phone_number);
 int set_audio_defaults();
 int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);
@@ -207,4 +208,6 @@ void configure_custom_alert_tone(bool en);
 int pcm_write(struct pcm *pcm, void *data, unsigned count);
 unsigned int pcm_get_buffer_size(const struct pcm *pcm);
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
+void *can_you_hear_me();
+
 #endif
