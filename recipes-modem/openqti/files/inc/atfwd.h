@@ -149,6 +149,9 @@ static const struct {
     {136, "+EN_USBSUSPEND"},
     {137, "+DIS_USBSUSPEND"},
     {138, "+GETADSPVER"},
+    {139, "+RESETAUDPA"},
+    {140, "+RECON"},
+    {141, "+RECOFF"},
 };
 
 

@@ -273,7 +273,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     reboot(0x01234567);
     break;
   case 128: // GETFWBRANCH
-    bytes_in_reply = sprintf(response->reply, "\r\nFOSS\r\n");
+    bytes_in_reply = sprintf(response->reply, "\r\ncommunity\r\n");
     response->replysz = htole16(bytes_in_reply);
     pkt_size = sizeof(struct at_command_respnse) -
                (MAX_REPLY_SZ -
@@ -343,7 +343,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                  (MAX_REPLY_SZ -
                   bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
-            fseek(fp, 0L, SEEK_END);
+      fseek(fp, 0L, SEEK_END);
       ret = ftell(fp);
       if (ret > (MAX_REPLY_SZ * MAX_RESPONSE_NUM)) {
         fseek(fp, (ret - (MAX_REPLY_SZ * MAX_RESPONSE_NUM)), SEEK_SET);
@@ -369,7 +369,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
       response->response = 1;
       response->replysz = htole16(bytes_in_reply);
       pkt_size = sizeof(struct at_command_respnse) -
-                  (MAX_REPLY_SZ -
+                 (MAX_REPLY_SZ -
                   bytes_in_reply); // total size - (max string - used string)
       sckret = send_pkt(qmidev, response, pkt_size);
     }
@@ -425,6 +425,18 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
                (MAX_REPLY_SZ -
                 bytes_in_reply); // total size - (max string - used string)
     sckret = send_pkt(qmidev, response, pkt_size);
+    break;
+  case 139:
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_external_codec_defaults();
+    break;
+  case 140:
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_record(true);
+    break;
+  case 141:
+    sckret = send_pkt(qmidev, response, pkt_size);
+    set_record(false);
     break;
   default:
     // Fallback for dummy commands that arent implemented
