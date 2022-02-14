@@ -18,6 +18,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/proxy.h \
            file://inc/command.h \
            file://inc/call.h \
+           file://inc/cell.h \
            file://src/tracking.c \
            file://src/helpers.c \
            file://src/atfwd.c \
@@ -34,6 +35,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/proxy.c \
            file://src/command.c \
            file://src/call.c \
+           file://src/cell.c \
            file://init_openqti \
            file://external/ring8k.wav \
            file://external/hearme.wav"
@@ -41,7 +43,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
+    ${CC} ${LDFLAGS} -O2 src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
 }
 
 do_install() {
