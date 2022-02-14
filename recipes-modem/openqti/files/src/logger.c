@@ -28,6 +28,13 @@ void set_log_level(uint8_t level) {
   }
 }
 
+double get_elapsed_time() {
+  struct timespec current_time;
+  clock_gettime(CLOCK_MONOTONIC, &current_time);
+  return (((current_time.tv_sec - starup_time.tv_sec) * 1e9) +
+                  (current_time.tv_nsec - starup_time.tv_nsec)) /
+                 1e9; // in seconds
+}
 void logger(uint8_t level, char *format, ...) {
   FILE *fd;
   va_list args;

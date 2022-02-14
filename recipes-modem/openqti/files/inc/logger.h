@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 void reset_logtime();
+double get_elapsed_time();
 void logger(uint8_t level, char *format, ...);
 void dump_packet(char *direction, uint8_t *buf, int pktsize);
 void set_log_level(uint8_t level);
