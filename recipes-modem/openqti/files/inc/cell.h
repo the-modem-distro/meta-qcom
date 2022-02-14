@@ -20,9 +20,17 @@ AT+QENG="neighbourcell"
 +QENG: "neighbourcell","WCDMA",10713,3,16,2,-,-,-,-
 */
 
-struct cell_data {
-  uint8_t mcc;
-  uint8_t mnc;
+
+
+struct network_state {
   uint8_t network_type; // LTE / WCDMA / GSM / ??
+  uint8_t signal_level; // in dB
 };
+
+
+
+uint8_t get_network_type();
+uint8_t get_signal_strength();
+void update_network_data(uint8_t network_type, uint8_t signal_level);
+
 #endif
