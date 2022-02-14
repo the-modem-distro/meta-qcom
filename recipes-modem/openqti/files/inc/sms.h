@@ -145,10 +145,10 @@ struct wms_datetime {
     uint8_t hour;
     uint8_t minute;
     uint8_t second;
+    uint8_t timezone; // 0x40 ??
 } __attribute__((packed));
 
 struct wms_message_contents {
-    uint8_t content_tlv; // 0x40 ??
     uint8_t content_sz; // Size *AFTER* conversion
     uint8_t contents[MAX_MESSAGE_SIZE];
 } __attribute__((packed));
