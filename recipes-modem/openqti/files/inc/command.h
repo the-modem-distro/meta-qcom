@@ -34,6 +34,7 @@ static const struct {
     {17, "call me", "Calling you now!", "Generate an incoming call"},
     {18, "username", "Your name is ", "Show you your name"},
     {19, "shutdown", "Goodbye", "Shutdown the modem"},
+    {20, "gsm signal","RF Signal status:", "Show network and signal data"},
 };
 
 static const struct {
