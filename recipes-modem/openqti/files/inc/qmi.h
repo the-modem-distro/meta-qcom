@@ -56,8 +56,9 @@ struct tlv_header {
 
 struct signal_quality_tlv {
   uint8_t id; // 0x10
-  uint16_t len; // 0x02/ a 0xab ....
-  uint8_t network_type;  // 0x08 == LTE
+  uint16_t len; // 0x02
+  uint8_t signal_level; // dBm
+  uint8_t network_type;  // check cell.c
 } __attribute__((packed));
 
 
@@ -67,7 +68,7 @@ struct nas_signal_lev {
     /* QMI header */
     struct qmi_packet qmipkt;
     /* Signal level data */
-    struct signal_quality_tlv signal_level; // 0x02,4 0 0 0 0
+    struct signal_quality_tlv signal;
 
 } __attribute__((packed));
 
