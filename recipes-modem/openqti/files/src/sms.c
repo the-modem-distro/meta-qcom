@@ -13,6 +13,7 @@
 #include "../inc/logger.h"
 #include "../inc/proxy.h"
 #include "../inc/sms.h"
+#include "../inc/timesync.h"
 
 /*
  * NOTE:
@@ -322,7 +323,10 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->data.date.hour = swap_byte(tm.tm_hour);
   this_sms->data.date.minute = swap_byte(tm.tm_min);
   this_sms->data.date.second = swap_byte(tm.tm_sec);
-  this_sms->data.date.timezone = 0x40;
+  this_sms->data.date.timezone = swap_byte(get_timezone() * 4);
+  if (is_timezone_offset_negative()) {
+    this_sms->data.date.timezone |= 1 << 3;
+  }
 
   /* CONTENTS */
   memcpy(this_sms->data.contents.contents, msgoutput, ret);
