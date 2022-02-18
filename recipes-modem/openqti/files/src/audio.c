@@ -787,6 +787,6 @@ int set_external_codec_defaults() {
              alc5616_default_settings[i].path);
     }
   }
-  set_auxpcm_sampling_rate(2); // Set audio mode to 48KPCM
+  set_auxpcm_sampling_rate(1); // Set audio mode to 48KPCM
   return ret;
 }

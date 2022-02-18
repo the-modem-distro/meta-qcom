@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.5.8"
+#define RELEASE_VER "0.5.9"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
@@ -66,8 +66,8 @@ static const struct {
     {"/sys/devices/soc:sound/pcm_mode_select", "1"}, // I2S MASTER
     {"/sys/devices/soc:qcom,msm-sec-auxpcm/frame", "5"},
     {"/sys/devices/soc:qcom,msm-sec-auxpcm/data", "0"},
-    {"/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "12288000"},//2048/4096/12288
-    {"/sys/devices/soc:sound/quec_auxpcm_rate", "48000"}, //8000/16000/48000
+    {"/sys/devices/soc:qcom,msm-sec-auxpcm/rate", "4096000"},//2048/4096/12288
+    {"/sys/devices/soc:sound/quec_auxpcm_rate", "16000"}, //8000/16000/48000
 };
 
 /* Note:

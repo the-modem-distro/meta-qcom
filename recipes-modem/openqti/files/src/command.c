@@ -179,17 +179,6 @@ void set_custom_user_name(uint8_t *command) {
   free(reply);
   reply = NULL;
 }
-void *do_schedule_call(void *seconds) {
-  char *secoffset;
-  int delaysec = strtol(seconds, &secoffset, 10);
-
-  logger(MSG_INFO, "Calling you in %i\n", delaysec);
-  sleep(delaysec);
-  logger(MSG_INFO, "Calling you now!\n");
-
-  set_pending_call_flag(true);
-  return NULL;
-}
 
 void *delayed_shutdown() {
   sleep(5);
@@ -197,40 +186,51 @@ void *delayed_shutdown() {
   return NULL;
 }
 
-void schedule_call(uint8_t *command) {
+void *delayed_reboot() {
+  sleep(5);
+  reboot(0x01234567);
+  return NULL;
+}
+
+void *schedule_call(void *cmd) {
   int strsz = 0, ret;
   uint8_t *offset;
+  uint8_t *command = (uint8_t *)cmd;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   pthread_t call_schedule_thread;
+    logger(MSG_WARN, "SCH: %s -> %s \n", cmd, command);
 
   int delaysec;
-  char tmpbuf[4];
+  char tmpbuf[10];
   char *secoffset;
   offset = (uint8_t *)strstr((char *)command, partial_commands[2].cmd);
   if (offset == NULL) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
                      "Error reading the command\n");
+       add_message_to_queue(reply, strsz);
   } else {
     int ofs = (int)(offset - command) + strlen(partial_commands[2].cmd);
-    snprintf(tmpbuf, 4, "%s", (char *)command + ofs);
+    snprintf(tmpbuf, 10, "%s", (char *)command + ofs);
     delaysec = strtol(tmpbuf, &secoffset, 10);
     if (delaysec > 0) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                        "I will call you back in %i seconds\n", delaysec);
-      if ((ret = pthread_create(&call_schedule_thread, NULL, &do_schedule_call,
-                                (void *)tmpbuf))) {
-        logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
-      }
+       add_message_to_queue(reply, strsz);
+       sleep(delaysec);
+       logger(MSG_INFO, "Calling you now!\n");
+       set_pending_call_flag(true);
     } else {
       strsz = snprintf(
           (char *)reply, MAX_MESSAGE_SIZE,
           "Please tell me in how many seconds you want me to call you, %s\n",
           cmd_runtime.user_name);
+      add_message_to_queue(reply, strsz);
     }
   }
-  add_message_to_queue(reply, strsz);
   free(reply);
   reply = NULL;
+  command = NULL;
+  return NULL;
 }
 
 void render_gsm_signal_data() {
@@ -238,34 +238,15 @@ void render_gsm_signal_data() {
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Network type: ");
-  switch (get_network_type()) {
-  case 0x00:
+  if (get_network_type() >= 0x00 && get_network_type() <= 0x08) {
     strsz +=
-        snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "No service");
-    break;
-  case 0x01:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "CDMA");
-    break;
-  case 0x02:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "EVDO");
-    break;
-  case 0x03:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "AMPS");
-    break;
-  case 0x04:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "GSM");
-    break;
-  case 0x05:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "UMTS");
-    break;
-  case 0x08:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "LTE");
-    break;
-  default:
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+        snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s", network_types[get_network_type()]);
+
+  } else {
+     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Unknown (0x%.2x", get_network_type());
-    break;
   }
+
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "\nSignal level: %i dBm", get_signal_strength());
   add_message_to_queue(reply, strsz);
@@ -535,6 +516,13 @@ uint8_t parse_command(uint8_t *command) {
   case 20:
     render_gsm_signal_data();
     break;
+    case 21:
+    pthread_create(&disposable_thread, NULL, &delayed_reboot, NULL);
+    strsz +=
+        snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s %s!\n",
+                 bot_commands[cmd_id].cmd_text, cmd_runtime.user_name);
+    add_message_to_queue(reply, strsz);
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
@@ -542,7 +530,8 @@ uint8_t parse_command(uint8_t *command) {
     set_custom_user_name(command);
     break;
   case 102:
-    schedule_call(command);
+    pthread_create(&disposable_thread, NULL, &schedule_call, command);
+    sleep(2); // our string gets wiped out before we have a chance
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,

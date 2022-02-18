@@ -82,7 +82,7 @@ uint8_t get_call_pending() {
   return call_rt.is_call_pending;
 }
 
-void send_call_request_response(uint8_t usbfd, uint16_t transaction_id) {
+void send_call_request_response(int usbfd, uint16_t transaction_id) {
   struct call_request_response_packet *pkt;
   int bytes_written;
   int pkt_size = sizeof(struct call_request_response_packet);
@@ -126,7 +126,7 @@ void send_call_request_response(uint8_t usbfd, uint16_t transaction_id) {
   pkt = NULL;
 }
 
-uint8_t send_voice_call_status_event(uint8_t usbfd, uint16_t transaction_id,
+uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
                                      uint8_t call_direction,
                                      uint8_t call_state) {
   logger(MSG_INFO, "%s: Send QMI call status message: Direction %i, state %i\n",
@@ -195,13 +195,13 @@ uint8_t send_voice_call_status_event(uint8_t usbfd, uint16_t transaction_id,
   bytes_written = write(usbfd, pkt, pkt_size);
   dump_pkt_raw((void *)pkt, sizeof(struct simulated_call_packet));
   logger(MSG_DEBUG, "%s: Sent %i bytes \n", __func__, bytes_written);
-
+  call_rt.simulated_call_state = call_state;
   free(pkt);
   pkt = NULL;
   return 0;
 }
 
-void accept_simulated_call(uint8_t usbfd, uint8_t transaction_id) {
+void accept_simulated_call(int usbfd, uint8_t transaction_id) {
   struct call_accept_ack *pkt;
   logger(MSG_INFO, "%s: Send QMI call ACCEPT message\n", __func__);
   int bytes_written;
@@ -241,17 +241,48 @@ void accept_simulated_call(uint8_t usbfd, uint8_t transaction_id) {
   pkt = NULL;
 }
 
-void start_simulated_call(uint8_t usbfd) {
+void close_internal_call(int usbfd, uint16_t transaction_id) {
+  send_voice_call_status_event(usbfd, transaction_id,
+                               call_rt.sim_call_direction,
+                               AUDIO_CALL_DISCONNECTING);
+  set_call_simulation_mode(false);
+  call_rt.sim_call_direction = 0;
+}
+
+int tmpfd;
+void *wait_for_call_expire(void *fd) {
+  int usbfd = *(int *) fd;
+  logger(MSG_WARN, "%s: Sleeping for 60 seconds\n", __func__);
+  sleep(60);
+  if (call_rt.simulated_call_state != AUDIO_CALL_ESTABLISHED) {
+    logger(MSG_WARN, "%s: Killing internal call\n", __func__);
+    close_internal_call(tmpfd, call_rt.transaction_id+1);
+  } else {
+    logger(MSG_WARN, "%s: Not killing internal call, state is %i\n", __func__, call_rt.simulated_call_state);
+  }
+  return NULL;
+}
+
+void start_simulated_call(int usbfd) {
+  pthread_t kill_timeout_thread;
+  int ret;
+  tmpfd = usbfd;
   call_rt.transaction_id = 0x01;
   call_rt.simulated_call_state = AUDIO_CALL_RINGING;
   call_rt.sim_call_direction = AUDIO_DIRECTION_INCOMING;
   set_call_simulation_mode(true);
-  logger(MSG_WARN, " Call update notification: RINGING \n");
+  pulse_ring_in();
+  usleep(200000);
+  logger(MSG_WARN, " Call update notification: RINGING to %x\n", usbfd);
   send_voice_call_status_event(usbfd, call_rt.transaction_id,
                                AUDIO_DIRECTION_INCOMING, AUDIO_CALL_RINGING);
+   if ((ret =
+           pthread_create(&kill_timeout_thread, NULL, &wait_for_call_expire, &usbfd))) {
+    logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);  
+    }                            
 }
 
-uint8_t send_voice_cal_disconnect_ack(uint8_t usbfd, uint16_t transaction_id) {
+uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
   struct end_call_response *pkt;
   logger(MSG_WARN, "%s: Send QMI call END message\n", __func__);
   int bytes_written;
@@ -291,14 +322,8 @@ uint8_t send_voice_cal_disconnect_ack(uint8_t usbfd, uint16_t transaction_id) {
   pkt = NULL;
   return 0;
 }
-void close_internal_call(int usbfd, uint16_t transaction_id) {
-  send_voice_call_status_event(usbfd, transaction_id,
-                               call_rt.sim_call_direction,
-                               AUDIO_CALL_DISCONNECTING);
-  set_call_simulation_mode(false);
-  call_rt.sim_call_direction = 0;
-}
-void process_incoming_call_accept(uint8_t usbfd, uint16_t transaction_id) {
+
+void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
   pthread_t dummy_echo_thread;
   int ret;
   logger(MSG_INFO, "%s: Accepting simulated call \n", __func__);
@@ -314,7 +339,7 @@ void process_incoming_call_accept(uint8_t usbfd, uint16_t transaction_id) {
     logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
   }
 }
-void send_dummy_call_established(uint8_t usbfd, uint16_t transaction_id) {
+void send_dummy_call_established(int usbfd, uint16_t transaction_id) {
   pthread_t dummy_echo_thread;
   int ret;
   logger(MSG_INFO, "%s: Sending response: ATTEMPT\n", __func__);
@@ -339,7 +364,7 @@ void send_dummy_call_established(uint8_t usbfd, uint16_t transaction_id) {
   }
 }
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
-                             uint16_t msgid, uint8_t adspfd, uint8_t usbfd) {
+                             uint16_t msgid, int adspfd, int usbfd) {
   int needs_rerouting = 0, i, j;
   struct encapsulated_qmi_packet *pkt;
   struct call_request_indication *req;

@@ -668,7 +668,7 @@ uint8_t inject_message(uint8_t message_id) {
 
 /** TO BE REVIEWED WHEN ALL THE REST IS WORKING PERFECTLY **/
 
-uint8_t send_outgoing_msg_ack(uint8_t transaction_id, uint8_t usbfd) {
+uint8_t send_outgoing_msg_ack(uint8_t transaction_id, int usbfd) {
   int ret;
   struct sms_received_ack *receive_ack;
   receive_ack = calloc(1, sizeof(struct sms_received_ack));
@@ -700,8 +700,8 @@ uint32_t find_data_tlv(void *bytes, size_t len) {
 }
 
 /* Intercept and ACK a message */
-uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
-                            uint8_t usbfd) {
+uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd,
+                            int usbfd) {
   size_t temp_sz;
   uint8_t *output;
   uint8_t ret;
@@ -750,7 +750,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, uint8_t adspfd,
   return 0;
 }
 
-int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
+int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
   uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   int needs_rerouting = 0;
@@ -768,8 +768,8 @@ int check_wms_message(void *bytes, size_t len, uint8_t adspfd, uint8_t usbfd) {
   return needs_rerouting;
 }
 
-int check_wms_indication_message(void *bytes, size_t len, uint8_t adspfd,
-                                 uint8_t usbfd) {
+int check_wms_indication_message(void *bytes, size_t len, int adspfd,
+                                 int usbfd) {
   size_t temp_sz;
   uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   int needs_pass_through = 0;

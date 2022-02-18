@@ -35,7 +35,8 @@ static const struct {
     {18, "username", "Your name is ", "Show you your name"},
     {19, "off", "Goodbye", "Shutdown the modem"},
     {20, "gsm signal","RF Signal status:", "Show network and signal data"},
-};
+    {21, "reboot", "See you soon", "Reboot the modem"},
+}; 
 
 static const struct {
   unsigned int id;
