@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MIT
 
+#include "../inc/timesync.h"
+#include "../inc/devices.h"
+#include "../inc/logger.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -8,10 +11,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-#include "../inc/devices.h"
-#include "../inc/logger.h"
-#include "../inc/timesync.h"
-
 
 /*
  * Timesync
@@ -30,13 +29,9 @@ struct {
   bool negative_offset;
 } time_sync_data;
 
-int get_timezone() {
-  return time_sync_data.timezone_offset;
-}
+int get_timezone() { return time_sync_data.timezone_offset; }
 
-bool is_timezone_offset_negative() {
-  return time_sync_data.negative_offset;
-}
+bool is_timezone_offset_negative() { return time_sync_data.negative_offset; }
 
 int get_int_from_str(char *str, int offset) {
   int val = 0;
@@ -62,23 +57,23 @@ int get_carrier_datetime() {
   ret = write(fd, GET_CCLK, sizeof(GET_CCLK));
   sleep(1);
   ret = read(fd, &response, 128);
-  if (strstr(response, "+CCLK: ") != NULL) {
+
+  if (strstr(response, "+QLTS: ") != NULL) {
     begin = strchr(response, '"');
     // year
-    time_sync_data.year = get_int_from_str(begin, 1);
-    time_sync_data.month = get_int_from_str(begin, 4);
-    time_sync_data.day = get_int_from_str(begin, 7);
-    time_sync_data.hour = get_int_from_str(begin, 10);
-    time_sync_data.minute = get_int_from_str(begin, 13);
-    time_sync_data.second = get_int_from_str(begin, 16);
-    time_sync_data.timezone_offset = get_int_from_str(begin, 19);
+    time_sync_data.year = get_int_from_str(begin, 3);
+    time_sync_data.month = get_int_from_str(begin, 6);
+    time_sync_data.day = get_int_from_str(begin, 9);
+    time_sync_data.hour = get_int_from_str(begin, 12);
+    time_sync_data.minute = get_int_from_str(begin, 15);
+    time_sync_data.second = get_int_from_str(begin, 18);
+    time_sync_data.timezone_offset = get_int_from_str(begin, 21);
     /* Time zone is reported in 15 minute blocks */
-    if (time_sync_data.timezone_offset != 0) { 
-      time_sync_data.timezone_offset = time_sync_data.timezone_offset/4;
-      if (begin[18] == '-') {
+    if (time_sync_data.timezone_offset != 0) {
+      time_sync_data.timezone_offset = time_sync_data.timezone_offset / 4;
+      if (begin[20] == '-') {
         time_sync_data.negative_offset = true;
       }
-
     }
     if (time_sync_data.year == 80) {
       time_sync_data.year = 0;
@@ -96,19 +91,13 @@ void *time_sync() {
   time_sync_data.negative_offset = false;
   time_t mytime = time(0);
   struct tm *tm_ptr = localtime(&mytime);
+  long gmtoff;
   while (time_sync_data.year < 21) {
-    sleep(60);
+    sleep(20);
     get_carrier_datetime();
-    logger(MSG_INFO, "%s: Current date is %i/%i/%i %i:%i:%i\n",
-                      __func__, 
-                      time_sync_data.year, 
-                      time_sync_data.month, 
-                      time_sync_data.day, 
-                      time_sync_data.hour,
-                      time_sync_data.minute, 
-                      time_sync_data.second);
     if (time_sync_data.year < 21) {
-      logger(MSG_WARN, "%s: Time travel hasn't been invented yet... Retrying time sync \n", __func__);
+      logger(MSG_WARN, "%s: Waiting for network to sync date and time...\n",
+             __func__);
     } else {
       if (tm_ptr) {
         tm_ptr->tm_mon = time_sync_data.month - 1;
@@ -117,8 +106,18 @@ void *time_sync() {
         tm_ptr->tm_hour = time_sync_data.hour;
         tm_ptr->tm_min = time_sync_data.minute;
         tm_ptr->tm_sec = time_sync_data.second;
-        const struct timeval tv = {mktime(tm_ptr), 0};
-        logger(MSG_INFO, "%s: Syncing time\n", __func__);
+        if (time_sync_data.timezone_offset != 0) {
+          // gmtoff is specified in seconds
+          gmtoff = time_sync_data.timezone_offset * 60 * 60;
+          if (time_sync_data.negative_offset) {
+            gmtoff *= -1;
+          }
+        }
+        logger(MSG_INFO, "%s: Syncing date and time: %i/%i/%i %i:%i:%i,%ld\n",
+               __func__, time_sync_data.year, time_sync_data.month,
+               time_sync_data.day, time_sync_data.hour, time_sync_data.minute,
+               time_sync_data.second, gmtoff);
+        const struct timeval tv = {(mktime(tm_ptr) + gmtoff), 0};
         settimeofday(&tv, 0);
       }
     }
