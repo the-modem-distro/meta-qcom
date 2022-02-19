@@ -275,6 +275,8 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       action = PACKET_BYPASS; // We bypass response
     } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
+    } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_FORCED_PT; 
     }
 
     break;
