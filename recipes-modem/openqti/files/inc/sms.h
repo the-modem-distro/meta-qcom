@@ -285,5 +285,5 @@ void notify_wms_event(uint8_t *bytes,size_t len, int fd);
 int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd);
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd);
-
+int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);
 #endif
