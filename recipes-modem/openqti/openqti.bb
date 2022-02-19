@@ -15,6 +15,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/helpers.h \
            file://inc/qmi.h \
            file://inc/sms.h \
+           file://inc/cell_broadcast.h \
            file://inc/proxy.h \
            file://inc/command.h \
            file://inc/call.h \
