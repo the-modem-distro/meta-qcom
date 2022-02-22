@@ -47,6 +47,7 @@ static const struct {
     {100, "set name ", "Set Modem Name", "Set a new name for the modem"},
     {101, "set user name ", "Set User Name", "Set new username"},
     {102, "call me in ", "Calling you back in ", "Call me in X seconds"},
+    {103, "dbg", "Debug CB message", "Used for debugging cell broadcasting messages (will disappear from here)"}
 };
 static const struct {
   unsigned int id;
