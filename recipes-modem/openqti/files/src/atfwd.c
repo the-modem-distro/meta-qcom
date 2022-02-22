@@ -413,7 +413,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 138: // GETADSPVER
     j = read_adsp_version();
-    if (j > 0) {
+    if (j >= 0) {
       bytes_in_reply =
           sprintf(response->reply, "\r\n%s\r\n", known_adsp_fw[j].fwstring);
     } else {
