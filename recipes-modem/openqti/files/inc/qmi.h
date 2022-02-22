@@ -79,5 +79,21 @@ enum {
   PACKET_FORCED_PT,
 };
 
+struct empty_tlv {
+  uint8_t id;
+  uint16_t len;
+  uint8_t data[0];
+} __attribute__((packed));
+
+struct tlv_position {
+  uint8_t id;
+  uint32_t offset;
+  uint16_t size;
+};
+
+uint8_t get_qmux_service_id(void *bytes, size_t len);
+uint16_t get_message_id(void *bytes, size_t len);
+uint16_t get_transaction_id(void *bytes, size_t len);
+uint16_t get_tlv_offset_by_id(void *bytes, size_t len, uint8_t tlvid);
 
 #endif
