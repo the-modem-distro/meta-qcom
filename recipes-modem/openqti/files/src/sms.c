@@ -13,6 +13,7 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/proxy.h"
+#include "../inc/qmi.h"
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
 
@@ -51,7 +52,7 @@ struct message_queue {
   bool needs_intercept;
   int queue_pos;
   // max QUEUE_SIZE message to keep, we use the array as MSGID
-  struct message msg[QUEUE_SIZE]; 
+  struct message msg[QUEUE_SIZE];
 };
 
 struct {
@@ -465,7 +466,7 @@ void wipe_queue() {
  *  is where we need to operate
  */
 void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
-  int i;
+  int i, offset;
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
   sms_runtime.curr_transaction_id = pkt->qmi.transaction_id;
@@ -502,25 +503,21 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
     if (len >= sizeof(struct wms_request_message)) {
       logger(MSG_WARN, "%s: Size is OK\n", __func__);
       dump_pkt_raw(bytes, len);
-      struct wms_request_message *request;
-      request = (struct wms_request_message *)bytes;
-      if (request->message_tag.id == 0x01) {
-        logger(MSG_INFO,
-               "oFono gives us the message id tlv in a different order...\n ");
-        struct wms_request_message_ofono *req2 =
-            (struct wms_request_message_ofono *)bytes;
-        sms_runtime.current_message_id = req2->storage.message_id;
-        req2 = NULL;
-      } else {
-        sms_runtime.current_message_id = request->storage.message_id;
+      struct sms_storage_type *storage;
+      offset = get_tlv_offset_by_id(bytes, len,
+                                    0x01); // Find the offset for TLV 0x01
+      if (offset > 0) {
+        storage = (struct sms_storage_type *)bytes + offset;
+        logger(MSG_WARN, "%s: Message ID is %i\n", __func__,
+               storage->message_id);
+        sms_runtime.current_message_id = storage->message_id;
+        sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
+        handle_message_state(fd, sms_runtime.current_message_id);
+        clock_gettime(
+            CLOCK_MONOTONIC,
+            &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
       }
-      request = NULL;
-      sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
-      handle_message_state(fd, sms_runtime.current_message_id);
-      clock_gettime(
-          CLOCK_MONOTONIC,
-          &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
-      //    request = NULL;
+      storage = NULL;
     } else {
       logger(MSG_ERROR,
              "%s: WMS_READ_MESSAGE cannot proceed for Packet too small\n",
@@ -695,10 +692,6 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, int usbfd) {
   free(receive_ack);
   return ret;
 }
-uint32_t find_data_tlv(void *bytes, size_t len) {
-  uint32_t ret_position = 0;
-  return ret_position;
-}
 
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
@@ -814,9 +807,9 @@ uint8_t intercept_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
     if (pkt->header.id >= 0x11) {
       logger(MSG_INFO, "%s: TLV ID matches, trying to decode\n", __func__);
 
-      ret = gsm7_to_ascii(
-          pkt->message.pdu.contents, strlen((char *)pkt->message.pdu.contents),
-          (char *)output, pkt->message.len); // 2 ui16, 2 ui8
+      ret = gsm7_to_ascii(pkt->message.pdu.contents,
+                          strlen((char *)pkt->message.pdu.contents),
+                          (char *)output, pkt->message.len); // 2 ui16, 2 ui8
     }
 
     set_log_level(0);
@@ -833,7 +826,8 @@ uint8_t intercept_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
       strsz = 0;
       offset = 0;
       while (offset < strlen((char *)output)) {
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output + offset);
+        strsz =
+            snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output + offset);
         add_message_to_queue(reply, strsz);
         offset += strsz;
       }
