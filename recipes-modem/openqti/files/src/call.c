@@ -467,16 +467,16 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   case VO_SVC_CALL_END_REQ:
     logger(MSG_WARN, "%s: Request to terminate the call\n", __func__);
     if (get_call_simulation_mode()) {
-      logger(MSG_WARN, "%s: Why you hang up on me!!\n", __func__);
+      logger(MSG_DEBUG, "%s: Sending disconnect ACK\n", __func__);
       send_voice_cal_disconnect_ack(usbfd, pkt->qmi.transaction_id);
       usleep(100000);
-      logger(MSG_WARN, "%s: [DISCONNECTING]\n", __func__);
+      logger(MSG_DEBUG, "%s: [DISCONNECTING]\n", __func__);
       close_internal_call(usbfd, pkt->qmi.transaction_id);
       needs_rerouting = 1;
     }
     break;
   default:
-    logger(MSG_INFO, "%s: Unhandled packet: 0x%.4x\n", __func__, msgid);
+    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x\n", __func__, msgid);
     break;
   }
 
