@@ -10,6 +10,7 @@
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/qmi.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
 #include <errno.h>
@@ -207,6 +208,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   struct encapsulated_qmi_packet *packet;
   struct encapsulated_control_packet *ctl_packet;
 
+
   // By default everything should just go to its place
   int action = PACKET_PASS_TRHU;
   if (source == FROM_HOST) {
@@ -249,14 +251,16 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
 
   case 3:
-    logger(MSG_INFO, "%s: Network Access service\n", __func__);
+    logger(MSG_DEBUG, "%s: Network Access service\n", __func__);
     struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
     if (level->qmipkt.msgid == 0x0002 && level->signal.id == 0x10) {
-      logger(MSG_INFO, "%s: Signal report! T%.2x S%.2x\n", __func__, level->signal.network_type, level->signal.signal_level);
-      update_network_data(level->signal.network_type, level->signal.signal_level);
-    // 01:11:00:80:03:01:04:03:00:02:00:05:00:10:02:00:B7:08
-    if (get_call_simulation_mode()) {
-        logger(MSG_WARN, "%s: Skip signall level reporting while in call\n",
+      logger(MSG_DEBUG,
+             "%s: Signal report: Network type: 0x%.2x Signal (dBm): 0x%.2x\n",
+             __func__, level->signal.network_type, level->signal.signal_level);
+      update_network_data(level->signal.network_type,
+                          level->signal.signal_level);
+      if (get_call_simulation_mode()) {
+        logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
                __func__);
         action = PACKET_BYPASS;
       }
@@ -267,7 +271,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
   /* FIXME: Track message notifications too */
   case 5: // Message for the WMS service
-      action = PACKET_FORCED_PT;
+    action = PACKET_FORCED_PT;
     logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
     if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_BYPASS; // We bypass response
@@ -276,7 +280,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
     } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
-      action = PACKET_FORCED_PT; 
+      action = PACKET_FORCED_PT;
     }
 
     break;
