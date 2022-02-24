@@ -210,4 +210,6 @@ unsigned int pcm_get_buffer_size(const struct pcm *pcm);
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
 void *can_you_hear_me();
 
+int pico2aud(char *text);
+
 #endif

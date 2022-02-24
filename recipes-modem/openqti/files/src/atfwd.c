@@ -241,8 +241,10 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     }
     break;
   case 123: // Gracefully restart
+    if (system("reboot") != 0) {
+      response->result = 2;
+    }
     sckret = send_pkt(qmidev, response, pkt_size);
-    system("reboot");
     break;
   case 124: // Custom alert tone ON
     sckret = send_pkt(qmidev, response, pkt_size);

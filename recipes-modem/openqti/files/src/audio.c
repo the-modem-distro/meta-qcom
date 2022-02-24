@@ -10,6 +10,7 @@
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
+#include "../inc/command.h"
 
 struct mixer *mixer;
 struct pcm *pcm_tx;
@@ -235,6 +236,12 @@ void *can_you_hear_me() {
   FILE *file;
   struct pcm *pcm0;
   struct mixer *mymixer;
+  int i;
+  char phrase[512];
+    snprintf((char *)phrase, 512,
+           "Hello %s, my name is %s. It feels good to have a voice now", get_rt_user_name(), get_rt_modem_name());
+
+   pico2aud(phrase);  
   /*
    * Ensure we loop the file while alerting
    */
@@ -258,12 +265,12 @@ void *can_you_hear_me() {
     pcm0->channels = 1;
     pcm0->flags = PCM_OUT | PCM_MONO;
     pcm0->format = PCM_FORMAT_S16_LE;
-    pcm0->rate = 8000;
+    pcm0->rate = 16000;
     pcm0->period_size = 1024;
     pcm0->period_cnt = 1;
     pcm0->buffer_size = 32768;
 
-    file = fopen("/usr/share/tones/hearme.wav", "r");
+    file = fopen("/tmp/wave.wav", "r");
 
     if (file == NULL) {
       logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
@@ -295,6 +302,7 @@ void *can_you_hear_me() {
 
     do {
       num_read = fread(buffer, 1, size, file);
+
       if (num_read > 0) {
         if (pcm_write(pcm0, buffer, num_read)) {
           logger(MSG_ERROR, "Error playing sample\n");

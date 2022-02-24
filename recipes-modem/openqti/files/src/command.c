@@ -33,6 +33,14 @@ struct {
   char bot_name[32];
 } cmd_runtime;
 
+char *get_rt_modem_name() {
+  return cmd_runtime.bot_name;
+}
+
+char *get_rt_user_name() {
+  return cmd_runtime.user_name;
+}
+
 void add_to_history(uint8_t command_id) {
   if (cmd_runtime.cmd_position >= 1023) {
     cmd_runtime.cmd_position = 0;

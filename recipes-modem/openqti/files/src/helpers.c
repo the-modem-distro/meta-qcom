@@ -394,7 +394,9 @@ uint8_t get_dtr_state() {
   }
 
   lseek(dtr, 0, SEEK_SET);
-  read(dtr, &dtrval, 1);
+  if (read(dtr, &dtrval, 1) < 0) {
+        logger(MSG_WARN, "%s: Error reading DTR value \n", __func__);
+  }
   if ((int)(dtrval - '0') == 1) {
     ret = 1;
   } else {

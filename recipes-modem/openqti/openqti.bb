@@ -2,7 +2,9 @@ SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspac
 LICENSE = "MIT"
 MY_PN = "openqti"
 RPROVIDES_${PN} = "openqti"
-PR = "r7"
+DEPENDS+="libttspico"
+RDEPENDS:${PN} = "libttspico"
+PR = "r8"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "file://inc/openqti.h \
@@ -40,6 +42,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/call.c \
            file://src/cell.c \
            file://src/timesync.c \
+           file://src/pico2aud.c \
            file://init_openqti \
            file://external/ring8k.wav \
            file://external/hearme.wav"
@@ -47,7 +50,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread
+    ${CC} ${LDFLAGS} -O2 src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
 
 do_install() {

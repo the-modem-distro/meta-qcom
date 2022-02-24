@@ -66,6 +66,9 @@ static const struct {
     {10, "I hate you"},
 };
 
+char *get_rt_modem_name();
+char *get_rt_user_name();
+
 void set_cmd_runtime_defaults();
 uint8_t parse_command(uint8_t *command);
 
