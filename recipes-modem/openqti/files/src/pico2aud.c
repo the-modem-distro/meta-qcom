@@ -80,8 +80,12 @@ int pico2aud(char *phrase) {
 
     char *text = phrase;
     logger(MSG_WARN, "%s: Start\n",__func__);
-
-    logger(MSG_INFO, "%s: Text is %s-> %s\n", __func__, text, phrase);
+    for (int i = 0; i < strlen(phrase); i++) {
+        if (phrase[i] == '\n') {
+            phrase[i] == '.';
+        }
+    }
+    logger(MSG_INFO, "%s: Text to play: %s\n", __func__, text);
     buffer = malloc( bufferSize );
     
     int ret, getstatus;
@@ -92,7 +96,7 @@ int pico2aud(char *phrase) {
     pico_Retstring outMessage;
     
     picoSynthAbort = 0;
-    logger(MSG_INFO, "Starting PicoTTS Engine\n");
+    logger(MSG_INFO, "%s: Starting PicoTTS Engine\n", __func__);
     picoMemArea = malloc( PICO_MEM_SIZE );
     if((ret = pico_initialize( picoMemArea, PICO_MEM_SIZE, &picoSystem ))) {
         pico_getSystemStatusMessage(picoSystem, ret, outMessage);
@@ -100,6 +104,8 @@ int pico2aud(char *phrase) {
         goto terminate;
     }
     
+    logger(MSG_INFO, "%s: Text analysis Lingware resouce file\n", __func__);
+
     /* Load the text analysis Lingware resource file.   */
     picoTaFileName      = (pico_Char *) malloc( PICO_MAX_DATAPATH_NAME_SIZE + PICO_MAX_FILE_NAME_SIZE );
     strcpy((char *) picoTaFileName,   PICO_LINGWARE_PATH);
@@ -110,6 +116,7 @@ int pico2aud(char *phrase) {
         goto unloadTaResource;
     }
     
+    logger(MSG_INFO, "%s:Signal generation lingware resource file\n", __func__);
     /* Load the signal generation Lingware resource file.   */
     picoSgFileName      = (pico_Char *) malloc( PICO_MAX_DATAPATH_NAME_SIZE + PICO_MAX_FILE_NAME_SIZE );
     strcpy((char *) picoSgFileName,   PICO_LINGWARE_PATH);
@@ -120,6 +127,7 @@ int pico2aud(char *phrase) {
         goto unloadSgResource;
     }
     
+    logger(MSG_INFO, "%s: Text analysis resource file\n", __func__);
     /* Get the text analysis resource name.     */
     picoTaResourceName  = (pico_Char *) malloc( PICO_MAX_RESOURCE_NAME_SIZE );
     if((ret = pico_getResourceName( picoSystem, picoTaResource, (char *) picoTaResourceName ))) {
@@ -128,6 +136,7 @@ int pico2aud(char *phrase) {
         goto unloadUtppResource;
     }
 
+    logger(MSG_INFO, "%s:Signal generation resource file\n", __func__);
     /* Get the signal generation resource name. */
     picoSgResourceName  = (pico_Char *) malloc( PICO_MAX_RESOURCE_NAME_SIZE );
     if((ret = pico_getResourceName( picoSystem, picoSgResource, (char *) picoSgResourceName ))) {
@@ -136,7 +145,7 @@ int pico2aud(char *phrase) {
         goto unloadUtppResource;
     }
 
-
+    logger(MSG_INFO, "%s: Voice definition\n", __func__);
     /* Create a voice definition.   */
     if((ret = pico_createVoiceDefinition( picoSystem, (const pico_Char *) PICO_VOICE_NAME ))) {
         pico_getSystemStatusMessage(picoSystem, ret, outMessage);
@@ -144,6 +153,7 @@ int pico2aud(char *phrase) {
         goto unloadUtppResource;
     }
 
+    logger(MSG_INFO, "%s: Add Text analysis resource \n", __func__);
     /* Add the text analysis resource to the voice. */
     if((ret = pico_addResourceToVoiceDefinition( picoSystem, (const pico_Char *) PICO_VOICE_NAME, picoTaResourceName ))) {
         pico_getSystemStatusMessage(picoSystem, ret, outMessage);
@@ -151,6 +161,7 @@ int pico2aud(char *phrase) {
         goto unloadUtppResource;
     }
     
+    logger(MSG_INFO, "%s: Add Signal generation resource \n", __func__);
     /* Add the signal generation resource to the voice. */
     if((ret = pico_addResourceToVoiceDefinition( picoSystem, (const pico_Char *) PICO_VOICE_NAME, picoSgResourceName ))) {
         pico_getSystemStatusMessage(picoSystem, ret, outMessage);
@@ -158,6 +169,7 @@ int pico2aud(char *phrase) {
         goto unloadUtppResource;
     }
 
+    logger(MSG_INFO, "%s: Create engine \n", __func__);
     /* Create a new Pico engine. */
     if((ret = pico_newEngine( picoSystem, (const pico_Char *) PICO_VOICE_NAME, &picoEngine ))) {
         pico_getSystemStatusMessage(picoSystem, ret, outMessage);

@@ -270,7 +270,7 @@ uint8_t get_call_pending();
 void set_call_simulation_mode(bool en);
 uint8_t get_call_simulation_mode();
 void start_simulated_call(int usbfd);
-
+void *can_you_hear_me();
 void send_call_request_response(int usbfd, uint16_t transaction_id);
 uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
                                      uint8_t call_direction,
@@ -279,4 +279,5 @@ void send_dummy_call_established(int usbfd, uint16_t transaction_id);
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
                              uint16_t msgid, int adspfd, int usbfd);
 
+void add_voice_message_to_queue(uint8_t *message, size_t len);
 #endif

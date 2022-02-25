@@ -16,6 +16,7 @@
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
+#include "../inc/call.h"
 
 /*
  * NOTE:
@@ -493,8 +494,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_READ_MESSAGE:
-
-    /*
+  /*
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
@@ -503,28 +503,33 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
     if (len >= sizeof(struct wms_request_message)) {
       logger(MSG_WARN, "%s: Size is OK\n", __func__);
       dump_pkt_raw(bytes, len);
-      struct sms_storage_type *storage;
-      offset = get_tlv_offset_by_id(bytes, len,
-                                    0x01); // Find the offset for TLV 0x01
-      if (offset > 0) {
-        storage = (struct sms_storage_type *)bytes + offset;
-        logger(MSG_WARN, "%s: Message ID is %i\n", __func__,
-               storage->message_id);
-        sms_runtime.current_message_id = storage->message_id;
-        sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
-        handle_message_state(fd, sms_runtime.current_message_id);
-        clock_gettime(
-            CLOCK_MONOTONIC,
-            &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
+      struct wms_request_message *request;
+      request = (struct wms_request_message *)bytes;
+      if (request->message_tag.id == 0x01) {
+        logger(MSG_INFO,
+               "oFono gives us the message id tlv in a different order...\n ");
+        struct wms_request_message_ofono *req2 =
+            (struct wms_request_message_ofono *)bytes;
+        sms_runtime.current_message_id = req2->storage.message_id;
+        req2 = NULL;
+      } else {
+        sms_runtime.current_message_id = request->storage.message_id;
       }
-      storage = NULL;
+      request = NULL;
+      sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
+      handle_message_state(fd, sms_runtime.current_message_id);
+      clock_gettime(
+          CLOCK_MONOTONIC,
+          &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
+      //    request = NULL;
     } else {
       logger(MSG_ERROR,
-             "%s: WMS_READ_MESSAGE cannot proceed for Packet too small\n",
+             "%s: WMS_READ_MESSAGE cannot proceed: Packet too small\n",
              __func__);
 
       dump_pkt_raw(bytes, len);
     }
+    
     break;
   case WMS_DELETE:
     logger(MSG_WARN, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
@@ -642,6 +647,7 @@ void add_message_to_queue(uint8_t *message, size_t len) {
            len);
     sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
         sms_runtime.queue.queue_pos;
+    add_voice_message_to_queue(message, len);
   } else {
     logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
   }

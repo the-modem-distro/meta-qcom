@@ -3,6 +3,7 @@
 #include "../inc/call.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
+#include "../inc/command.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -43,12 +44,20 @@
  *      request while allowing the rest of the traffic to flow
  */
 
+#define MAX_TTS_TEXT_SIZE 160 // For now just like SMS
+struct message {
+  char message[MAX_TTS_TEXT_SIZE]; // JUST TEXT
+  int len;                         // TEXT SIZE
+  uint8_t state;                   // message sending status 0 empty, 1 pending
+};
+
 struct {
   uint8_t is_call_pending;
   uint8_t call_simulation_mode; // is in progress?
   uint8_t sim_call_direction;
   uint8_t simulated_call_state; // ATTEMPT, RINGING, ESTABLISHED...
   uint16_t transaction_id;
+  struct message msg[QUEUE_SIZE];
 } call_rt;
 
 void set_call_simulation_mode(bool en) {
@@ -251,14 +260,15 @@ void close_internal_call(int usbfd, uint16_t transaction_id) {
 
 int tmpfd;
 void *wait_for_call_expire(void *fd) {
-  int usbfd = *(int *) fd;
+  int usbfd = *(int *)fd;
   logger(MSG_WARN, "%s: Sleeping for 60 seconds\n", __func__);
   sleep(60);
   if (call_rt.simulated_call_state != AUDIO_CALL_ESTABLISHED) {
     logger(MSG_WARN, "%s: Killing internal call\n", __func__);
-    close_internal_call(tmpfd, call_rt.transaction_id+1);
+    close_internal_call(tmpfd, call_rt.transaction_id + 1);
   } else {
-    logger(MSG_WARN, "%s: Not killing internal call, state is %i\n", __func__, call_rt.simulated_call_state);
+    logger(MSG_WARN, "%s: Not killing internal call, state is %i\n", __func__,
+           call_rt.simulated_call_state);
   }
   return NULL;
 }
@@ -276,10 +286,10 @@ void start_simulated_call(int usbfd) {
   logger(MSG_WARN, " Call update notification: RINGING to %x\n", usbfd);
   send_voice_call_status_event(usbfd, call_rt.transaction_id,
                                AUDIO_DIRECTION_INCOMING, AUDIO_CALL_RINGING);
-   if ((ret =
-           pthread_create(&kill_timeout_thread, NULL, &wait_for_call_expire, &usbfd))) {
-    logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);  
-    }                            
+  if ((ret = pthread_create(&kill_timeout_thread, NULL, &wait_for_call_expire,
+                            &usbfd))) {
+    logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
+  }
 }
 
 uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
@@ -314,13 +324,147 @@ uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
   pkt->call_id.len = 0x01;
   pkt->call_id.data = 0x01;
 
-
   bytes_written = write(usbfd, pkt, pkt_size);
   logger(MSG_DEBUG, "%s: Sent %i bytes \n", __func__, bytes_written);
   dump_pkt_raw((void *)pkt, sizeof(struct end_call_response));
   free(pkt);
   pkt = NULL;
   return 0;
+}
+
+void add_voice_message_to_queue(uint8_t *message, size_t len) {
+  int i;
+  if (get_call_simulation_mode()) {
+    for (i = 0; i < QUEUE_SIZE; i++) {
+      if (call_rt.msg[i].state == 0) {
+        memcpy(call_rt.msg[i].message, message, len);
+        call_rt.msg[i].state = 1;
+        break;
+      }
+    }
+  }
+}
+
+void *can_you_hear_me() {
+  char *buffer;
+  int size;
+  int num_read;
+  FILE *file;
+  struct pcm *pcm0;
+  struct mixer *mymixer;
+  int i, msg_position;
+  bool handled;
+  char phrase[512];
+  snprintf((char *)phrase, 512,
+           "Hello %s, my name is %s. Please send me a message an I will answer "
+           "with voice",
+           get_rt_user_name(), get_rt_modem_name());
+  pico2aud(phrase);
+  /*
+   * Open PCM if we're in call simulation mode,
+   * Then leave it open until we're finished
+   */
+
+  if (get_call_simulation_mode()) {
+    logger(MSG_INFO, "%s: Can you hear me?\n", __func__);
+    mymixer = mixer_open(SND_CTL);
+    if (!mymixer) {
+      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
+      return NULL;
+    }
+    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 1);
+    mixer_close(mymixer);
+
+    pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
+    if (pcm0 == NULL) {
+      logger(MSG_INFO, "%s: Error opening %s, custom alert tone won't play\n",
+             __func__, PCM_DEV_HIFI);
+      return NULL;
+    }
+
+    pcm0->channels = 1;
+    pcm0->flags = PCM_OUT | PCM_MONO;
+    pcm0->format = PCM_FORMAT_S16_LE;
+    pcm0->rate = 16000;
+    pcm0->period_size = 1024;
+    pcm0->period_cnt = 1;
+    pcm0->buffer_size = 32768;
+      if (set_params(pcm0, PCM_OUT)) {
+      logger(MSG_ERROR, "Error setting TX Params\n");
+      pcm_close(pcm0);
+      return NULL;
+    }
+
+    if (!pcm0) {
+      logger(MSG_ERROR, "%s: Unable to open PCM device\n", __func__);
+      return NULL;
+    }
+
+  }
+  msg_position = 0;
+  while (get_call_simulation_mode()) {
+    handled = false;
+    for (i = 0; i < QUEUE_SIZE; i++) {
+      if (call_rt.msg[i].state == 1) {
+        snprintf((char *)phrase, 512, "%s", call_rt.msg[i].message);
+        pico2aud(phrase);
+        call_rt.msg[i].state = 0;
+        handled = true;
+        i = QUEUE_SIZE;
+      }
+    }
+    if (!handled) {
+      snprintf((char *)phrase, 512,
+               "Hello %s. Send me a message an I will answer with voice",
+               get_rt_user_name());
+      pico2aud(phrase);
+    }
+
+    file = fopen("/tmp/wave.wav", "r");
+    if (file == NULL) {
+      logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
+      pcm_close(pcm0);
+      return NULL;
+    }
+
+    fseek(file, 44, SEEK_SET);
+
+  
+    size = pcm_frames_to_bytes(pcm0, pcm_get_buffer_size(pcm0));
+    buffer = malloc(size * 1024);
+
+    if (!buffer) {
+      logger(MSG_ERROR, "Unable to allocate %d bytes\n", size);
+      free(buffer);
+      return NULL;
+    }
+
+    do {
+      num_read = fread(buffer, 1, size, file);
+
+      if (num_read > 0) {
+        if (pcm_write(pcm0, buffer, num_read)) {
+          logger(MSG_ERROR, "Error playing sample\n");
+          break;
+        }
+      }
+    } while (num_read > 0 && get_call_simulation_mode());
+    fclose(file);
+  }
+  free(buffer);
+  pcm_close(pcm0);
+  mymixer = mixer_open(SND_CTL);
+  if (!mymixer) {
+    logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
+    return NULL;
+  }
+  set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
+  mixer_close(mymixer);
+
+    for (i = 0; i < QUEUE_SIZE; i++) {
+        call_rt.msg[i].state = 0;
+    }
+  return NULL;
 }
 
 void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {

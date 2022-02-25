@@ -10,7 +10,6 @@
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
-#include "../inc/command.h"
 
 struct mixer *mixer;
 struct pcm *pcm_tx;
@@ -229,102 +228,6 @@ void *play_alerting_tone() {
   return NULL;
 }
 
-void *can_you_hear_me() {
-  char *buffer;
-  int size;
-  int num_read;
-  FILE *file;
-  struct pcm *pcm0;
-  struct mixer *mymixer;
-  int i;
-  char phrase[512];
-    snprintf((char *)phrase, 512,
-           "Hello %s, my name is %s. It feels good to have a voice now", get_rt_user_name(), get_rt_modem_name());
-
-   pico2aud(phrase);  
-  /*
-   * Ensure we loop the file while alerting
-   */
-  while (get_call_simulation_mode()) {
-    logger(MSG_INFO, "%s: Can you hear me?\n", __func__);
-    mymixer = mixer_open(SND_CTL);
-    if (!mymixer) {
-      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
-      return NULL;
-    }
-    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 1);
-    mixer_close(mymixer);
-
-    pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
-    if (pcm0 == NULL) {
-      logger(MSG_INFO, "%s: Error opening %s, custom alert tone won't play\n",
-             __func__, PCM_DEV_HIFI);
-      return NULL;
-    }
-
-    pcm0->channels = 1;
-    pcm0->flags = PCM_OUT | PCM_MONO;
-    pcm0->format = PCM_FORMAT_S16_LE;
-    pcm0->rate = 16000;
-    pcm0->period_size = 1024;
-    pcm0->period_cnt = 1;
-    pcm0->buffer_size = 32768;
-
-    file = fopen("/tmp/wave.wav", "r");
-
-    if (file == NULL) {
-      logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
-      pcm_close(pcm0);
-      return NULL;
-    }
-
-    fseek(file, 44, SEEK_SET);
-
-    if (set_params(pcm0, PCM_OUT)) {
-      logger(MSG_ERROR, "Error setting TX Params\n");
-      pcm_close(pcm0);
-      return NULL;
-    }
-
-    if (!pcm0) {
-      logger(MSG_ERROR, "%s: Unable to open PCM device\n", __func__);
-      return NULL;
-    }
-
-    size = pcm_frames_to_bytes(pcm0, pcm_get_buffer_size(pcm0));
-    buffer = malloc(size * 1024);
-
-    if (!buffer) {
-      logger(MSG_ERROR, "Unable to allocate %d bytes\n", size);
-      free(buffer);
-      return NULL;
-    }
-
-    do {
-      num_read = fread(buffer, 1, size, file);
-
-      if (num_read > 0) {
-        if (pcm_write(pcm0, buffer, num_read)) {
-          logger(MSG_ERROR, "Error playing sample\n");
-          break;
-        }
-      }
-    } while (num_read > 0 && get_call_simulation_mode());
-    fclose(file);
-    free(buffer);
-    pcm_close(pcm0);
-
-    mymixer = mixer_open(SND_CTL);
-    if (!mymixer) {
-      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
-      return NULL;
-    }
-    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
-    mixer_close(mymixer);
-  }
-
-  return NULL;
-}
 
 void set_output_device(int device) {
   logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
