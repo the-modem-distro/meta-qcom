@@ -7,9 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/reboot.h>
+#include <linux/reboot.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <syscall.h>
 
 #include "../inc/adspfw.h"
 #include "../inc/atfwd.h"
@@ -183,7 +185,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   case 111: // QCPowerdown
     sckret = send_pkt(qmidev, response, pkt_size);
     usleep(500);
-    reboot(0x4321fedc);
+    syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART, NULL);
     break;
   case 109:
     sckret = send_pkt(qmidev, response, pkt_size);
@@ -204,8 +206,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 115: // Reboot to recovery
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_next_fastboot_mode(1);
-    reboot(0x01234567);
+    syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, "recovery");
     break;
   case 116: // Is custom? alwas answer yes
     sckret = send_pkt(qmidev, response, pkt_size);
@@ -269,10 +270,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 127: // Fastboot
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_next_fastboot_mode(0);
     usleep(
         300); // Give it some time to be able to reach the ADSP before rebooting
-    reboot(0x01234567);
+    syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, "bootloader");
     break;
   case 128: // GETFWBRANCH
     bytes_in_reply = sprintf(response->reply, "\r\ncommunity\r\n");
