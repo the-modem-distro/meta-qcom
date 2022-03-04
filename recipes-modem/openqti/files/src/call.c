@@ -409,8 +409,10 @@ void *can_you_hear_me() {
         snprintf((char *)phrase, 512, "%s", call_rt.msg[i].message);
         pico2aud(phrase);
         call_rt.msg[i].state = 0;
+        memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
         handled = true;
         i = QUEUE_SIZE;
+        
       }
     }
     if (!handled) {
