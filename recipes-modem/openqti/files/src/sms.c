@@ -637,7 +637,9 @@ void add_message_to_queue(uint8_t *message, size_t len) {
     logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
     return;
   }
-  if (len > 0) {
+  if (get_call_simulation_mode() && len > 0) {
+    add_voice_message_to_queue(message, len);
+  } else if (len > 0) {
     set_notif_pending(true);
     set_pending_notification_source(MSG_INTERNAL);
     logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
@@ -647,7 +649,6 @@ void add_message_to_queue(uint8_t *message, size_t len) {
            len);
     sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
         sms_runtime.queue.queue_pos;
-    add_voice_message_to_queue(message, len);
   } else {
     logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
   }
