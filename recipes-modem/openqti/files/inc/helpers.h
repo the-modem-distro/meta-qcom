@@ -11,9 +11,10 @@
 #define PERSIST_USB_AUD_MAGIC "persistent_usbaudio_on"
 #define PERSIST_CUSTOM_ALERT_TONE "cust_alert_tone"
 
+#define INPUT_DEV "/dev/input/event0"
+
 int write_to(const char *path, const char *val, int flags);
 uint32_t get_curr_timestamp();
-void set_next_fastboot_mode(int flag);
 void store_adb_setting(bool en);
 void switch_adb(bool en);
 int is_adb_enabled();
@@ -33,4 +34,7 @@ int get_modem_name(char *buff);
 int get_user_name(char *buff);
 void set_modem_name(char *name);
 void set_user_name(char *name);
+
+void *power_key_event();
+
 #endif

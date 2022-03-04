@@ -17,6 +17,9 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <linux/input.h>
+#include <syscall.h>
+#include <linux/reboot.h>
 
 int write_to(const char *path, const char *val, int flags) {
   int ret;
@@ -79,33 +82,6 @@ void store_adb_setting(bool en) {
   lseek(fd, 64, SEEK_SET);
   if (write(fd, &buff, sizeof(buff)) < 0) {
     logger(MSG_ERROR, "%s: Error writing the ADB flag \n", __func__);
-  }
-  close(fd);
-}
-
-void set_next_fastboot_mode(int flag) {
-  struct fastboot_command fbcmd;
-  void *tmpbuff;
-  tmpbuff = calloc(64, sizeof(char));
-  int fd;
-  if (flag == 0) { // Reboot to fastboot mode
-    strncpy(fbcmd.command, "boot_fastboot", sizeof(fbcmd.command));
-    strncpy(fbcmd.status, "force", sizeof(fbcmd.status));
-  } else if (flag == 1) { // reboot to recovery
-    strncpy(fbcmd.command, "boot_recovery", sizeof(fbcmd.command));
-    strncpy(fbcmd.status, "force", sizeof(fbcmd.status));
-  }
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR,
-           "%s: Error opening misc partition to set reboot flag %i \n",
-           __func__, flag);
-    return;
-  }
-  lseek(fd, 131072, SEEK_SET);
-  tmpbuff = &fbcmd;
-  if (write(fd, (void *)tmpbuff, sizeof(fbcmd)) < 0) {
-    logger(MSG_ERROR, "%s: Error writing the reboot flag \n", __func__);
   }
   close(fd);
 }
@@ -441,4 +417,54 @@ uint8_t pulse_ring_in() {
     logger(MSG_ERROR, "%s: Error unexporting GPIO_RING_IN pin\n", __func__);
   }
   return 0;
+}
+
+int elapsed_time(struct timeval *prev, struct timeval *cur) {
+  if (cur->tv_usec > prev->tv_usec) {
+    cur->tv_usec += 1000000;
+    cur->tv_sec--;
+  }
+  return (int)(cur->tv_sec - prev->tv_sec) * 1000000 + cur->tv_usec -
+         prev->tv_usec;
+}
+
+void *power_key_event() {
+  int fd = 0;
+  struct input_event ev;
+  struct timeval prev;
+  struct timeval cur;
+  int ret = 0;
+  int duration = 0;
+  char *arg1 = NULL;
+  memset(&prev, 0, sizeof(struct timeval));
+  memset(&cur, 0, sizeof(struct timeval));
+
+  fd = open(INPUT_DEV, O_RDONLY);
+  if (fd == -1) {
+    logger(MSG_ERROR, "%s: Error opening %s\n", __func__, INPUT_DEV);
+    return NULL;
+  }
+
+  while ((ret = read(fd, &ev, sizeof(struct input_event))) > 0) {
+    if (ret < sizeof(struct input_event)) {
+      logger(MSG_ERROR, "%s: cannot read whole input event\n", __func__);
+    } else {
+
+    if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
+      memcpy(&prev, &ev.time, sizeof(struct timeval));
+    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
+      memcpy(&cur, &ev.time, sizeof(struct timeval));
+      if (elapsed_time(&prev, &cur) > 1000000) {
+        logger(MSG_ERROR, "%s: Suspend/Resume\n", __func__);
+        system("echo mem > /sys/power/state");
+      } else {
+        logger(MSG_ERROR, "%s: Poweroff requested!\n", __func__);
+        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART, NULL);
+
+      }
+    }
+  }
+  }
+
+ return NULL;
 }
