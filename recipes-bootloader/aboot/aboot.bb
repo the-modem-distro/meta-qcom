@@ -8,7 +8,7 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/\
 ${LICENSE};md5=0835ade698e0bcf8506ecda2f7b4f302"
 # We tell yocto what does this provide
-PROVIDES+= "virtual/bootloader"
+PROVIDES = "virtual/bootloader"
 
 # Set the project name
 ABOOT_PROJECT = "mdm9607"
