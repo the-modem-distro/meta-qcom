@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "../inc/atfwd.h"
+#include "../inc/call.h"
 #include "../inc/cell_broadcast.h"
 #include "../inc/command.h"
 #include "../inc/helpers.h"
@@ -16,7 +17,6 @@
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
-#include "../inc/call.h"
 
 /*
  * NOTE:
@@ -474,34 +474,34 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
   logger(MSG_INFO, "%s: Messages in queue: %i\n", __func__,
          sms_runtime.queue.queue_pos + 1);
   if (sms_runtime.queue.queue_pos < 0) {
-    logger(MSG_INFO, "%s: Nothing to do \n", __func__);
+    logger(MSG_DEBUG, "%s: Nothing to do \n", __func__);
     return;
   }
 
   switch (pkt->qmi.msgid) {
   case WMS_EVENT_REPORT:
     logger(
-        MSG_WARN,
+        MSG_DEBUG,
         "%s: WMS_EVENT_REPORT for message %i. ID %.4x (SHOULDNT BE CALLED)\n",
         __func__, sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_RAW_SEND:
-    logger(MSG_WARN, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_RAW_WRITE:
-    logger(MSG_WARN, "%s: WMS_RAW_WRITE for message %i. ID %.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: WMS_RAW_WRITE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_READ_MESSAGE:
-  /*
+    /*
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
-    logger(MSG_WARN, "%s: WMS_READ_MESSAGE for message %i. ID %.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: WMS_READ_MESSAGE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (len >= sizeof(struct wms_request_message)) {
-      logger(MSG_WARN, "%s: Size is OK\n", __func__);
+      logger(MSG_DEBUG, "%s: Size is OK\n", __func__);
       dump_pkt_raw(bytes, len);
       struct wms_request_message *request;
       request = (struct wms_request_message *)bytes;
@@ -523,16 +523,16 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
           &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
       //    request = NULL;
     } else {
-      logger(MSG_ERROR,
+      logger(MSG_DEBUG,
              "%s: WMS_READ_MESSAGE cannot proceed: Packet too small\n",
              __func__);
 
       dump_pkt_raw(bytes, len);
     }
-    
+
     break;
   case WMS_DELETE:
-    logger(MSG_WARN, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (sms_runtime.queue.msg[sms_runtime.current_message_id].state != 3) {
       logger(MSG_WARN,
@@ -549,7 +549,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
         &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
     break;
   default:
-    logger(MSG_WARN, "%s: Unknown event received: %.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: Unknown event received: %.4x\n", __func__,
            pkt->qmi.msgid);
 
     break;
