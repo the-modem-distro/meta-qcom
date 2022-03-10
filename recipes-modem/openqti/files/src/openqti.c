@@ -21,8 +21,9 @@
 #include "../inc/openqti.h"
 #include "../inc/proxy.h"
 #include "../inc/sms.h"
-#include "../inc/tracking.h"
 #include "../inc/timesync.h"
+#include "../inc/tracking.h"
+#include "../inc/scheduler.h"
 
 /*
  * OpenQTI
@@ -40,7 +41,8 @@ int main(int argc, char **argv) {
   pthread_t rmnet_proxy_thread;
   pthread_t atfwd_thread;
   pthread_t time_sync_thread;
-  pthread_t pwrkey_thread;;
+  pthread_t pwrkey_thread;
+  pthread_t scheduler_thread;
 
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
@@ -224,11 +226,18 @@ int main(int argc, char **argv) {
   if ((ret = pthread_create(&time_sync_thread, NULL, &time_sync, NULL))) {
     logger(MSG_ERROR, "%s: Error creating time sync thread\n", __func__);
   }
+
   logger(MSG_INFO, "%s: Init: Create Power key monitoring thread \n", __func__);
   if ((ret = pthread_create(&pwrkey_thread, NULL, &power_key_event, NULL))) {
-    logger(MSG_ERROR, "%s: Error creating power key monitoring thread\n", __func__);
+    logger(MSG_ERROR, "%s: Error creating power key monitoring thread\n",
+           __func__);
   }
-
+  
+  logger(MSG_INFO, "%s: Init: Create Scheduler thread \n", __func__);
+  if ((ret = pthread_create(&scheduler_thread, NULL, &start_scheduler_thread, NULL))) {
+    logger(MSG_ERROR, "%s: Error creating scheduler thread\n",
+           __func__);
+  }
 
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {

@@ -23,6 +23,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/call.h \
            file://inc/cell.h \
            file://inc/timesync.h \
+           file://inc/scheduler.h \
            file://src/qmi.c \
            file://src/tracking.c \
            file://src/helpers.c \
@@ -43,6 +44,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/cell.c \
            file://src/timesync.c \
            file://src/pico2aud.c \
+           file://src/scheduler.c \
            file://init_openqti \
            file://external/ring8k.wav \
            file://external/hearme.wav"
@@ -50,7 +52,7 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
+    ${CC} ${LDFLAGS} -O2 src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
 
 do_install() {
