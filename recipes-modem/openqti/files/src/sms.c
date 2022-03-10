@@ -279,12 +279,12 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->data.smsc.phone_number_size =
       0x07; // hardcoded as we use a dummy one
   this_sms->data.smsc.is_international_number = 0x91; // yes
-  this_sms->data.smsc.number[0] = 0x51;
+  this_sms->data.smsc.number[0] = 0x10;// 0x51;
   this_sms->data.smsc.number[1] = 0x55;
-  this_sms->data.smsc.number[2] = 0x10;
-  this_sms->data.smsc.number[3] = 0x99;
+  this_sms->data.smsc.number[2] = 0x05;
+  this_sms->data.smsc.number[3] = 0x91;
   this_sms->data.smsc.number[4] = 0x99;
-  this_sms->data.smsc.number[5] = 0xf9;
+  this_sms->data.smsc.number[5] = 0x99;
 
   this_sms->data.unknown = 0x04; // This is still unknown
 
@@ -293,14 +293,15 @@ int build_and_send_message(int fd, uint32_t message_id) {
    * otherwise we would be sending it off to the baseband!
    * 4 bits for each number, backwards  */
   /* PHONE NUMBER */
-  this_sms->data.phone.phone_number_size = 0x0b;       // hardcoded
+  this_sms->data.phone.phone_number_size = 0x0c;       // hardcoded
   this_sms->data.phone.is_international_number = 0x91; // yes
-  this_sms->data.phone.number[0] = 0x51;
+
+  this_sms->data.phone.number[0] = 0x10;// 0x51;
   this_sms->data.phone.number[1] = 0x55;
-  this_sms->data.phone.number[2] = 0x10;
-  this_sms->data.phone.number[3] = 0x99;
+  this_sms->data.phone.number[2] = 0x05;
+  this_sms->data.phone.number[3] = 0x91;
   this_sms->data.phone.number[4] = 0x99;
-  this_sms->data.phone.number[5] = 0xf9;
+  this_sms->data.phone.number[5] = 0x99;
   /* Unsure of these */
 
   this_sms->data.tp_pid = 0x00;
@@ -752,7 +753,8 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
 
 int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+//  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+  uint8_t our_phone[] = {0x91, 0x10, 0x55, 0x05, 0x91, 0x99, 0x99};
   int needs_rerouting = 0;
   struct outgoing_sms_packet *pkt;
   if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
