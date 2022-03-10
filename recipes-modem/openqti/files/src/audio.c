@@ -228,7 +228,6 @@ void *play_alerting_tone() {
   return NULL;
 }
 
-
 void set_output_device(int device) {
   logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
   audio_runtime_state.output_device = device;

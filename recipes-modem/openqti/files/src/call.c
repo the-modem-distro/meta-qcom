@@ -74,6 +74,11 @@ void reset_call_state() {
   call_rt.is_call_pending = false;
   call_rt.call_simulation_mode = 0;
   call_rt.sim_call_direction = 0; // NONE
+  for (int i = 0; i < QUEUE_SIZE; i++) {
+    call_rt.msg[i].state = 0;
+    call_rt.msg[i].len = 0;
+    memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
+  }
 }
 
 void set_pending_call_flag(bool en) {
@@ -334,15 +339,17 @@ uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
 
 void add_voice_message_to_queue(uint8_t *message, size_t len) {
   int i;
-  if (get_call_simulation_mode()) {
+  if (get_call_simulation_mode() && len > 0) {
     for (i = 0; i < QUEUE_SIZE; i++) {
-      if (call_rt.msg[i].state == 0) {
+      if (call_rt.msg[i].state == 0 ) {
+        memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
         memcpy(call_rt.msg[i].message, message, len);
+        call_rt.msg[i].len = len;
         call_rt.msg[i].state = 1;
-        break;
+        return;
       }
     }
-  }
+  } 
 }
 
 void *can_you_hear_me() {
@@ -352,14 +359,9 @@ void *can_you_hear_me() {
   FILE *file;
   struct pcm *pcm0;
   struct mixer *mymixer;
-  int i, msg_position;
+  int i;
   bool handled;
-  char phrase[512];
-  snprintf((char *)phrase, 512,
-           "Hello %s, my name is %s. Please send me a message an I will answer "
-           "with voice",
-           get_rt_user_name(), get_rt_modem_name());
-  pico2aud(phrase);
+  char *phrase;//[MAX_TTS_TEXT_SIZE];
   /*
    * Open PCM if we're in call simulation mode,
    * Then leave it open until we're finished
@@ -389,7 +391,7 @@ void *can_you_hear_me() {
     pcm0->period_size = 1024;
     pcm0->period_cnt = 1;
     pcm0->buffer_size = 32768;
-      if (set_params(pcm0, PCM_OUT)) {
+    if (set_params(pcm0, PCM_OUT)) {
       logger(MSG_ERROR, "Error setting TX Params\n");
       pcm_close(pcm0);
       return NULL;
@@ -399,29 +401,26 @@ void *can_you_hear_me() {
       logger(MSG_ERROR, "%s: Unable to open PCM device\n", __func__);
       return NULL;
     }
-
   }
-  msg_position = 0;
+
   while (get_call_simulation_mode()) {
     handled = false;
+    phrase = malloc(MAX_TTS_TEXT_SIZE * sizeof(char));
     for (i = 0; i < QUEUE_SIZE; i++) {
-      if (call_rt.msg[i].state == 1) {
-        snprintf((char *)phrase, 512, "%s", call_rt.msg[i].message);
-        pico2aud(phrase);
+      if (call_rt.msg[i].state == 1 && call_rt.msg[i].len > 0) {
+        snprintf(phrase, MAX_TTS_TEXT_SIZE, "%s",call_rt.msg[i].message );
         call_rt.msg[i].state = 0;
-        memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
         handled = true;
-        i = QUEUE_SIZE;
-        
+        break;
       }
     }
     if (!handled) {
-      snprintf((char *)phrase, 512,
-               "Hello %s. Send me a message an I will answer with voice",
-               get_rt_user_name());
-      pico2aud(phrase);
+      logger(MSG_INFO, "%s: Queue is empty\n", __func__);
+      snprintf(phrase, MAX_TTS_TEXT_SIZE, "Hello %s. Send me a message an I will answer with voice", get_rt_user_name());
     }
-
+    pico2aud(phrase, strlen(phrase));
+    free(phrase);
+    phrase = NULL;
     file = fopen("/tmp/wave.wav", "r");
     if (file == NULL) {
       logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
@@ -430,14 +429,13 @@ void *can_you_hear_me() {
     }
 
     fseek(file, 44, SEEK_SET);
-
-  
     size = pcm_frames_to_bytes(pcm0, pcm_get_buffer_size(pcm0));
     buffer = malloc(size * 1024);
 
     if (!buffer) {
       logger(MSG_ERROR, "Unable to allocate %d bytes\n", size);
       free(buffer);
+      buffer = NULL;
       return NULL;
     }
 
@@ -453,7 +451,11 @@ void *can_you_hear_me() {
     } while (num_read > 0 && get_call_simulation_mode());
     fclose(file);
   }
+
+  logger(MSG_INFO, "%s: Cleaning up\n", __func__);
+
   free(buffer);
+  buffer = NULL;
   pcm_close(pcm0);
   mymixer = mixer_open(SND_CTL);
   if (!mymixer) {
@@ -463,9 +465,9 @@ void *can_you_hear_me() {
   set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
   mixer_close(mymixer);
 
-    for (i = 0; i < QUEUE_SIZE; i++) {
-        call_rt.msg[i].state = 0;
-    }
+  for (i = 0; i < QUEUE_SIZE; i++) {
+    call_rt.msg[i].state = 0;
+  }
   return NULL;
 }
 
@@ -520,6 +522,8 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   // 015550199999 in ASCII
   uint8_t our_phone[] = {0x30, 0x31, 0x35, 0x35, 0x35, 0x30,
                          0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
+  uint8_t alt_phone[] = {0x31, 0x35, 0x35, 0x35, 0x30,
+                         0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
   memset(phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
   switch (msgid) {
@@ -535,7 +539,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         j++;
       }
     }
-    if (j > 0 && memcmp(phone_number, our_phone, 12) == 0) {
+    if (j > 0 && (memcmp(phone_number, our_phone, 12) == 0 || memcmp(phone_number, alt_phone, 11) == 0)) {
       logger(MSG_INFO, "%s: This call is for me: %s\n", __func__, phone_number);
       if (!get_call_simulation_mode()) {
         logger(MSG_INFO, "%s: We're accepting this call\n", __func__);
@@ -582,7 +586,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     /* Caller ID is set */
     if (j > 0) {
       logger(MSG_INFO, "%s: Call status for %s\n", __func__, phone_number);
-      if (memcmp(phone_number, our_phone, 12) == 0) {
+      if (memcmp(phone_number, our_phone, 12) == 0 || memcmp(phone_number, alt_phone, 11) == 0) {
         logger(MSG_WARN, "%s: Call status is for us\n", __func__);
         needs_rerouting = 1;
       } else {
