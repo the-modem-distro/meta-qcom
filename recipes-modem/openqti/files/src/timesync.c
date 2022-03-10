@@ -42,7 +42,7 @@ int get_int_from_str(char *str, int offset) {
   return val;
 }
 
-int get_carrier_datetime() {
+int get_carrier_sync_datetime() {
   int fd, ret;
   char response[128];
   char *begin;
@@ -54,7 +54,7 @@ int get_carrier_datetime() {
   ret = write(fd, SET_CTZU, sizeof(SET_CTZU));
   sleep(1);
   ret = read(fd, &response, 128);
-  ret = write(fd, GET_CCLK, sizeof(GET_CCLK));
+  ret = write(fd, GET_QLTS, sizeof(GET_QLTS));
   sleep(1);
   ret = read(fd, &response, 128);
 
@@ -83,6 +83,48 @@ int get_carrier_datetime() {
   return 0;
 }
 
+
+int get_cclk_datetime() {
+  int fd, ret;
+  char response[128];
+  char *begin;
+  fd = open(SMD_SEC_AT, O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Cannot open SMD10 entry\n", __func__);
+    return -EINVAL;
+  }
+  ret = write(fd, SET_CTZU, sizeof(SET_CTZU));
+  sleep(1);
+  ret = read(fd, &response, 128);
+  ret = write(fd, GET_CCLK, sizeof(GET_CCLK));
+  sleep(1);
+  ret = read(fd, &response, 128);
+  if (strstr(response, "+CCLK: ") != NULL) {
+    begin = strchr(response, '"');
+    // year
+    time_sync_data.year = get_int_from_str(begin, 1);
+    time_sync_data.month = get_int_from_str(begin, 4);
+    time_sync_data.day = get_int_from_str(begin, 7);
+    time_sync_data.hour = get_int_from_str(begin, 10);
+    time_sync_data.minute = get_int_from_str(begin, 13);
+    time_sync_data.second = get_int_from_str(begin, 16);
+    time_sync_data.timezone_offset = get_int_from_str(begin, 19);
+    /* Time zone is reported in 15 minute blocks */
+    if (time_sync_data.timezone_offset != 0) { 
+      time_sync_data.timezone_offset = time_sync_data.timezone_offset/4;
+      if (begin[18] == '-') {
+        time_sync_data.negative_offset = true;
+      }
+
+    }
+    if (time_sync_data.year == 80) {
+      time_sync_data.year = 0;
+    }
+  }
+  close(fd);
+  return 0;
+}
+
 void *time_sync() {
   FILE *fd;
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
@@ -92,13 +134,30 @@ void *time_sync() {
   time_t mytime = time(0);
   struct tm *tm_ptr = localtime(&mytime);
   long gmtoff;
+  bool synced = false;
   while (time_sync_data.year < 21) {
     sleep(20);
-    get_carrier_datetime();
+    get_carrier_sync_datetime();
     if (time_sync_data.year < 21) {
-      logger(MSG_WARN, "%s: Waiting for network to sync date and time...\n",
+      logger(MSG_WARN, "%s: Carrier network time not available yet\n",
              __func__);
     } else {
+      synced = true;
+          logger(MSG_INFO, "%s: Time synced to network!\n",
+             __func__);
+    }
+    if (!synced) {
+      get_cclk_datetime();
+      if (time_sync_data.year < 21) {
+        logger(MSG_WARN, "%s: Falling back to CCLK didn't work. Retrying... \n",
+             __func__);
+      } else {
+        synced = true;
+                logger(MSG_INFO, "%s: Time synced from RTC\n",
+             __func__);
+      }
+    }
+    if (synced) {
       if (tm_ptr) {
         tm_ptr->tm_mon = time_sync_data.month - 1;
         tm_ptr->tm_mday = time_sync_data.day;

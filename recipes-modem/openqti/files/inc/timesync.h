@@ -8,7 +8,8 @@
 #include <stdbool.h>
 
 #define SET_CTZU "AT+CTZU=3\r"
-#define GET_CCLK "AT+QLTS\r"
+#define GET_QLTS "AT+QLTS\r"
+#define GET_CCLK "AT+CCLK?\r"
 
 
 int get_timezone();
