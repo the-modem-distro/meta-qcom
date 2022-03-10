@@ -33,13 +33,9 @@ struct {
   char bot_name[32];
 } cmd_runtime;
 
-char *get_rt_modem_name() {
-  return cmd_runtime.bot_name;
-}
+char *get_rt_modem_name() { return cmd_runtime.bot_name; }
 
-char *get_rt_user_name() {
-  return cmd_runtime.user_name;
-}
+char *get_rt_user_name() { return cmd_runtime.user_name; }
 
 void add_to_history(uint8_t command_id) {
   if (cmd_runtime.cmd_position >= 1023) {
@@ -189,15 +185,25 @@ void set_custom_user_name(uint8_t *command) {
 }
 
 void debug_cb_message(uint8_t *command) {
-    int strsz = 0;
-    uint8_t *reply = calloc(256, sizeof(unsigned char));
-    uint8_t example_pkt[] = {0x01, 0x71, 0x00, 0x80, 0x05, 0x01, 0x04, 0x08, 0x00, 0x01, 0x00, 0x65, 0x00, 0x11, 0x5E, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0x56, 0x00, 0x67, 0x60, 0x11, 0x12, 0x0F, 0x66, 0xF2, 0x37, 0xBD, 0x70, 0x2E, 0xCB, 0x5D, 0x20, 0xE8, 0xBB, 0x2E, 0x07, 0x95, 0xDD, 0xA0, 0x79, 0xD8, 0xFE, 0x4E, 0xCB, 0x41, 0x70, 0x76, 0x7D, 0x0E, 0x9A, 0xD7, 0xE5, 0x20, 0x76, 0x79, 0x0E, 0x6A, 0x97, 0xE7, 0xF3, 0xF0, 0xB9, 0x3C, 0x07, 0x91, 0x4F, 0x61, 0x76, 0x59, 0x4E, 0x2F, 0xB3, 0x40, 0xF6, 0x72, 0x3D, 0xCD, 0x66, 0x97, 0xF5, 0xA0, 0xF1, 0xDB, 0x3D, 0xAF, 0xB3, 0xE9, 0x65, 0x39, 0xE8, 0x7E, 0xBF, 0xBB, 0xCA, 0xEE, 0x30, 0xBB, 0x2C, 0xA7, 0x97, 0x5D, 0xE3, 0x77, 0xBB, 0x16, 0x01, 0x00, 0x00};
+  int strsz = 0;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t example_pkt[] = {
+      0x01, 0x71, 0x00, 0x80, 0x05, 0x01, 0x04, 0x08, 0x00, 0x01, 0x00, 0x65,
+      0x00, 0x11, 0x5E, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0x56, 0x00,
+      0x67, 0x60, 0x11, 0x12, 0x0F, 0x66, 0xF2, 0x37, 0xBD, 0x70, 0x2E, 0xCB,
+      0x5D, 0x20, 0xE8, 0xBB, 0x2E, 0x07, 0x95, 0xDD, 0xA0, 0x79, 0xD8, 0xFE,
+      0x4E, 0xCB, 0x41, 0x70, 0x76, 0x7D, 0x0E, 0x9A, 0xD7, 0xE5, 0x20, 0x76,
+      0x79, 0x0E, 0x6A, 0x97, 0xE7, 0xF3, 0xF0, 0xB9, 0x3C, 0x07, 0x91, 0x4F,
+      0x61, 0x76, 0x59, 0x4E, 0x2F, 0xB3, 0x40, 0xF6, 0x72, 0x3D, 0xCD, 0x66,
+      0x97, 0xF5, 0xA0, 0xF1, 0xDB, 0x3D, 0xAF, 0xB3, 0xE9, 0x65, 0x39, 0xE8,
+      0x7E, 0xBF, 0xBB, 0xCA, 0xEE, 0x30, 0xBB, 0x2C, 0xA7, 0x97, 0x5D, 0xE3,
+      0x77, 0xBB, 0x16, 0x01, 0x00, 0x00};
 
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Dummy CB Message parse\n");
-    add_message_to_queue(reply, strsz);
-    check_cb_message(example_pkt, sizeof(example_pkt), 0, 0);
-    free(reply);
-    reply = NULL;
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Dummy CB Message parse\n");
+  add_message_to_queue(reply, strsz);
+  check_cb_message(example_pkt, sizeof(example_pkt), 0, 0);
+  free(reply);
+  reply = NULL;
 }
 
 void *delayed_shutdown() {
@@ -218,7 +224,7 @@ void *schedule_call(void *cmd) {
   uint8_t *command = (uint8_t *)cmd;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   pthread_t call_schedule_thread;
-    logger(MSG_WARN, "SCH: %s -> %s \n", cmd, command);
+  logger(MSG_WARN, "SCH: %s -> %s \n", cmd, command);
 
   int delaysec;
   char tmpbuf[10];
@@ -227,7 +233,7 @@ void *schedule_call(void *cmd) {
   if (offset == NULL) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
                      "Error reading the command\n");
-       add_message_to_queue(reply, strsz);
+    add_message_to_queue(reply, strsz);
   } else {
     int ofs = (int)(offset - command) + strlen(partial_commands[2].cmd);
     snprintf(tmpbuf, 10, "%s", (char *)command + ofs);
@@ -235,10 +241,10 @@ void *schedule_call(void *cmd) {
     if (delaysec > 0) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                        "I will call you back in %i seconds\n", delaysec);
-       add_message_to_queue(reply, strsz);
-       sleep(delaysec);
-       logger(MSG_INFO, "Calling you now!\n");
-       set_pending_call_flag(true);
+      add_message_to_queue(reply, strsz);
+      sleep(delaysec);
+      logger(MSG_INFO, "Calling you now!\n");
+      set_pending_call_flag(true);
     } else {
       strsz = snprintf(
           (char *)reply, MAX_MESSAGE_SIZE,
@@ -259,11 +265,11 @@ void render_gsm_signal_data() {
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Network type: ");
   if (get_network_type() >= 0x00 && get_network_type() <= 0x08) {
-    strsz +=
-        snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s", network_types[get_network_type()]);
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s",
+                      network_types[get_network_type()]);
 
   } else {
-     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Unknown (0x%.2x", get_network_type());
   }
 
@@ -326,7 +332,8 @@ uint8_t parse_command(uint8_t *command) {
   case 1:
     if (get_uptime(tmpbuf) == 0) {
       strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                        "Hi %s, %s:\n %s\n",cmd_runtime.user_name, bot_commands[cmd_id].cmd_text, tmpbuf);
+                        "Hi %s, %s:\n %s\n", cmd_runtime.user_name,
+                        bot_commands[cmd_id].cmd_text, tmpbuf);
     } else {
       strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                         "Error getting the uptime\n");
@@ -336,7 +343,8 @@ uint8_t parse_command(uint8_t *command) {
   case 2:
     if (get_load_avg(tmpbuf) == 0) {
       strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                        "Hi %s, %s:\n %s\n",cmd_runtime.user_name, bot_commands[cmd_id].cmd_text, tmpbuf);
+                        "Hi %s, %s:\n %s\n", cmd_runtime.user_name,
+                        bot_commands[cmd_id].cmd_text, tmpbuf);
     } else {
       strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                         "Error getting laodavg\n");
@@ -415,9 +423,9 @@ uint8_t parse_command(uint8_t *command) {
         add_message_to_queue(reply, strsz);
         strsz = 0;
       }
-      strsz +=
-          snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s x: %s\n",
-                   partial_commands[i].cmd, partial_commands[i].help);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "%s x: %s\n", partial_commands[i].cmd,
+                        partial_commands[i].help);
     }
     add_message_to_queue(reply, strsz);
     break;
@@ -536,7 +544,7 @@ uint8_t parse_command(uint8_t *command) {
   case 20:
     render_gsm_signal_data();
     break;
-    case 21:
+  case 21:
     pthread_create(&disposable_thread, NULL, &delayed_reboot, NULL);
     strsz +=
         snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s %s!\n",
@@ -554,7 +562,7 @@ uint8_t parse_command(uint8_t *command) {
     sleep(2); // our string gets wiped out before we have a chance
     break;
   case 103:
-      debug_cb_message(command);
+    debug_cb_message(command);
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,

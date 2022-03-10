@@ -35,15 +35,11 @@ Return last reported network type
 0x07 ??
 0x08 LTE
 */
-uint8_t get_network_type() {
-    return net_status.network_type;
-}
+uint8_t get_network_type() { return net_status.network_type; }
 /* Returns last reported signal strength, in dB */
-uint8_t get_signal_strength() {
-    return net_status.signal_level;
-}
+uint8_t get_signal_strength() { return net_status.signal_level; }
 
 void update_network_data(uint8_t network_type, uint8_t signal_level) {
-    net_status.network_type = network_type;
-    net_status.signal_level = signal_level;
+  net_status.network_type = network_type;
+  net_status.signal_level = signal_level;
 }

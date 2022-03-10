@@ -11,15 +11,15 @@
 #include "../inc/tracking.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/input.h>
+#include <linux/reboot.h>
 #include <pthread.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/poll.h>
 #include <sys/time.h>
-#include <unistd.h>
-#include <linux/input.h>
 #include <syscall.h>
-#include <linux/reboot.h>
+#include <unistd.h>
 
 int write_to(const char *path, const char *val, int flags) {
   int ret;
@@ -371,7 +371,7 @@ uint8_t get_dtr_state() {
 
   lseek(dtr, 0, SEEK_SET);
   if (read(dtr, &dtrval, 1) < 0) {
-        logger(MSG_WARN, "%s: Error reading DTR value \n", __func__);
+    logger(MSG_WARN, "%s: Error reading DTR value \n", __func__);
   }
   if ((int)(dtrval - '0') == 1) {
     ret = 1;
@@ -450,21 +450,21 @@ void *power_key_event() {
       logger(MSG_ERROR, "%s: cannot read whole input event\n", __func__);
     } else {
 
-    if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
-      memcpy(&prev, &ev.time, sizeof(struct timeval));
-    } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
-      memcpy(&cur, &ev.time, sizeof(struct timeval));
-      if (elapsed_time(&prev, &cur) > 1000000) {
-        logger(MSG_ERROR, "%s: Suspend/Resume\n", __func__);
-        system("echo mem > /sys/power/state");
-      } else {
-        logger(MSG_ERROR, "%s: Poweroff requested!\n", __func__);
-        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART, NULL);
-
+      if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 1) {
+        memcpy(&prev, &ev.time, sizeof(struct timeval));
+      } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
+        memcpy(&cur, &ev.time, sizeof(struct timeval));
+        if (elapsed_time(&prev, &cur) > 1000000) {
+          logger(MSG_ERROR, "%s: Suspend/Resume\n", __func__);
+          system("echo mem > /sys/power/state");
+        } else {
+          logger(MSG_ERROR, "%s: Poweroff requested!\n", __func__);
+          syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                  LINUX_REBOOT_CMD_RESTART, NULL);
+        }
       }
     }
   }
-  }
 
- return NULL;
+  return NULL;
 }

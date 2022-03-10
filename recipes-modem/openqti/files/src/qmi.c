@@ -5,11 +5,11 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
+#include <endian.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <endian.h>
 
 /*
  *
@@ -48,29 +48,31 @@ uint16_t get_tlv_offset_by_id(void *bytes, size_t len, uint8_t tlvid) {
   uint16_t cur_byte;
   uint8_t *arr = (uint8_t *)bytes;
   struct empty_tlv *this_tlv;
-  if (len < sizeof(struct encapsulated_qmi_packet)+4) {
-      logger(MSG_ERROR, "%s: Packet is too small \n", __func__);
-      return 0;
+  if (len < sizeof(struct encapsulated_qmi_packet) + 4) {
+    logger(MSG_ERROR, "%s: Packet is too small \n", __func__);
+    return 0;
   }
- 
+
   cur_byte = sizeof(struct encapsulated_qmi_packet);
   while ((cur_byte) < len) {
-    this_tlv = (struct empty_tlv *)(arr+cur_byte);
+    this_tlv = (struct empty_tlv *)(arr + cur_byte);
     if (this_tlv->id == tlvid) {
-      logger(MSG_INFO, "Found TLV with ID 0x%.2x at offset %i with size 0x%.4x\n", this_tlv->id, cur_byte, le16toh(this_tlv->len));
+      logger(MSG_INFO,
+             "Found TLV with ID 0x%.2x at offset %i with size 0x%.4x\n",
+             this_tlv->id, cur_byte, le16toh(this_tlv->len));
       arr = NULL;
       this_tlv = NULL;
       return cur_byte;
     }
-    cur_byte+=le16toh(this_tlv->len)+sizeof(uint8_t) + sizeof(uint16_t);
+    cur_byte += le16toh(this_tlv->len) + sizeof(uint8_t) + sizeof(uint16_t);
     if (cur_byte <= 0) {
-        logger(MSG_ERROR, "Current byte is less than 0!\n");
-           arr = NULL;
+      logger(MSG_ERROR, "Current byte is less than 0!\n");
+      arr = NULL;
       this_tlv = NULL;
-        return 0;
+      return 0;
     }
   }
-     arr = NULL;
-      this_tlv = NULL;
+  arr = NULL;
+  this_tlv = NULL;
   return 0;
 }

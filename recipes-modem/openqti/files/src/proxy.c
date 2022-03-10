@@ -208,7 +208,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   struct encapsulated_qmi_packet *packet;
   struct encapsulated_control_packet *ctl_packet;
 
-
   // By default everything should just go to its place
   int action = PACKET_PASS_TRHU;
   if (source == FROM_HOST) {

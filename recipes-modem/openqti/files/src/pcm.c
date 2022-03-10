@@ -312,7 +312,7 @@ static int pcm_write_nmmap(struct pcm *pcm, void *data, unsigned count) {
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x)) {
       if (errno == EPIPE) {
         /* we failed to make our window -- try to restart */
-        logger(MSG_ERROR, "Underrun Error\n");
+        logger(MSG_DEBUG, "Buffer Underrun Error\n");
         pcm->underruns++;
         pcm->running = 0;
         continue;
