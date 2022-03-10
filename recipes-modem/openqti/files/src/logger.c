@@ -10,9 +10,9 @@
 
 bool log_to_file = true;
 uint8_t log_level = 0;
-struct timespec starup_time;
+struct timespec startup_time;
 
-void reset_logtime() { clock_gettime(CLOCK_MONOTONIC, &starup_time); }
+void reset_logtime() { clock_gettime(CLOCK_MONOTONIC, &startup_time); }
 
 void set_log_method(bool ttyout) {
   if (ttyout) {
@@ -31,9 +31,9 @@ void set_log_level(uint8_t level) {
 double get_elapsed_time() {
   struct timespec current_time;
   clock_gettime(CLOCK_MONOTONIC, &current_time);
-  return (((current_time.tv_sec - starup_time.tv_sec) * 1e9) +
-                  (current_time.tv_nsec - starup_time.tv_nsec)) /
-                 1e9; // in seconds
+  return (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
+          (current_time.tv_nsec - startup_time.tv_nsec)) /
+         1e9; // in seconds
 }
 void logger(uint8_t level, char *format, ...) {
   FILE *fd;
@@ -41,8 +41,8 @@ void logger(uint8_t level, char *format, ...) {
   double elapsed_time;
   struct timespec current_time;
   clock_gettime(CLOCK_MONOTONIC, &current_time);
-  elapsed_time = (((current_time.tv_sec - starup_time.tv_sec) * 1e9) +
-                  (current_time.tv_nsec - starup_time.tv_nsec)) /
+  elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
+                  (current_time.tv_nsec - startup_time.tv_nsec)) /
                  1e9; // in seconds
 
   if (level >= log_level) {
