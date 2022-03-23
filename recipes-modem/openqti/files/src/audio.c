@@ -17,14 +17,14 @@ struct pcm *pcm_rx;
 
 /*  Audio runtime state:
  *    current_call_state: IDLE / CIRCUITSWITCH / VOLTE
- *    volte_hd_audio_mode: 8000 / 16000 / 48000
+ *    sampling_rate: 8000 / 16000 / 48000
  *    output_device: I2S / USB
  */
 
 struct {
   uint8_t custom_alert_tone;
   uint8_t current_call_state;
-  uint8_t volte_hd_audio_mode;
+  uint8_t sampling_rate;
   uint8_t output_device;
   uint8_t is_muted;
   uint8_t is_alerting;
@@ -35,7 +35,7 @@ struct {
 void set_audio_runtime_default() {
   audio_runtime_state.custom_alert_tone = 0;
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
-  audio_runtime_state.volte_hd_audio_mode = 0;
+  audio_runtime_state.sampling_rate = 0;
   audio_runtime_state.output_device = AUDIO_MODE_I2S;
   audio_runtime_state.is_muted = 0;
   audio_runtime_state.is_alerting = 0;
@@ -63,7 +63,7 @@ int use_external_codec() {
   char buff[32];
   fd = open(EXTERNAL_CODEC_DETECT_PATH, O_RDONLY);
   if (fd < 0) {
-    logger(MSG_INFO, "%s: ALC5616 codec not detected \n", __func__);
+    logger(MSG_INFO, "%s: RT5616 codec not detected \n", __func__);
     return 0;
   }
   close(fd);
@@ -237,32 +237,7 @@ uint8_t get_output_device() { return audio_runtime_state.output_device; }
 
 void set_auxpcm_sampling_rate(uint8_t mode) {
   int previous_call_state = audio_runtime_state.current_call_state;
-  audio_runtime_state.volte_hd_audio_mode = mode;
-  if (mode == 1) {
-    if (write_to(sysfs_value_pairs[6].path, "16000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 16k\n", __func__);
-    }
-    if (use_external_codec() &&
-        write_to(sysfs_value_pairs[5].path, "4096000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
-    }
-  } else if (mode == 2) {
-    if (write_to(sysfs_value_pairs[6].path, "48000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 48k\n", __func__);
-    }
-    if (use_external_codec() &&
-        write_to(sysfs_value_pairs[5].path, "12288000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
-    }
-  } else {
-    if (write_to(sysfs_value_pairs[6].path, "8000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting auxpcm_rate to 8k\n", __func__);
-    }
-    if (use_external_codec() &&
-        write_to(sysfs_value_pairs[5].path, "2048000", O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error setting clock\n", __func__);
-    }
-  }
+  audio_runtime_state.sampling_rate = mode;
   // If in call, restart audio
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
     stop_audio();
@@ -589,10 +564,10 @@ int start_audio(int type) {
   pcm_tx->flags = PCM_OUT | PCM_MONO;
   pcm_tx->format = PCM_FORMAT_S16_LE;
 
-  if (audio_runtime_state.volte_hd_audio_mode == 1) {
+  if (audio_runtime_state.sampling_rate == 1) {
     pcm_rx->rate = 16000;
     pcm_tx->rate = 16000;
-  } else if (audio_runtime_state.volte_hd_audio_mode == 2) {
+  } else if (audio_runtime_state.sampling_rate == 2) {
     pcm_rx->rate = 48000;
     pcm_tx->rate = 48000;
   } else {
@@ -663,40 +638,33 @@ int dump_audio_mixer() {
 }
 
 int set_audio_defaults() {
-  int i;
-  int ret = 0;
-  for (i = 0; i < (sizeof(sysfs_value_pairs) / sizeof(sysfs_value_pairs[0]));
-       i++) {
-    if (write_to(sysfs_value_pairs[i].path, sysfs_value_pairs[i].value,
-                 O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             sysfs_value_pairs[i].path);
-      ret = -EPERM;
-    } else {
-      logger(MSG_DEBUG, "%s: Written %s to %s \n", __func__,
-             sysfs_value_pairs[i].value, sysfs_value_pairs[i].path);
-    }
+  set_auxpcm_sampling_rate(0); // Set audio mode to 16KPCM
+  mixer = mixer_open(SND_CTL);
+  if (!mixer) {
+    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    return -EINVAL;
   }
-  return ret;
+  
+  set_mixer_ctl(mixer, AUX_PCM_MODE, 1);
+  set_mixer_ctl(mixer, SEC_AUXPCM_MODE, 1);
+  set_mixer_ctl(mixer, AUX_PCM_SAMPLERATE, 0);
+
+  mixer_close(mixer);
+  return 0;
 }
 
 int set_external_codec_defaults() {
-  int i;
-  int ret = 0;
-  for (i = 0; i < (sizeof(alc5616_default_settings) /
-                   sizeof(alc5616_default_settings[0]));
-       i++) {
-    if (write_to(alc5616_default_settings[i].path,
-                 alc5616_default_settings[i].value, O_RDWR) < 0) {
-      logger(MSG_ERROR, "%s: Error writing to %s\n", __func__,
-             alc5616_default_settings[i].path);
-      ret = -EPERM;
-    } else {
-      logger(MSG_DEBUG, "%s: Written %s to %s \n", __func__,
-             alc5616_default_settings[i].value,
-             alc5616_default_settings[i].path);
-    }
+  set_auxpcm_sampling_rate(1); // Set audio mode to 16KPCM
+  mixer = mixer_open(SND_CTL);
+  if (!mixer) {
+    logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
+    return -EINVAL;
   }
-  set_auxpcm_sampling_rate(1); // Set audio mode to 48KPCM
-  return ret;
+
+  set_mixer_ctl(mixer, AUX_PCM_MODE, 0);
+  set_mixer_ctl(mixer, SEC_AUXPCM_MODE, 0);
+  set_mixer_ctl(mixer, AUX_PCM_SAMPLERATE, 1);
+
+  mixer_close(mixer);
+  return 0;
 }

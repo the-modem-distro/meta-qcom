@@ -29,6 +29,11 @@
 #define AUDIO_MODE_I2S 0 // SEC_AUX_PCM_RX Audio Mixer
 #define AUDIO_MODE_USB 1
 
+/* I2S setting via alsa */
+#define AUX_PCM_MODE "AUXPCM Mode"
+#define SEC_AUXPCM_MODE "SEC_AUXPCM Mode"
+#define AUX_PCM_SAMPLERATE "AUX PCM SampleRate"
+
 enum call_direction {
   AUDIO_DIRECTION_OUTGOING = 0x01,
   AUDIO_DIRECTION_INCOMING = 0x02,

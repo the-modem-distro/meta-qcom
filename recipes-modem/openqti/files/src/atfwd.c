@@ -214,16 +214,16 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
   case 117: // Enable PCM16k
+    response->result = 2;
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_auxpcm_sampling_rate(1);
     break;
   case 118: // Enable PCM48K
+    response->result = 2;
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_auxpcm_sampling_rate(2);
     break;
   case 119: // Enable PCM8K (disable pcmhi)
+    response->result = 2;
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_auxpcm_sampling_rate(0);
     break;
   case 120: // Fallback to 8K and enable USB_AUDIO
     sckret = send_pkt(qmidev, response, pkt_size);
