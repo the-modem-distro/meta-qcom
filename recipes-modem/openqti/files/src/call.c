@@ -57,6 +57,7 @@ struct {
   uint8_t sim_call_direction;
   uint8_t simulated_call_state; // ATTEMPT, RINGING, ESTABLISHED...
   uint16_t transaction_id;
+  uint8_t empty_message_loop;
   struct message msg[QUEUE_SIZE];
 } call_rt;
 
@@ -73,6 +74,7 @@ uint8_t get_call_simulation_mode() { return call_rt.call_simulation_mode; }
 void reset_call_state() {
   call_rt.is_call_pending = false;
   call_rt.call_simulation_mode = 0;
+  call_rt.empty_message_loop = 0;
   call_rt.sim_call_direction = 0; // NONE
   for (int i = 0; i < QUEUE_SIZE; i++) {
     call_rt.msg[i].state = 0;
@@ -151,6 +153,11 @@ uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
   int bytes_written;
   pkt = calloc(1, sizeof(struct simulated_call_packet));
   int pkt_size = sizeof(struct simulated_call_packet);
+
+  // Update last transaction_id
+  call_rt.transaction_id = transaction_id;
+  call_rt.sim_call_direction = call_direction;
+  call_rt.simulated_call_state = call_state;
   /* QMUX */
   pkt->qmuxpkt.version = 0x01;
   pkt->qmuxpkt.packet_length = pkt_size - sizeof(uint8_t);
@@ -209,7 +216,6 @@ uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
   bytes_written = write(usbfd, pkt, pkt_size);
   dump_pkt_raw((void *)pkt, sizeof(struct simulated_call_packet));
   logger(MSG_DEBUG, "%s: Sent %i bytes \n", __func__, bytes_written);
-  call_rt.simulated_call_state = call_state;
   free(pkt);
   pkt = NULL;
   return 0;
@@ -336,6 +342,21 @@ uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
   pkt = NULL;
   return 0;
 }
+void notify_simulated_call(int usbfd) {
+  if (call_rt.simulated_call_state == AUDIO_CALL_ESTABLISHED) {
+    call_rt.transaction_id++;
+    logger(MSG_INFO, "%s: Call tick! TID: %i\n", __func__, call_rt.transaction_id);
+    send_voice_call_status_event(usbfd, call_rt.transaction_id,
+                               call_rt.sim_call_direction,
+                               AUDIO_CALL_ESTABLISHED);
+    usleep(100000);
+  }
+  if (call_rt.empty_message_loop > 15) {
+    // Automatically close the call
+      logger(MSG_INFO, "%s: Automatically closing the call\n", __func__);
+      close_internal_call(usbfd, call_rt.transaction_id);
+  }
+}
 
 void add_voice_message_to_queue(uint8_t *message, size_t len) {
   int i;
@@ -411,12 +432,14 @@ void *can_you_hear_me() {
         snprintf(phrase, MAX_TTS_TEXT_SIZE, "%s",call_rt.msg[i].message );
         call_rt.msg[i].state = 0;
         handled = true;
+        call_rt.empty_message_loop = 0;
         break;
       }
     }
     if (!handled) {
       logger(MSG_INFO, "%s: Queue is empty\n", __func__);
       snprintf(phrase, MAX_TTS_TEXT_SIZE, "Hello %s. Send me a message an I will answer with voice", get_rt_user_name());
+      call_rt.empty_message_loop++;
     }
     pico2aud(phrase, strlen(phrase));
     free(phrase);
@@ -522,8 +545,6 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   // 015550199999 in ASCII
   uint8_t our_phone[] = {0x30, 0x31, 0x35, 0x35, 0x35, 0x30,
                          0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
-  uint8_t alt_phone[] = {0x31, 0x35, 0x35, 0x35, 0x30,
-                         0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
   memset(phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
   switch (msgid) {
@@ -539,7 +560,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         j++;
       }
     }
-    if (j > 0 && (memcmp(phone_number, our_phone, 12) == 0 || memcmp(phone_number, alt_phone, 11) == 0)) {
+    if (j > 0 && memcmp(phone_number, our_phone, 12) == 0) {
       logger(MSG_INFO, "%s: This call is for me: %s\n", __func__, phone_number);
       if (!get_call_simulation_mode()) {
         logger(MSG_INFO, "%s: We're accepting this call\n", __func__);
@@ -586,7 +607,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     /* Caller ID is set */
     if (j > 0) {
       logger(MSG_INFO, "%s: Call status for %s\n", __func__, phone_number);
-      if (memcmp(phone_number, our_phone, 12) == 0 || memcmp(phone_number, alt_phone, 11) == 0) {
+      if (memcmp(phone_number, our_phone, 12) == 0) {
         logger(MSG_WARN, "%s: Call status is for us\n", __func__);
         needs_rerouting = 1;
       } else {

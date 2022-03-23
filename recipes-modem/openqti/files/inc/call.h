@@ -278,6 +278,6 @@ uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
 void send_dummy_call_established(int usbfd, uint16_t transaction_id);
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
                              uint16_t msgid, int adspfd, int usbfd);
-
+void notify_simulated_call(int usbfd);
 void add_voice_message_to_queue(uint8_t *message, size_t len);
 #endif
