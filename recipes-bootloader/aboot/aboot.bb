@@ -1,5 +1,5 @@
 # Recipe for building the MDM9607 Kernel tree
-# Biktorgj 2020
+# Biktorgj 2022
 # Released under the MIT license (see COPYING.MIT for the terms)
 
 inherit deploy
@@ -8,7 +8,8 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/\
 ${LICENSE};md5=0835ade698e0bcf8506ecda2f7b4f302"
 # We tell yocto what does this provide
-PROVIDES = "virtual/bootloader"
+PROVIDES = "aboot"
+PROVIDES+= "virtual/bootloader"
 
 # Set the project name
 ABOOT_PROJECT = "mdm9607"
@@ -16,7 +17,7 @@ ABOOT_PROJECT = "mdm9607"
 DEPENDS += "libgcc" 
 
 # Base paths
-SRC_URI   =  "git://github.com/Biktorgj/lk2nd.git;protocol=https;branch=ugly-stuff-do-not-merge"
+SRC_URI   =  "git://github.com/Biktorgj/lk2nd.git;protocol=https;branch=fastboot_timer_test"
 SRCREV = "${AUTOREV}"
 S = "${WORKDIR}/git"
 
