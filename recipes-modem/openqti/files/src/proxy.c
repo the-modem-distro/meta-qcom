@@ -53,6 +53,7 @@ int get_transceiver_suspend_state() {
 
   if (val > 0 && is_usb_suspended == 0) {
     is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
+   // system("echo mem > /sys/power/state");
   } else if (val == 0 && is_usb_suspended == 1) {
     usleep(100000);       // Allow time to finish wakeup
     is_usb_suspended = 0; // Then allow transfers again
@@ -182,6 +183,10 @@ uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
     set_pending_call_flag(false);
     start_simulated_call(usbfd);
     return 0;
+  }
+
+  if (get_call_simulation_mode()) {
+    notify_simulated_call(usbfd);
   }
   return 0;
 }
@@ -328,6 +333,11 @@ uint8_t is_inject_needed() {
     return 1;
   }
 
+  else if (get_call_simulation_mode()) {
+    logger(MSG_DEBUG, "%s: In simulated call\n", __func__);
+    return 1;
+  }
+
   return 0;
 }
 /*
@@ -370,7 +380,7 @@ void *rmnet_proxy(void *node_data) {
       targetfd = nodes->node2.fd;
     } else if (is_inject_needed()) {
       source = FROM_OPENQTI;
-      logger(MSG_INFO, "%s: OpenQTI needs to inject data into USB \n",
+      logger(MSG_DEBUG, "%s: OpenQTI needs to inject data into USB \n",
              __func__);
       process_simulated_packet(source, nodes->node2.fd, nodes->node1.fd);
     }
