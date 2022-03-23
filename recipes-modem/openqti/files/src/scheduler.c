@@ -127,7 +127,7 @@ void *start_scheduler_thread() {
         ret = run_task(i);
       }
     }
-    logger(MSG_INFO, "%s Tick!\n", __func__);
+    logger(MSG_DEBUG, "%s Tick!\n", __func__);
     sleep(1);
   }
   return NULL;
