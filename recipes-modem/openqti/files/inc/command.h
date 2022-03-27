@@ -36,6 +36,7 @@ static const struct {
     {19, "off", "Goodbye", "Shutdown the modem"},
     {20, "gsm signal","RF Signal status:", "Show network and signal data"},
     {21, "reboot", "See you soon", "Reboot the modem"},
+    {22, "net report", "Network report", "Get network report "},
 }; 
 
 static const struct {
