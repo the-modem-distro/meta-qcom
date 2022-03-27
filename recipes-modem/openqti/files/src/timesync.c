@@ -3,6 +3,7 @@
 #include "../inc/timesync.h"
 #include "../inc/devices.h"
 #include "../inc/logger.h"
+#include "../inc/helpers.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -33,14 +34,7 @@ int get_timezone() { return time_sync_data.timezone_offset; }
 
 bool is_timezone_offset_negative() { return time_sync_data.negative_offset; }
 
-int get_int_from_str(char *str, int offset) {
-  int val = 0;
-  char tmp[2];
-  tmp[0] = str[offset];
-  tmp[1] = str[offset + 1];
-  val = strtol(tmp, NULL, 10);
-  return val;
-}
+
 
 int get_carrier_sync_datetime() {
   int fd, ret;
