@@ -203,8 +203,7 @@ int get_modem_name(char *buff) {
   }
 
   logger(MSG_DEBUG, "%s: Using default name \n", __func__);
-  strncpy(buff, "Modem", strlen("Modem"));
-
+  snprintf(buff, 32, "Admin");
   return 1;
 }
 
@@ -230,8 +229,7 @@ int get_user_name(char *buff) {
   }
 
   logger(MSG_DEBUG, "%s: Using default name \n", __func__);
-  strncpy(buff, "Admin", strlen("Admin"));
-
+  snprintf(buff, 32, "Admin");
   return 1;
 }
 
@@ -428,13 +426,27 @@ int elapsed_time(struct timeval *prev, struct timeval *cur) {
          prev->tv_usec;
 }
 
+int get_int_from_str(char *str, int offset) {
+  int val = 0;
+  char tmp[2];
+  tmp[0] = str[offset];
+  tmp[1] = str[offset + 1];
+
+  if (tmp[1] < '0' || tmp[1] > '9') {
+    tmp[1] = tmp[0];
+    tmp[0] = '0';
+  }
+  val = strtol(tmp, NULL, 10);
+  logger(MSG_INFO, "%s: Value %s: %i\n", __func__, tmp, val);
+  return val;
+}
 void *power_key_event() {
   int fd = 0;
   struct input_event ev;
   struct timeval prev;
   struct timeval cur;
   int ret = 0;
-  int duration = 0;
+  int duration = 0; 
   char *arg1 = NULL;
   memset(&prev, 0, sizeof(struct timeval));
   memset(&cur, 0, sizeof(struct timeval));

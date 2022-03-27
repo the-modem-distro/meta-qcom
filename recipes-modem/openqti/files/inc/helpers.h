@@ -34,7 +34,7 @@ int get_modem_name(char *buff);
 int get_user_name(char *buff);
 void set_modem_name(char *name);
 void set_user_name(char *name);
-
+int get_int_from_str(char *str, int offset);
 void *power_key_event();
 
 #endif
