@@ -437,7 +437,6 @@ int get_int_from_str(char *str, int offset) {
     tmp[0] = '0';
   }
   val = strtol(tmp, NULL, 10);
-  logger(MSG_INFO, "%s: Value %s: %i\n", __func__, tmp, val);
   return val;
 }
 void *power_key_event() {
