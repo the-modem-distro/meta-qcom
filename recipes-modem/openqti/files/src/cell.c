@@ -29,6 +29,8 @@
 
 struct network_state net_status;
 struct cell_report current_report;
+struct cell_report report_history[128];
+
 /*
 Return last reported network type
 0x00 -> No service
@@ -45,13 +47,13 @@ Return last reported network type
 uint8_t get_network_type() { return net_status.network_type; }
 
 /* Returns last reported signal in %, based on signal bars */
-uint8_t get_signal_strength() { 
+uint8_t get_signal_strength() {
   if (net_status.signal_bars > 0) {
-    return net_status.signal_bars * 5 /100; 
+    return net_status.signal_bars * 5 / 100;
   }
-  
+
   return 0;
-  }
+}
 
 struct network_state get_network_status() {
   return net_status;
@@ -63,7 +65,7 @@ struct cell_report get_current_cell_report() {
 
 struct cell_report parse_report_data(char *orig_string) {
   struct cell_report report;
-  char delim[]=",";
+  char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
   int ret;
   strcpy(str, (char *)orig_string);
@@ -101,13 +103,14 @@ struct cell_report parse_report_data(char *orig_string) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999")); 
+      strncpy(slices[i], "-999", strlen("-999"));
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
 
     slices[i][strlen(slices[i])] = '\0';
-    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i, slices[i]);
+    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i,
+           slices[i]);
     /*
     Now, go filling the blanks by position */
   }
@@ -176,14 +179,346 @@ struct cell_report parse_report_data(char *orig_string) {
     report.lte.rssi = strtol(slices[15], NULL, 10);
     report.lte.sinr = strtol(slices[16], NULL, 10);
     report.lte.srxlev = strtol(slices[17], NULL, 10);
-    
+
   } else {
     logger(MSG_ERROR, "%s Unknown data: %s\n", __func__, orig_string);
-
-  } 
+  }
 
   return report;
 }
+
+void parse_lte_intra_neighbour_data(char *orig_string, int len) {
+  struct lte_neighbour report;
+  int i;
+  char delim[] = ",";
+  char str[MAX_RESPONSE_SZ];
+  int ret;
+  strncpy(str, (char *)orig_string, len);
+  int init_size = strlen(str);
+  int positions[128];
+  char slices[64][MAX_RESPONSE_SZ];
+  int cur_word = 1;
+  int cur_word_id = -1;
+  int start;
+  int end;
+  positions[0] = 0;
+  char *ptr = strtok(str, delim);
+  while (ptr != NULL) {
+    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
+    ptr = strtok(NULL, delim);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (str[i] == 0) {
+      positions[cur_word] = i;
+      cur_word++;
+    }
+  }
+  logger(MSG_INFO, "Total pieces: %i\n", cur_word);
+  for (int i = 0; i < cur_word; i++) {
+    start = positions[i];
+    if (i + 1 >= cur_word) {
+      end = init_size;
+    } else {
+      end = positions[i + 1];
+    }
+    if (i > 0) {
+      start++;
+    }
+    memset(slices[i], 0, MAX_RESPONSE_SZ);
+    memcpy(slices[i], str + start, (end - start));
+    if (strcmp(slices[i], "-") == 0) {
+      strncpy(slices[i], "-999", strlen("-999"));
+      // If it is empty set it to -999 so we can use that info later
+      // Otherwise strtol will convert "-" to 9
+    }
+
+    slices[i][strlen(slices[i])] = '\0';
+    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i,
+           slices[i]);
+    /*
+    Now, go filling the blanks by position */
+  }
+  logger(MSG_INFO, "%s LTE neighbourcell intrafrequency cell data report\n", __func__);
+  report.is_intra = true;
+  report.earfcn = strtol(slices[2], NULL, 10);
+  report.pcid = strtol(slices[3], NULL, 10);
+  report.rsrq = strtol(slices[4], NULL, 10);
+  report.rsrp = strtol(slices[5], NULL, 10);
+  report.rssi = strtol(slices[6], NULL, 10);
+  report.sinr = strtol(slices[7], NULL, 10);
+  if (cur_word > 8)
+    report.srxlev = strtol(slices[8], NULL, 10);
+  if (cur_word > 9)
+    report.cell_resel_priority = strtol(slices[9], NULL, 10);
+  if (cur_word > 10)
+    report.s_non_intra_search = strtol(slices[10], NULL, 10);
+  if (cur_word > 11)
+    report.thresh_serving_low = strtol(slices[11], NULL, 10);
+  if (cur_word > 12)
+    report.s_non_intra_search = strtol(slices[12], NULL, 10);
+  if (cur_word > 13)
+    report.thresh_serving_low = strtol(slices[13], NULL, 10);
+  if (cur_word > 14)
+    report.s_intra_search = strtol(slices[14], NULL, 10);
+
+  
+  if (current_report.lte.neighbour_sz == 15) {
+    logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+    // rotate
+    for (i = 1; i < 16; i++) {
+      current_report.lte.neighbours[i-1] = current_report.lte.neighbours[i];
+    }
+    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+  } else {
+    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+    current_report.lte.neighbour_sz++;
+  }
+
+}
+
+
+void parse_lte_inter_neighbour_data(char *orig_string, int len) {
+  struct lte_neighbour report;
+  int i;
+  char delim[] = ",";
+  char str[MAX_RESPONSE_SZ];
+  int ret;
+  strncpy(str, (char *)orig_string, len);
+  int init_size = strlen(str);
+  int positions[128];
+  char slices[64][MAX_RESPONSE_SZ];
+  int cur_word = 1;
+  int cur_word_id = -1;
+  int start;
+  int end;
+  positions[0] = 0;
+  char *ptr = strtok(str, delim);
+  while (ptr != NULL) {
+    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
+    ptr = strtok(NULL, delim);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (str[i] == 0) {
+      positions[cur_word] = i;
+      cur_word++;
+    }
+  }
+  logger(MSG_INFO, "Total pieces: %i\n", cur_word);
+  for (int i = 0; i < cur_word; i++) {
+    start = positions[i];
+    if (i + 1 >= cur_word) {
+      end = init_size;
+    } else {
+      end = positions[i + 1];
+    }
+    if (i > 0) {
+      start++;
+    }
+    memset(slices[i], 0, MAX_RESPONSE_SZ);
+    memcpy(slices[i], str + start, (end - start));
+    if (strcmp(slices[i], "-") == 0) {
+      strncpy(slices[i], "-999", strlen("-999"));
+      // If it is empty set it to -999 so we can use that info later
+      // Otherwise strtol will convert "-" to 9
+    }
+
+    slices[i][strlen(slices[i])] = '\0';
+    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i,
+           slices[i]);
+    /*
+    Now, go filling the blanks by position */
+  }
+  logger(MSG_INFO, "%s LTE neighbourcell inter frequency cell data report\n", __func__);
+  report.is_intra = false;
+  report.earfcn = strtol(slices[2], NULL, 10);
+  report.pcid = strtol(slices[3], NULL, 10);
+  report.rsrq = strtol(slices[4], NULL, 10);
+  report.rsrp = strtol(slices[5], NULL, 10);
+  report.rssi = strtol(slices[6], NULL, 10);
+  report.sinr = strtol(slices[7], NULL, 10);
+  if (cur_word > 8)
+    report.srxlev = strtol(slices[8], NULL, 10);
+  if (cur_word > 9)
+    report.cell_resel_priority = strtol(slices[9], NULL, 10);
+  if (cur_word > 10)
+    report.s_non_intra_search = strtol(slices[10], NULL, 10);
+  if (cur_word > 11)
+    report.thresh_serving_low = strtol(slices[11], NULL, 10);
+  if (cur_word > 12)
+    report.s_non_intra_search = strtol(slices[12], NULL, 10);
+  if (cur_word > 13)
+    report.thresh_serving_low = strtol(slices[13], NULL, 10);
+  if (cur_word > 14)
+    report.s_intra_search = strtol(slices[14], NULL, 10);
+
+  
+  if (current_report.lte.neighbour_sz == 15) {
+    logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+    // rotate
+    for (i = 1; i < 16; i++) {
+      current_report.lte.neighbours[i-1] = current_report.lte.neighbours[i];
+    }
+    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+  } else {
+    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+    current_report.lte.neighbour_sz++;
+  }
+}
+
+
+
+void parse_wcdma_neighbour_data(char *orig_string, int len) {
+  struct wcdma_neighbour report;
+  int i;
+  char delim[] = ",";
+  char str[MAX_RESPONSE_SZ];
+  int ret;
+  strncpy(str, (char *)orig_string, len);
+  int init_size = strlen(str);
+  int positions[128];
+  char slices[64][MAX_RESPONSE_SZ];
+  int cur_word = 1;
+  int cur_word_id = -1;
+  int start;
+  int end;
+  positions[0] = 0;
+  char *ptr = strtok(str, delim);
+  while (ptr != NULL) {
+    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
+    ptr = strtok(NULL, delim);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (str[i] == 0) {
+      positions[cur_word] = i;
+      cur_word++;
+    }
+  }
+  logger(MSG_INFO, "Total pieces: %i\n", cur_word);
+  for (int i = 0; i < cur_word; i++) {
+    start = positions[i];
+    if (i + 1 >= cur_word) {
+      end = init_size;
+    } else {
+      end = positions[i + 1];
+    }
+    if (i > 0) {
+      start++;
+    }
+    memset(slices[i], 0, MAX_RESPONSE_SZ);
+    memcpy(slices[i], str + start, (end - start));
+    if (strcmp(slices[i], "-") == 0) {
+      strncpy(slices[i], "-999", strlen("-999"));
+      // If it is empty set it to -999 so we can use that info later
+      // Otherwise strtol will convert "-" to 9
+    }
+
+    slices[i][strlen(slices[i])] = '\0';
+    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i,
+           slices[i]);
+    /* Now, go filling the blanks by position */
+  }
+  logger(MSG_INFO, "%s WCDMA neighbour cell data report\n", __func__);
+  report.uarfcn = strtol(slices[2], NULL, 10);
+  report.cell_resel_priority = strtol(slices[3], NULL, 10);
+  report.thresh_Xhigh = strtol(slices[4], NULL, 10);
+  report.thresh_Xlow = strtol(slices[5], NULL, 10);
+  report.psc = strtol(slices[6], NULL, 10);
+  report.cpich_rscp = strtol(slices[7], NULL, 10);
+  report.cpich_ecno = strtol(slices[8], NULL, 10);
+  report.srxlev = strtol(slices[9], NULL, 10);
+  
+  if (current_report.wcdma.neighbour_sz == 15) {
+    logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+    // rotate
+    for (i = 1; i < 16; i++) {
+      current_report.wcdma.neighbours[i-1] = current_report.wcdma.neighbours[i];
+    }
+    current_report.wcdma.neighbours[current_report.lte.neighbour_sz] = report;
+  } else {
+    current_report.wcdma.neighbours[current_report.lte.neighbour_sz] = report;
+    current_report.wcdma.neighbour_sz++;
+  }
+}
+
+
+void parse_gsm_neighbour_data(char *orig_string, int len) {
+  struct gsm_neighbour report;
+  int i;
+  char delim[] = ",";
+  char str[MAX_RESPONSE_SZ];
+  int ret;
+  strncpy(str, (char *)orig_string, len);
+  int init_size = strlen(str);
+  int positions[128];
+  char slices[64][MAX_RESPONSE_SZ];
+  int cur_word = 1;
+  int cur_word_id = -1;
+  int start;
+  int end;
+  positions[0] = 0;
+  char *ptr = strtok(str, delim);
+  while (ptr != NULL) {
+    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
+    ptr = strtok(NULL, delim);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (str[i] == 0) {
+      positions[cur_word] = i;
+      cur_word++;
+    }
+  }
+  logger(MSG_INFO, "Total pieces: %i\n", cur_word);
+  for (int i = 0; i < cur_word; i++) {
+    start = positions[i];
+    if (i + 1 >= cur_word) {
+      end = init_size;
+    } else {
+      end = positions[i + 1];
+    }
+    if (i > 0) {
+      start++;
+    }
+    memset(slices[i], 0, MAX_RESPONSE_SZ);
+    memcpy(slices[i], str + start, (end - start));
+    if (strcmp(slices[i], "-") == 0) {
+      strncpy(slices[i], "-999", strlen("-999"));
+      // If it is empty set it to -999 so we can use that info later
+      // Otherwise strtol will convert "-" to 9
+    }
+
+    slices[i][strlen(slices[i])] = '\0';
+    logger(MSG_WARN, "%s: Current word position %i: %s\n", __func__, i,
+           slices[i]);
+    /* Now, go filling the blanks by position */
+  }
+  logger(MSG_INFO, "%s GSM neighbour cell data report\n", __func__);
+  report.arfcn = strtol(slices[2], NULL, 10);
+  report.cell_resel_priority = strtol(slices[3], NULL, 10);
+  report.thresh_gsm_high = strtol(slices[4], NULL, 10);
+  report.thresh_gsm_low = strtol(slices[5], NULL, 10);
+  report.ncc_permitted = strtol(slices[6], NULL, 10);
+  report.band = strtol(slices[7], NULL, 10);
+  report.bsic_id = strtol(slices[8], NULL, 10);
+  report.rssi = strtol(slices[9], NULL, 10);
+  report.srxlev = strtol(slices[10], NULL, 10);
+  
+  if (current_report.wcdma.neighbour_sz == 15) {
+    logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+    // rotate
+    for (i = 1; i < 16; i++) {
+      current_report.gsm.neighbours[i-1] = current_report.gsm.neighbours[i];
+    }
+    current_report.gsm.neighbours[current_report.lte.neighbour_sz] = report;
+  } else {
+    current_report.gsm.neighbours[current_report.lte.neighbour_sz] = report;
+    current_report.gsm.neighbour_sz++;
+  }
+}
+
 /* Connect to the AT port, send a command, and get a response */
 int get_data_from_command(char *command, size_t len, char *expected_response,
                           char *response) {
@@ -218,8 +553,64 @@ int get_data_from_command(char *command, size_t len, char *expected_response,
 }
 
 
+void read_neighbour_cells() {
+  int ret = 0;
+  char *pt;
+  char *response;
+  char *start, *end;
+  unsigned count = 0;
+  response = malloc(MAX_RESPONSE_SZ * sizeof(char));
+  int command_length = strlen(GET_NEIGHBOUR_CELL);
+
+  logger(MSG_INFO, "%s: Read neighbour cell start\n", __func__);
+  ret = get_data_from_command(GET_NEIGHBOUR_CELL, command_length,
+                              GET_QENG_RESPONSE_PROTO, response);
+  if (ret != 0) {
+    logger(MSG_ERROR, "%s: Command %s failed. Response: %s\n", __func__,
+           GET_NEIGHBOUR_CELL, response);
+  } else {
+    logger(MSG_INFO, "%s: Command %s succeeded! Response: %s\n", __func__,
+           GET_NEIGHBOUR_CELL, response);
+
+    start = end = (char*) response; 
+    // Need to loop through every line (size of the response will vary to network conditions)
+    while( (end = strchr(start, '\n')) ) {
+      if (strstr(start, "neighbourcell intra") != NULL) {
+        logger(MSG_INFO, "%s: Read LTE INTRA -> %s \n", __func__, start);
+        parse_lte_intra_neighbour_data(start, (int)(end - start + 1));
+
+      } else if (strstr(start, "neighbourcell inter") !=  NULL) {
+        logger(MSG_INFO, "%s: Read LTE INTER %s\n", __func__, start);
+        parse_lte_inter_neighbour_data(start, (int)(end - start + 1));
+
+      } else if (strstr(start, "WCDMA") != NULL) {
+        logger(MSG_INFO, "%s: Read WCDMA %s\n", __func__, start);
+        parse_wcdma_neighbour_data(start, (int)(end - start + 1));
+
+      } else if (strstr(start, "GSM") != NULL) {
+        logger(MSG_INFO, "%s: Read GSM %s\n", __func__, start);
+        parse_gsm_neighbour_data(start, (int)(end - start + 1));
+
+      } else if (strstr(start, "OK") != NULL) {
+        logger(MSG_INFO, "%s: Report end %s\n", __func__, start);
+
+      }  else {
+        logger(MSG_INFO, "%s: Unknown report type: %s\n", __func__, start);
+      }
+      
+    start = end + 1;
+    }
+        logger(MSG_INFO, "%s: Finish\n", __func__);
+
+  }
+  logger(MSG_INFO, "%s: EXIT!\n", __func__);
+  free(response);
+  response = NULL;
+}
+
+
 void read_serving_cell() {
-  int ret = 0; 
+  int ret = 0;
   char *pt;
   char *response;
   response = malloc(MAX_RESPONSE_SZ * sizeof(char));
@@ -236,12 +627,15 @@ void read_serving_cell() {
            GET_SERVING_CELL, response);
     if (strlen(response) > 18) {
       current_report = parse_report_data(response);
+      read_neighbour_cells();
     }
   }
   logger(MSG_INFO, "%s: EXIT!\n", __func__);
   free(response);
   response = NULL;
+
 }
+
 
 void read_at_cind() {
   char *response;
@@ -281,5 +675,4 @@ void update_network_data(uint8_t network_type, uint8_t signal_level) {
   logger(MSG_INFO, "%s: read serving cell\n", __func__);
   read_serving_cell();
   logger(MSG_INFO, "%s: end\n", __func__);
-
 }

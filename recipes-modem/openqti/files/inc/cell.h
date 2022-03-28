@@ -13,6 +13,18 @@
 #define GET_COMMON_IND_RESPONSE_PROTO "+CIND:"
 #define GET_IMSI "AT+CIMI\r\n"
 
+struct gsm_neighbour {
+  int arfcn;
+  int cell_resel_priority;
+  int thresh_gsm_high;
+  int thresh_gsm_low;
+  int ncc_permitted;
+  int band;
+  int bsic_id;
+  int rssi;
+  int srxlev;
+};
+
 struct gsm_data {
   char lac[4];          // only GSM/WCDMA
   int bsic;             // only in GSM
@@ -35,6 +47,23 @@ struct gsm_data {
   int rxqualsub;
   int rxqualfull;
   int voicecodec;
+  uint8_t neighbour_sz;
+  struct gsm_neighbour neighbours[8];
+};
+/*
+<uarfcn>,<cell_resel_priorit
+y>,<thresh_Xhigh>,<thresh_Xlow>,<psc>,<cpich_rscp>,
+<cpich_ecno>,<srxlev>
+*/
+struct wcdma_neighbour {
+  int uarfcn;
+  int cell_resel_priority;
+  int thresh_Xhigh;
+  int thresh_Xlow;
+  int psc;
+  int cpich_rscp;
+  int cpich_ecno;
+  int srxlev;
 };
 
 struct wcdma_data {
@@ -49,6 +78,24 @@ struct wcdma_data {
   int slot;
   int speech_codec;
   int conmod;
+  uint8_t neighbour_sz;
+  struct wcdma_neighbour neighbours[8];
+};
+
+
+struct lte_neighbour {
+  bool is_intra; // is intrafrequency or not?
+  int earfcn;
+  int pcid;
+  int rsrq;
+  int rsrp;
+  int rssi;
+  int sinr;
+  int srxlev;
+  int cell_resel_priority; // up here intra
+  int s_non_intra_search;
+  int thresh_serving_low;
+  int s_intra_search;
 };
 
 struct lte_data {
@@ -64,7 +111,10 @@ struct lte_data {
   int rssi;
   int sinr;
   int srxlev;
+  uint8_t neighbour_sz;
+  struct lte_neighbour neighbours[16];
 };
+
 
 struct cell_report {
   char cmd_id[16];      // servingcell || neighbourcell
