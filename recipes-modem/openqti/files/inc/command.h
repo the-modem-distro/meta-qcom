@@ -37,6 +37,8 @@ static const struct {
     {20, "gsm signal","RF Signal status:", "Show network and signal data"},
     {21, "reboot", "See you soon", "Reboot the modem"},
     {22, "net report", "Network report", "Get network report "},
+    {23, "enable tracking", "Signal tracking: enabled", "Switch on network monitoring"},
+    {24, "disable tracking", "Signal tracking: disbled", "Switch off network monitoring"},
 }; 
 
 static const struct {

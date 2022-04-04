@@ -358,7 +358,7 @@ void render_gsm_signal_data() {
   }
 
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                    "Signal (percent): %i, %i \n", netstat.signal_bars * 100/5 , netstat.signal_bars);
+                    "Signal strength: %i %% \n", get_signal_strength());
 
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Roaming %i \n", netstat.is_roaming );
@@ -643,6 +643,16 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 22:
     dump_signal_report();
+    break;
+  case 23:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Enable signal tracking\n");
+    add_message_to_queue(reply, strsz);
+    enable_signal_tracking(true);
+    break;
+  case 24:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Disable signal tracking\n");
+    add_message_to_queue(reply, strsz);
+    enable_signal_tracking(false);
     break;
   case 100:
     set_custom_modem_name(command);
