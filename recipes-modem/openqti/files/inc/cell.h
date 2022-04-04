@@ -142,6 +142,8 @@ struct network_state {
 static const char *network_types[] = {
     "Unknown", "CDMA", "EVDO", "AMPS", "GSM", "UMTS", "Error", "Error", "LTE"};
 
+void enable_signal_tracking(bool en);
+bool is_signal_tracking_enabled();
 uint8_t get_network_type();
 uint8_t get_signal_strength();
 void update_network_data(uint8_t network_type, uint8_t signal_level);

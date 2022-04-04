@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "../inc/cell.h"
+#include "../inc/sms.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
@@ -28,12 +29,13 @@
  */
 
 struct network_state net_status;
-struct cell_report current_report;
 
 struct {
+  bool enable_tracking;
   uint8_t history_sz;
+  struct cell_report current_report;
   struct cell_report history[128];
-} report_history;
+} report_data;
 
 /*
 Return last reported network type
@@ -58,13 +60,24 @@ uint8_t get_signal_strength() {
 
   return 0;
 }
+void enable_signal_tracking(bool en) {
+  if (en) {
+    report_data.enable_tracking = true;
+  } else {
+    report_data.enable_tracking = false;
+  }
+}
+
+bool is_signal_tracking_enabled() {
+  return report_data.enable_tracking;
+}
 
 struct network_state get_network_status() {
   return net_status;
 }
 
 struct cell_report get_current_cell_report() {
-  return current_report;
+  return report_data.current_report;
 }
 
 struct cell_report parse_report_data(char *orig_string) {
@@ -262,16 +275,16 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
     report.s_intra_search = strtol(slices[14], NULL, 10);
 
   
-  if (current_report.lte.neighbour_sz == 15) {
+  if (report_data.current_report.lte.neighbour_sz == 15) {
     logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
     // rotate
     for (i = 1; i < 16; i++) {
-      current_report.lte.neighbours[i-1] = current_report.lte.neighbours[i];
+      report_data.current_report.lte.neighbours[i-1] = report_data.current_report.lte.neighbours[i];
     }
-    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+    report_data.current_report.lte.neighbours[report_data.current_report.lte.neighbour_sz] = report;
   } else {
-    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
-    current_report.lte.neighbour_sz++;
+    report_data.current_report.lte.neighbours[report_data.current_report.lte.neighbour_sz] = report;
+    report_data.current_report.lte.neighbour_sz++;
   }
   } else {
     logger(MSG_WARN, "%s: Not enough data\n", __func__);
@@ -354,16 +367,16 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
     report.s_intra_search = strtol(slices[14], NULL, 10);
 
   
-  if (current_report.lte.neighbour_sz == 15) {
+  if (report_data.current_report.lte.neighbour_sz == 15) {
     logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
     // rotate
     for (i = 1; i < 16; i++) {
-      current_report.lte.neighbours[i-1] = current_report.lte.neighbours[i];
+      report_data.current_report.lte.neighbours[i-1] = report_data.current_report.lte.neighbours[i];
     }
-    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
+    report_data.current_report.lte.neighbours[report_data.current_report.lte.neighbour_sz] = report;
   } else {
-    current_report.lte.neighbours[current_report.lte.neighbour_sz] = report;
-    current_report.lte.neighbour_sz++;
+    report_data.current_report.lte.neighbours[report_data.current_report.lte.neighbour_sz] = report;
+    report_data.current_report.lte.neighbour_sz++;
   }
   } else {
     logger(MSG_WARN, "%s: Not enough data\n", __func__);
@@ -431,16 +444,16 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
   report.cpich_ecno = strtol(slices[8], NULL, 10);
   report.srxlev = strtol(slices[9], NULL, 10);
   
-  if (current_report.wcdma.neighbour_sz == 15) {
+  if (report_data.current_report.wcdma.neighbour_sz == 15) {
     logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
     // rotate
     for (i = 1; i < 16; i++) {
-      current_report.wcdma.neighbours[i-1] = current_report.wcdma.neighbours[i];
+      report_data.current_report.wcdma.neighbours[i-1] = report_data.current_report.wcdma.neighbours[i];
     }
-    current_report.wcdma.neighbours[current_report.lte.neighbour_sz] = report;
+    report_data.current_report.wcdma.neighbours[report_data.current_report.lte.neighbour_sz] = report;
   } else {
-    current_report.wcdma.neighbours[current_report.lte.neighbour_sz] = report;
-    current_report.wcdma.neighbour_sz++;
+    report_data.current_report.wcdma.neighbours[report_data.current_report.lte.neighbour_sz] = report;
+    report_data.current_report.wcdma.neighbour_sz++;
   }
   } else {
     logger(MSG_WARN, "%s: Not enough data\n", __func__);
@@ -508,16 +521,16 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
   report.rssi = strtol(slices[9], NULL, 10);
   report.srxlev = strtol(slices[10], NULL, 10);
   
-  if (current_report.wcdma.neighbour_sz == 15) {
+  if (report_data.current_report.wcdma.neighbour_sz == 15) {
     logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
     // rotate
     for (i = 1; i < 16; i++) {
-      current_report.gsm.neighbours[i-1] = current_report.gsm.neighbours[i];
+      report_data.current_report.gsm.neighbours[i-1] = report_data.current_report.gsm.neighbours[i];
     }
-    current_report.gsm.neighbours[current_report.lte.neighbour_sz] = report;
+    report_data.current_report.gsm.neighbours[report_data.current_report.lte.neighbour_sz] = report;
   } else {
-    current_report.gsm.neighbours[current_report.lte.neighbour_sz] = report;
-    current_report.gsm.neighbour_sz++;
+    report_data.current_report.gsm.neighbours[report_data.current_report.lte.neighbour_sz] = report;
+    report_data.current_report.gsm.neighbour_sz++;
   }
   } else {
     logger(MSG_WARN, "%s: Not enough data\n", __func__);
@@ -554,8 +567,66 @@ int get_data_from_command(char *command, size_t len, char *expected_response,
   close(fd);
   return fnret;
 }
+char *get_report_network_type(int type) {
+  if (type == 0) {
+    return "GSM";
+  } else if( type == 1) {
+    return "WCDMA";
+  } else if (type == 2) {
+    return "LTE";
+  }
+  
+  return "UNKNOWN";
+} 
+/* Analyze the data in the reports */
+void analyze_data() {
+  bool do_send = false;
+  int strsz = 0;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  int i;
+  logger(MSG_INFO, "%s: There are %i entries in the log\n", __func__, report_data.history_sz);
+  if (report_data.history_sz < 5) {
+    logger(MSG_INFO, "%s: Not enough data has been retrieved yet.\n", __func__);
+    free(reply);
+    reply = NULL;
+    return;
+  }
+  for (i = report_data.history_sz ; i > (report_data.history_sz-1); i-- ){
+    logger(MSG_INFO, "%s: Checking report %i\n", __func__, i);
+    if (report_data.history[i].net_type != report_data.history[i-1].net_type) {
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Network mode changed: %s -> %s\n", get_report_network_type(report_data.history[i-1].net_type), get_report_network_type(report_data.history[i].net_type));
+        do_send = true;
+    } else {
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Network mode maintained: %s \n", get_report_network_type(report_data.history[i].net_type));
+    }
 
+    if (strcmp(report_data.history[i].cell_id, report_data.history[i-1].cell_id) != 0) {
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Cell ID Changed: %s -> %s\n", report_data.history[i-1].cell_id, report_data.history[i].cell_id);
+        do_send = true;
+    } else {
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Cell ID maintained %s \n",  report_data.history[i].cell_id);
+    }
+    switch (report_data.history[i].net_type) {
+      case 0:
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxlev %i\nsrxlevfull%i\nlac %s",  report_data.history[i].gsm.rxlevsub, report_data.history[i].gsm.rxlevfull, report_data.history[i].gsm.lac);
+        break;
+      case 1:
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rscp %i\necio %i\nlac %s",  report_data.history[i].wcdma.rscp, report_data.history[i].wcdma.ecio, report_data.history[i].wcdma.lac);
+        break;
+      case 2:
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rssi %i\nsrxlev %i\nsnr %i",  report_data.history[i].lte.rssi, report_data.history[i].lte.srxlev, report_data.history[i].lte.sinr);
+        break;
+    }
 
+  }
+  if (do_send) {
+    add_message_to_queue(reply, strsz);
+  }
+  free(reply);
+  reply = NULL;
+}
+
+/* Data retrieval functions */
 void read_neighbour_cells() {
   int ret = 0;
   char *pt;
@@ -605,7 +676,6 @@ void read_neighbour_cells() {
   response = NULL;
 }
 
-
 void read_serving_cell() {
   int ret = 0;
   int i;
@@ -624,23 +694,22 @@ void read_serving_cell() {
     logger(MSG_INFO, "%s: Command %s succeeded! Response: %s\n", __func__,
            GET_SERVING_CELL, response);
     if (strlen(response) > 18) {
-      current_report = parse_report_data(response);
+      report_data.current_report = parse_report_data(response);
       read_neighbour_cells();
-      if (report_history.history_sz > 126) {
+      if (report_data.history_sz > 126) {
         for (i = 1; i < 128; i++) {
-          report_history.history[i-1] = report_history.history[i];
+          report_data.history[i-1] = report_data.history[i];
         }
       } else {
-        report_history.history_sz++;
+        report_data.history_sz++;
       }
-      report_history.history[report_history.history_sz] = current_report;
+      report_data.history[report_data.history_sz] = report_data.current_report;
     }
   }
   free(response);
   response = NULL;
-
+  analyze_data();
 }
-
 
 void read_at_cind() {
   char *response;
@@ -677,6 +746,8 @@ void update_network_data(uint8_t network_type, uint8_t signal_level) {
   net_status.signal_level = signal_level;
   logger(MSG_INFO, "%s: read cind\n", __func__);
   read_at_cind();
-  logger(MSG_INFO, "%s: read serving cell\n", __func__);
-  read_serving_cell();
+  if (report_data.enable_tracking) {
+    logger(MSG_INFO, "%s: read serving cell\n", __func__);
+    read_serving_cell();
+  }
 }
