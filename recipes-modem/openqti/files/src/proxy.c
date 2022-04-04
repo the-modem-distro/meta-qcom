@@ -208,6 +208,12 @@ uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
 }
 
 /* Node1 -> RMNET , Node2 -> SMD */
+/*
+ *  process_packet()
+ *    Looks at the QMI message to get the service type
+ *    and if needed, moves the message somewhere else
+ *    for further processing
+ */
 uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
                        uint8_t adspfd, uint8_t usbfd) {
   struct encapsulated_qmi_packet *packet;
@@ -237,7 +243,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     packet = (struct encapsulated_qmi_packet *)pkt;
     ctl_packet = (struct encapsulated_control_packet *)pkt;
   }
-  logger(MSG_DEBUG, "%s: Pkt: FULL:%i, REPORTED: %i | Service %s\n", __func__,
+  logger(MSG_DEBUG, "%s: Pkt: %i bytes, message: %i bytes -> %s\n", __func__,
          pkt_size, packet->qmux.packet_length,
          get_service_name(packet->qmux.service));
 
@@ -258,9 +264,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     logger(MSG_DEBUG, "%s: Network Access service\n", __func__);
     struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
     if (level->qmipkt.msgid == 0x0002 && level->signal.id == 0x10) {
-      logger(MSG_DEBUG,
-             "%s: Signal report: Network type: 0x%.2x Signal (dBm): 0x%.2x\n",
-             __func__, level->signal.network_type, level->signal.signal_level);
       update_network_data(level->signal.network_type,
                           level->signal.signal_level);
       if (get_call_simulation_mode()) {
@@ -314,36 +317,35 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   return action; // 1 == Pass through
 }
 
+/*
+ *  is_inject_needed
+ *    Notifies rmnet_proxy if there's pending data to push to the host
+ * 
+ */
+
 uint8_t is_inject_needed() {
-
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
-    logger(MSG_WARN, "%s: SELFGEN MESSAGE\n", __func__);
-
+    logger(MSG_INFO, "%s: Internal generated message\n", __func__);
     return 1;
-  }
-
-  else if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
-    logger(MSG_WARN, "%s: EXTERNAL MESSAGE\n", __func__);
-
+  } else if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
+    logger(MSG_INFO, "%s: EPending external message\n", __func__);
     return 1;
-  }
-
-  else if (get_call_pending()) {
-    logger(MSG_WARN, "%s: CALL PENDING\n", __func__);
+  } else if (get_call_pending()) {
+    logger(MSG_INFO, "%s: Simulated call pending\n", __func__);
     return 1;
-  }
-
-  else if (get_call_simulation_mode()) {
+  } else if (get_call_simulation_mode()) {
     logger(MSG_DEBUG, "%s: In simulated call\n", __func__);
     return 1;
   }
 
   return 0;
 }
+
 /*
- *  We're getting bigger on the things we do
- *  So we need to do some changes to this so
- *  it can accomodate filtering, bypassing etc.
+ *  rmnet_proxy
+ *    Moves QMI messages between the host and the baseband firmware
+ *    It also handles routing to internal (simulated) call and message
+ *    functions.
  */
 void *rmnet_proxy(void *node_data) {
   struct node_pair *nodes = (struct node_pair *)node_data;
