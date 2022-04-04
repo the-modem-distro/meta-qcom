@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 
 /*
  *
@@ -44,13 +45,13 @@ uint16_t get_transaction_id(void *bytes, size_t len) {
  * Not all the modem handling daemons send TLVs in the same order,
  * This allows us to avoid having to hardcode every possible combination
  */
-uint16_t get_tlv_offset_by_id(void *bytes, size_t len, uint8_t tlvid) {
+uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid) {
   uint16_t cur_byte;
   uint8_t *arr = (uint8_t *)bytes;
   struct empty_tlv *this_tlv;
   if (len < sizeof(struct encapsulated_qmi_packet) + 4) {
     logger(MSG_ERROR, "%s: Packet is too small \n", __func__);
-    return 0;
+    return -EINVAL;
   }
 
   cur_byte = sizeof(struct encapsulated_qmi_packet);
@@ -65,14 +66,14 @@ uint16_t get_tlv_offset_by_id(void *bytes, size_t len, uint8_t tlvid) {
       return cur_byte;
     }
     cur_byte += le16toh(this_tlv->len) + sizeof(uint8_t) + sizeof(uint16_t);
-    if (cur_byte <= 0) {
-      logger(MSG_ERROR, "Current byte is less than 0!\n");
+    if (cur_byte <= 0 || cur_byte > len) {
+      logger(MSG_ERROR, "Current byte is less than or exceeds size\n");
       arr = NULL;
       this_tlv = NULL;
-      return 0;
+      return -EINVAL;
     }
   }
   arr = NULL;
   this_tlv = NULL;
-  return 0;
+  return -EINVAL;
 }

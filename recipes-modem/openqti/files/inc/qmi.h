@@ -94,6 +94,6 @@ struct tlv_position {
 uint8_t get_qmux_service_id(void *bytes, size_t len);
 uint16_t get_message_id(void *bytes, size_t len);
 uint16_t get_transaction_id(void *bytes, size_t len);
-uint16_t get_tlv_offset_by_id(void *bytes, size_t len, uint8_t tlvid);
+uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid);
 
 #endif
