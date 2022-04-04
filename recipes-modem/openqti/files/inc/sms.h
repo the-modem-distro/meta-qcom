@@ -247,9 +247,9 @@ struct sms_received_ack {
     struct qmi_packet qmipkt;
     struct qmi_generic_result_ind indication;
   
-    uint8_t user_data_tlv;
-    uint16_t user_data_length;
-    uint16_t user_data_value;
+    uint8_t message_tlv_id;
+    uint16_t message_id_len;
+    uint16_t message_id;
 }__attribute__((packed));
 
 struct outgoing_no_validity_period_sms_packet {

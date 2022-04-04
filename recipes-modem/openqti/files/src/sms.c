@@ -255,7 +255,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->qmuxpkt.service = 0x05;
   this_sms->qmuxpkt.instance_id = 0x01;
   /* QMI */
-  this_sms->qmipkt.ctlid = 0x0002;
+  this_sms->qmipkt.ctlid = 0x02;
   this_sms->qmipkt.transaction_id = sms_runtime.curr_transaction_id;
   this_sms->qmipkt.msgid = WMS_READ_MESSAGE;
   this_sms->qmipkt.length = 0x00; // SIZE
@@ -482,16 +482,16 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
   switch (pkt->qmi.msgid) {
   case WMS_EVENT_REPORT:
     logger(
-        MSG_DEBUG,
+        MSG_INFO,
         "%s: WMS_EVENT_REPORT for message %i. ID %.4x (SHOULDNT BE CALLED)\n",
         __func__, sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_RAW_SEND:
-    logger(MSG_DEBUG, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
+    logger(MSG_INFO, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_RAW_WRITE:
-    logger(MSG_DEBUG, "%s: WMS_RAW_WRITE for message %i. ID %.4x\n", __func__,
+    logger(MSG_INFO, "%s: WMS_RAW_WRITE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_READ_MESSAGE:
@@ -499,13 +499,20 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
-    logger(MSG_DEBUG, "%s: WMS_READ_MESSAGE for message %i. ID %.4x\n", __func__,
+    logger(MSG_INFO, "%s: WMS_READ_MESSAGE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (len >= sizeof(struct wms_request_message)) {
-      logger(MSG_DEBUG, "%s: Size is OK\n", __func__);
+      logger(MSG_INFO, "%s: Size is OK\n", __func__);
       dump_pkt_raw(bytes, len);
       struct wms_request_message *request;
       request = (struct wms_request_message *)bytes;
+      offset = get_tlv_offset_by_id(bytes, len, 0x01);
+      if (offset > 0) {
+        struct sms_storage_type *storage;
+        storage = (struct sms_storage_type *) (bytes + offset);
+        logger(MSG_INFO, "%s: Calculated from offset: 0x%.2x, from request: 0x%.2x\n", __func__, storage->message_id, request->storage.message_id);
+      }
+      logger(MSG_INFO, "%s: TLV ID for this query should be 0x%.2x\n", __func__, request->message_tag.id);
       if (request->message_tag.id == 0x01) {
         logger(MSG_INFO,
                "oFono gives us the message id tlv in a different order...\n ");
@@ -672,9 +679,7 @@ uint8_t inject_message(uint8_t message_id) {
   return 0;
 }
 
-/** TO BE REVIEWED WHEN ALL THE REST IS WORKING PERFECTLY **/
-
-uint8_t send_outgoing_msg_ack(uint8_t transaction_id, int usbfd) {
+uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd, uint16_t message_id) {
   int ret;
   struct sms_received_ack *receive_ack;
   receive_ack = calloc(1, sizeof(struct sms_received_ack));
@@ -684,7 +689,7 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, int usbfd) {
   receive_ack->qmuxpkt.service = 0x05;
   receive_ack->qmuxpkt.instance_id = 0x01;
 
-  receive_ack->qmipkt.ctlid = 0x0002;
+  receive_ack->qmipkt.ctlid = 0x02;
   receive_ack->qmipkt.transaction_id = transaction_id;
   receive_ack->qmipkt.msgid = WMS_RAW_SEND;
   receive_ack->qmipkt.length = 0x000c; // SIZE
@@ -693,14 +698,15 @@ uint8_t send_outgoing_msg_ack(uint8_t transaction_id, int usbfd) {
   receive_ack->indication.result = 0x00;
   receive_ack->indication.response = 0x00;
 
-  receive_ack->user_data_tlv = 0x01;
-  receive_ack->user_data_length = 0x0002;
-  receive_ack->user_data_value = 0x0021;
+  receive_ack->message_tlv_id = 0x01;
+  receive_ack->message_id_len = 0x0002;
+  receive_ack->message_id = 0x0021; // this one gets ignored both by ModemManager and oFono
+  logger(MSG_DEBUG, "%s: Sending Host->Modem SMS ACK\n", __func__);
+  dump_pkt_raw((uint8_t*) receive_ack, sizeof(struct sms_received_ack));
   ret = write(usbfd, receive_ack, sizeof(struct sms_received_ack));
   free(receive_ack);
   return ret;
 }
-
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
@@ -742,7 +748,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
       set_log_level(1);
     }
 
-    send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd);
+    send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd, 0x0000);
     parse_command(output);
   }
   pkt = NULL;
