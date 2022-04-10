@@ -58,6 +58,7 @@ struct {
   uint8_t simulated_call_state; // ATTEMPT, RINGING, ESTABLISHED...
   uint16_t transaction_id;
   uint8_t empty_message_loop;
+  uint8_t timeout_counter;
   struct message msg[QUEUE_SIZE];
 } call_rt;
 
@@ -75,6 +76,7 @@ void reset_call_state() {
   call_rt.is_call_pending = false;
   call_rt.call_simulation_mode = 0;
   call_rt.empty_message_loop = 0;
+  call_rt.timeout_counter = 0;
   call_rt.sim_call_direction = 0; // NONE
   for (int i = 0; i < QUEUE_SIZE; i++) {
     call_rt.msg[i].state = 0;
@@ -265,29 +267,17 @@ void close_internal_call(int usbfd, uint16_t transaction_id) {
   send_voice_call_status_event(usbfd, transaction_id,
                                call_rt.sim_call_direction,
                                AUDIO_CALL_DISCONNECTING);
+  usleep(100000);
+  send_voice_call_status_event(usbfd, transaction_id + 1,
+                               call_rt.sim_call_direction, AUDIO_CALL_HANGUP);
+
   set_call_simulation_mode(false);
   call_rt.sim_call_direction = 0;
-}
-
-int tmpfd;
-void *wait_for_call_expire(void *fd) {
-  int usbfd = *(int *)fd;
-  logger(MSG_WARN, "%s: Sleeping for 60 seconds\n", __func__);
-  sleep(60);
-  if (call_rt.simulated_call_state != AUDIO_CALL_ESTABLISHED) {
-    logger(MSG_WARN, "%s: Killing internal call\n", __func__);
-    close_internal_call(tmpfd, call_rt.transaction_id + 1);
-  } else {
-    logger(MSG_WARN, "%s: Not killing internal call, state is %i\n", __func__,
-           call_rt.simulated_call_state);
-  }
-  return NULL;
 }
 
 void start_simulated_call(int usbfd) {
   pthread_t kill_timeout_thread;
   int ret;
-  tmpfd = usbfd;
   call_rt.transaction_id = 0x01;
   call_rt.simulated_call_state = AUDIO_CALL_RINGING;
   call_rt.sim_call_direction = AUDIO_DIRECTION_INCOMING;
@@ -297,10 +287,6 @@ void start_simulated_call(int usbfd) {
   logger(MSG_WARN, " Call update notification: RINGING to %x\n", usbfd);
   send_voice_call_status_event(usbfd, call_rt.transaction_id,
                                AUDIO_DIRECTION_INCOMING, AUDIO_CALL_RINGING);
-  if ((ret = pthread_create(&kill_timeout_thread, NULL, &wait_for_call_expire,
-                            &usbfd))) {
-    logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
-  }
 }
 
 uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
@@ -342,19 +328,24 @@ uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
   pkt = NULL;
   return 0;
 }
+
 void notify_simulated_call(int usbfd) {
-  if (call_rt.simulated_call_state == AUDIO_CALL_ESTABLISHED) {
-    call_rt.transaction_id++;
-    logger(MSG_INFO, "%s: Call tick! TID: %i\n", __func__, call_rt.transaction_id);
-    send_voice_call_status_event(usbfd, call_rt.transaction_id,
-                               call_rt.sim_call_direction,
-                               AUDIO_CALL_ESTABLISHED);
-    usleep(100000);
-  }
-  if (call_rt.empty_message_loop > 15) {
+  if (get_call_simulation_mode() &&
+      call_rt.empty_message_loop > CALL_MAX_LOOPS) {
     // Automatically close the call
-      logger(MSG_INFO, "%s: Automatically closing the call\n", __func__);
+    logger(MSG_INFO, "%s: Automatically closing the call\n", __func__);
+    close_internal_call(usbfd, call_rt.transaction_id);
+    reset_call_state();
+  }
+
+  if (call_rt.simulated_call_state != AUDIO_CALL_ESTABLISHED) {
+    if (call_rt.timeout_counter > 60) {
+      logger(MSG_WARN, "%s: Killing internal call\n", __func__);
       close_internal_call(usbfd, call_rt.transaction_id);
+      reset_call_state();
+    } else {
+      call_rt.timeout_counter++;
+    }
   }
 }
 
@@ -362,7 +353,7 @@ void add_voice_message_to_queue(uint8_t *message, size_t len) {
   int i;
   if (get_call_simulation_mode() && len > 0) {
     for (i = 0; i < QUEUE_SIZE; i++) {
-      if (call_rt.msg[i].state == 0 ) {
+      if (call_rt.msg[i].state == 0) {
         memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
         memcpy(call_rt.msg[i].message, message, len);
         call_rt.msg[i].len = len;
@@ -370,10 +361,10 @@ void add_voice_message_to_queue(uint8_t *message, size_t len) {
         return;
       }
     }
-  } 
+  }
 }
 
-void *can_you_hear_me() {
+void *simulated_call_tts_handler() {
   char *buffer;
   int size;
   int num_read;
@@ -382,14 +373,17 @@ void *can_you_hear_me() {
   struct mixer *mymixer;
   int i;
   bool handled;
-  char *phrase;//[MAX_TTS_TEXT_SIZE];
+  char *phrase; //[MAX_TTS_TEXT_SIZE];
   /*
    * Open PCM if we're in call simulation mode,
    * Then leave it open until we're finished
    */
 
   if (get_call_simulation_mode()) {
-    logger(MSG_INFO, "%s: Can you hear me?\n", __func__);
+    logger(MSG_INFO, "%s: Started TTS thread\n", __func__);
+    /* Initial set up of the audio codec */
+    setup_codec();
+
     mymixer = mixer_open(SND_CTL);
     if (!mymixer) {
       logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
@@ -429,7 +423,7 @@ void *can_you_hear_me() {
     phrase = malloc(MAX_TTS_TEXT_SIZE * sizeof(char));
     for (i = 0; i < QUEUE_SIZE; i++) {
       if (call_rt.msg[i].state == 1 && call_rt.msg[i].len > 0) {
-        snprintf(phrase, MAX_TTS_TEXT_SIZE, "%s",call_rt.msg[i].message );
+        snprintf(phrase, MAX_TTS_TEXT_SIZE, "%s", call_rt.msg[i].message);
         call_rt.msg[i].state = 0;
         handled = true;
         call_rt.empty_message_loop = 0;
@@ -437,8 +431,11 @@ void *can_you_hear_me() {
       }
     }
     if (!handled) {
-      logger(MSG_INFO, "%s: Queue is empty\n", __func__);
-      snprintf(phrase, MAX_TTS_TEXT_SIZE, "Hello %s. Send me a message an I will answer with voice", get_rt_user_name());
+      logger(MSG_INFO, "%s: Waiting for a command (%i of %i)\n", __func__,
+             call_rt.empty_message_loop, CALL_MAX_LOOPS);
+      snprintf(phrase, MAX_TTS_TEXT_SIZE,
+               "Hello %s. Send me a message an I will answer with voice",
+               get_rt_user_name());
       call_rt.empty_message_loop++;
     }
     pico2aud(phrase, strlen(phrase));
@@ -505,11 +502,12 @@ void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
                                AUDIO_DIRECTION_INCOMING,
                                AUDIO_CALL_ESTABLISHED);
   usleep(100000);
-  if ((ret =
-           pthread_create(&dummy_echo_thread, NULL, &can_you_hear_me, NULL))) {
+  if ((ret = pthread_create(&dummy_echo_thread, NULL,
+                            &simulated_call_tts_handler, NULL))) {
     logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
   }
 }
+
 void send_dummy_call_established(int usbfd, uint16_t transaction_id) {
   pthread_t dummy_echo_thread;
   int ret;
@@ -521,18 +519,21 @@ void send_dummy_call_established(int usbfd, uint16_t transaction_id) {
   send_call_request_response(usbfd, transaction_id);
   usleep(100000);
   logger(MSG_INFO, "%s: Sending response: ALERTING\n", __func__);
+  transaction_id++;
   send_voice_call_status_event(usbfd, transaction_id, AUDIO_DIRECTION_OUTGOING,
                                AUDIO_CALL_ALERTING);
   usleep(100000);
-  transaction_id++;
   logger(MSG_INFO, "%s: Sending response: ESTABLISHED\n", __func__);
+  transaction_id++;
   send_voice_call_status_event(usbfd, transaction_id, AUDIO_DIRECTION_OUTGOING,
                                AUDIO_CALL_ESTABLISHED);
   usleep(100000);
-  if ((ret =
-           pthread_create(&dummy_echo_thread, NULL, &can_you_hear_me, NULL))) {
+  if ((ret = pthread_create(&dummy_echo_thread, NULL,
+                            &simulated_call_tts_handler, NULL))) {
     logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
   }
+
+  call_rt.transaction_id = transaction_id; // Save the current transaction ID
 }
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
                              uint16_t msgid, int adspfd, int usbfd) {
@@ -548,6 +549,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
   memset(phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
   switch (msgid) {
+
   case VO_SVC_CALL_REQUEST:
     j = 0;
     req = (struct call_request_indication *)bytes;
@@ -582,6 +584,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     }
     req = NULL;
     break;
+
   case VO_SVC_CALL_ANSWER_REQ:
     if (get_call_simulation_mode()) {
       logger(MSG_WARN, "%s: Admin wants to talk!\n", __func__);
@@ -589,10 +592,13 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
       needs_rerouting = 1;
     }
     break;
-  case VO_SVC_CALL_INFO:
-    logger(MSG_DEBUG, "%s: All call info\n", __func__);
+
+  case VO_SVC_CALL_INFO: /* FIXME: IMPLEMENT THIS */
+    logger(MSG_INFO, "%s: VO_SVC_CALL_INFO: Unimplemented!\n", __func__);
+    set_log_level(0);
     dump_pkt_raw(bytes, len);
     break;
+
   case VO_SVC_CALL_STATUS:
     ind = (struct call_status_indication *)bytes;
     j = 0;
@@ -632,9 +638,17 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     }
     ind = NULL;
     break;
+
+  case VO_SVC_GET_ALL_CALL_INFO: /* FIXME: IMPLEMENT THIS */
+    logger(MSG_INFO, "%s: VO_SVC_GET_ALL_CALL_INFO: Unimplemented\n", __func__);
+    set_log_level(0);
+    dump_pkt_raw(bytes, len);
+    break;
+
   case VO_SVC_CALL_STATUS_CHANGE:
     logger(MSG_DEBUG, "%s: State change in call.. on hold?\n", __func__);
     break;
+
   case VO_SVC_CALL_END_REQ:
     logger(MSG_WARN, "%s: Request to terminate the call\n", __func__);
     if (get_call_simulation_mode()) {
@@ -646,6 +660,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
       needs_rerouting = 1;
     }
     break;
+
   default:
     logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x\n", __func__, msgid);
     break;

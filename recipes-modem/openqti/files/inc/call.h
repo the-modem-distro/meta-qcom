@@ -10,6 +10,7 @@
 
 #define MAX_PHONE_NUMBER_LENGTH 20
 #define MAX_ACTIVE_CALLS 10
+#define CALL_MAX_LOOPS 15
 /*
  *  <-- qmi.h [struct qmux_packet]
  *  <-- qmi.h [struct qmi_packet]
