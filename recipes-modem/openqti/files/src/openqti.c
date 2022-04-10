@@ -20,10 +20,10 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/proxy.h"
+#include "../inc/scheduler.h"
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
 #include "../inc/tracking.h"
-#include "../inc/scheduler.h"
 
 /*
  * OpenQTI
@@ -178,18 +178,8 @@ int main(int argc, char **argv) {
   /* Reset Openqti's internal  audio settings first */
   set_audio_runtime_default();
 
-  if (use_external_codec()) {
-    if (set_external_codec_defaults() < 0) {
-      logger(MSG_ERROR,
-             "%s: Failed to set default kernel audio params for ALC5616\n",
-             __func__);
-    }
-  } else {
-    if (set_audio_defaults() < 0) {
-      logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
-             __func__);
-    }
-  }
+  /* Initial set up of the audio codec */
+  setup_codec();
 
   /* Switch between I2S and usb audio
    * depending on the misc partition setting
@@ -232,11 +222,11 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error creating power key monitoring thread\n",
            __func__);
   }
-  
+
   logger(MSG_INFO, "%s: Init: Create Scheduler thread \n", __func__);
-  if ((ret = pthread_create(&scheduler_thread, NULL, &start_scheduler_thread, NULL))) {
-    logger(MSG_ERROR, "%s: Error creating scheduler thread\n",
-           __func__);
+  if ((ret = pthread_create(&scheduler_thread, NULL, &start_scheduler_thread,
+                            NULL))) {
+    logger(MSG_ERROR, "%s: Error creating scheduler thread\n", __func__);
   }
 
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
