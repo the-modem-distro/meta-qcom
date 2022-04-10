@@ -160,8 +160,8 @@ void *gps_proxy() {
   }
 }
 
-uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
-                                 uint8_t usbfd) {
+uint8_t process_simulated_packet(uint8_t source, int adspfd,
+                                 int usbfd) {
   /* Messaging */
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     process_message_queue(usbfd);
@@ -191,8 +191,8 @@ uint8_t process_simulated_packet(uint8_t source, uint8_t adspfd,
   return 0;
 }
 
-uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
-                           uint8_t usbfd) {
+uint8_t process_wms_packet(void *bytes, size_t len, int adspfd,
+                           int usbfd) {
   int needs_rerouting = 0;
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
@@ -215,7 +215,7 @@ uint8_t process_wms_packet(void *bytes, size_t len, uint8_t adspfd,
  *    for further processing
  */
 uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
-                       uint8_t adspfd, uint8_t usbfd) {
+                       int adspfd, int usbfd) {
   struct encapsulated_qmi_packet *packet;
   struct encapsulated_control_packet *ctl_packet;
 
@@ -426,7 +426,7 @@ void *rmnet_proxy(void *node_data) {
         break;
       case PACKET_BYPASS:
         rmnet_packet_stats.bypassed++;
-        logger(MSG_INFO, "%s Packet bypassed\n", __func__);
+        logger(MSG_DEBUG, "%s Packet bypassed\n", __func__);
         break;
 
       default:
