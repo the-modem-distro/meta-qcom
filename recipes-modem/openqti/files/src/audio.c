@@ -391,7 +391,7 @@ void handle_call_pkt(struct call_status_indication *pkt, int sz,
     break;
   }
   logger(MSG_INFO,
-         "%s:ThisCall: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
+         "%s: This call: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
          __func__, direction, state, type, mode);
 
   for (i = 0; i < MAX_ACTIVE_CALLS; i++) {
@@ -503,6 +503,8 @@ int start_audio(int type) {
     logger(MSG_INFO, "%s: Not doing anything, already set.\n", __func__);
     return 0;
   }
+
+  setup_codec();
 
   mixer = mixer_open(SND_CTL);
   if (!mixer) {
@@ -644,7 +646,7 @@ int set_audio_defaults() {
     logger(MSG_ERROR, "%s: Error opening mixer!\n", __func__);
     return -EINVAL;
   }
-  
+
   set_mixer_ctl(mixer, AUX_PCM_MODE, 1);
   set_mixer_ctl(mixer, SEC_AUXPCM_MODE, 1);
   set_mixer_ctl(mixer, AUX_PCM_SAMPLERATE, 0);
@@ -667,4 +669,19 @@ int set_external_codec_defaults() {
 
   mixer_close(mixer);
   return 0;
+}
+
+void setup_codec() {
+  if (use_external_codec()) {
+    if (set_external_codec_defaults() < 0) {
+      logger(MSG_ERROR,
+             "%s: Failed to set default kernel audio params for ALC5616\n",
+             __func__);
+    }
+  } else {
+    if (set_audio_defaults() < 0) {
+      logger(MSG_ERROR, "%s: Failed to set default kernel audio params\n",
+             __func__);
+    }
+  }
 }

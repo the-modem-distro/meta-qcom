@@ -213,6 +213,7 @@ void configure_custom_alert_tone(bool en);
 int pcm_write(struct pcm *pcm, void *data, unsigned count);
 unsigned int pcm_get_buffer_size(const struct pcm *pcm);
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
+void setup_codec();
 
 int pico2aud(char *text, size_t len);
 
