@@ -429,22 +429,31 @@ uint8_t parse_command(uint8_t *command) {
   struct pkt_stats packet_stats;
   pthread_t disposable_thread;
   struct network_state netstat;
+  char lowercase_cmd[160];
   uint8_t *tmpbuf = calloc(128, sizeof(unsigned char));
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   srand(time(NULL));
+  for (i = 0; i < command[i]; i++) {
+    lowercase_cmd[i] = tolower(command[i]);
+  }
+  lowercase_cmd[strlen((char*)command)] = '\0';
   /* Static commands */
   for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
-    if (strcmp((char *)command, bot_commands[i].cmd) == 0) {
+    if (
+      (strcmp((char *)command, bot_commands[i].cmd) == 0) ||
+        (strcmp(lowercase_cmd, bot_commands[i].cmd) == 0)) {
+          logger(MSG_INFO, "%s: Match! %s\n", __func__, bot_commands[i].cmd);
       cmd_id = bot_commands[i].id;
     }
   }
+
   /* Commands with arguments */
   if (cmd_id == -1) {
     for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
          i++) {
-      if (strstr((char *)command, partial_commands[i].cmd) != NULL) {
+      if ((strstr((char *)command, partial_commands[i].cmd) != NULL) || 
+          (strstr((char *)lowercase_cmd, partial_commands[i].cmd) != NULL)) {
         cmd_id = partial_commands[i].id;
-        logger(MSG_INFO, "PCMD match! %i -> %s\n", ret, command);
       }
     }
   }
