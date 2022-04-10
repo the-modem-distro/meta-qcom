@@ -445,7 +445,7 @@ void *power_key_event() {
   struct timeval prev;
   struct timeval cur;
   int ret = 0;
-  int duration = 0; 
+  int duration = 0;
   char *arg1 = NULL;
   memset(&prev, 0, sizeof(struct timeval));
   memset(&cur, 0, sizeof(struct timeval));

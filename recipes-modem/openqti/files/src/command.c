@@ -210,77 +210,129 @@ void dump_signal_report() {
   int strsz = 0;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   struct cell_report report = get_current_cell_report();
-  if (report.net_type < 0 ) {
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Serving cell report has not been retrieved yet or is invalid\n");
+  if (report.net_type < 0) {
+    strsz = snprintf(
+        (char *)reply, MAX_MESSAGE_SIZE,
+        "Serving cell report has not been retrieved yet or is invalid\n");
   } else {
     switch (report.net_type) {
-      case 0: // GSM
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "GSM Report: %i-%i\n", report.mcc, report.mnc);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Cell: %s\n", report.cell_id);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "lac %s\n", report.gsm.lac);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "arfcn %i\n", report.gsm.arfcn);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "band %i\n", report.gsm.band);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxlev %i\n", report.gsm.rxlev);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "txp %i\n", report.gsm.txp);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rla %i\n", report.gsm.rla);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "drx %i\n", report.gsm.drx);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "c1 %i\n", report.gsm.c1);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "c2 %i\n", report.gsm.c2);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "gprs %i\n", report.gsm.gprs);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "tch %i\n", report.gsm.tch);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "ts %i\n", report.gsm.ts);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "ta %i\n", report.gsm.ta);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "maio %i\n", report.gsm.maio);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "hsn %i\n", report.gsm.hsn);
-        add_message_to_queue(reply, strsz);
-        memset(reply, 0, MAX_MESSAGE_SIZE);
-        strsz = snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxlevsub %i\n", report.gsm.rxlevsub);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxlevfull %i\n", report.gsm.rxlevfull);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxqualsub %i\n", report.gsm.rxqualsub);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rxqualfull %i\n", report.gsm.rxqualfull);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "voicecodec %i\n", report.gsm.voicecodec);
+    case 0: // GSM
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "GSM Report: %i-%i\n",
+                       report.mcc, report.mnc);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "Cell: %s\n", report.cell_id);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "lac %s\n", report.gsm.lac);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "arfcn %i\n", report.gsm.arfcn);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "band %i\n", report.gsm.band);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rxlev %i\n", report.gsm.rxlev);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "txp %i\n", report.gsm.txp);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rla %i\n", report.gsm.rla);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "drx %i\n", report.gsm.drx);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "c1 %i\n", report.gsm.c1);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "c2 %i\n", report.gsm.c2);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "gprs %i\n", report.gsm.gprs);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "tch %i\n", report.gsm.tch);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "ts %i\n", report.gsm.ts);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "ta %i\n", report.gsm.ta);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "maio %i\n", report.gsm.maio);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "hsn %i\n", report.gsm.hsn);
+      add_message_to_queue(reply, strsz);
+      memset(reply, 0, MAX_MESSAGE_SIZE);
+      strsz = snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                       "rxlevsub %i\n", report.gsm.rxlevsub);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rxlevfull %i\n", report.gsm.rxlevfull);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rxqualsub %i\n", report.gsm.rxqualsub);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rxqualfull %i\n", report.gsm.rxqualfull);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "voicecodec %i\n", report.gsm.voicecodec);
 
-        break;
+      break;
 
-      case 1: // WCDMA
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "WCDMA Report: %i-%i\n", report.mcc, report.mnc);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Cell: %s\n", report.cell_id);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "lac %s\n", report.wcdma.lac);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "uarfcn %i\n", report.wcdma.uarfcn);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "psc %i\n", report.wcdma.psc);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rac %i\n", report.wcdma.rac);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rscp %i\n", report.wcdma.rscp);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "ecio %i\n", report.wcdma.ecio);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "phych %i\n", report.wcdma.phych);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "sf %i\n", report.wcdma.sf);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "slot %i\n", report.wcdma.slot);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "speech codec %i\n", report.wcdma.speech_codec);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "conmod %i\n", report.wcdma.conmod);
+    case 1: // WCDMA
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "WCDMA Report: %i-%i\n",
+                       report.mcc, report.mnc);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "Cell: %s\n", report.cell_id);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "lac %s\n", report.wcdma.lac);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "uarfcn %i\n", report.wcdma.uarfcn);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "psc %i\n", report.wcdma.psc);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rac %i\n", report.wcdma.rac);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rscp %i\n", report.wcdma.rscp);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "ecio %i\n", report.wcdma.ecio);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "phych %i\n", report.wcdma.phych);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "sf %i\n", report.wcdma.sf);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "slot %i\n", report.wcdma.slot);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "speech codec %i\n", report.wcdma.speech_codec);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "conmod %i\n", report.wcdma.conmod);
 
-        break;
+      break;
 
-      case 2: // LTE
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "LTE Report: %i-%i\n", report.mcc, report.mnc);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "Cell: %s\n", report.cell_id);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "is_tdd %i\n", report.lte.is_tdd);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "pcid %i\n", report.lte.pcid);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "earfcn %i\n", report.lte.earfcn);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "freq band ind %i\n", report.lte.freq_band_ind);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "ul bw %i\n", report.lte.ul_bandwidth);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "dl bw %i\n", report.lte.dl_bandwidth);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "tac %i\n", report.lte.tac);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rsrp %i\n", report.lte.rsrp);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rsrq %i\n", report.lte.rsrq);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "rssi %i\n", report.lte.rssi);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "sinr %i\n", report.lte.sinr);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "srxlev %i\n", report.lte.srxlev);
-        break;
+    case 2: // LTE
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "LTE Report: %i-%i\n",
+                       report.mcc, report.mnc);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "Cell: %s\n", report.cell_id);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "is_tdd %i\n", report.lte.is_tdd);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "pcid %i\n", report.lte.pcid);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "earfcn %i\n", report.lte.earfcn);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "freq band ind %i\n", report.lte.freq_band_ind);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "ul bw %i\n", report.lte.ul_bandwidth);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "dl bw %i\n", report.lte.dl_bandwidth);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "tac %i\n", report.lte.tac);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rsrp %i\n", report.lte.rsrp);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rsrq %i\n", report.lte.rsrq);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "rssi %i\n", report.lte.rssi);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "sinr %i\n", report.lte.sinr);
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "srxlev %i\n", report.lte.srxlev);
+      break;
 
-      default:
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Serving cell report has not been retrieved yet or is invalid\n");
-        break;
+    default:
+      strsz = snprintf(
+          (char *)reply, MAX_MESSAGE_SIZE,
+          "Serving cell report has not been retrieved yet or is invalid\n");
+      break;
     }
-
   }
   add_message_to_queue(reply, strsz);
 
@@ -351,20 +403,18 @@ void render_gsm_signal_data() {
   if (get_network_type() >= 0x00 && get_network_type() <= 0x08) {
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s\n",
                       network_types[get_network_type()]);
-
   } else {
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Unknown (0x%.2x)\n", get_network_type());
   }
 
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                    "Signal strength: %i %% \n", get_signal_strength());
+                    "Signal strength: %i %%\n", get_signal_strength());
+  strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                    "%s roaming \n", netstat.is_roaming ? "Is " : "Not ");
+  strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                    "%s in call \n", netstat.in_call ? "Is" : "Isn't");
 
-  strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                    "Roaming %i \n", netstat.is_roaming );
-  
-  strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                    "In call %i \n", netstat.in_call );
   add_message_to_queue(reply, strsz);
 
   free(reply);
@@ -645,12 +695,14 @@ uint8_t parse_command(uint8_t *command) {
     dump_signal_report();
     break;
   case 23:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Enable signal tracking\n");
+    strsz =
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enable signal tracking\n");
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(true);
     break;
   case 24:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Disable signal tracking\n");
+    strsz =
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disable signal tracking\n");
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(false);
     break;
