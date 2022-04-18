@@ -19,6 +19,7 @@ do_install() {
       install -d ${D}/etc/init.d
       install -d ${D}/etc/rcS.d
       install -d ${D}/bin
+      install -d ${D}/persist
       # Modem partition sits in firmware, but is linked in /lib/firmware/image
       # Since we cant expect the partition to be in place while building,
       # Just recreate the directory and link it
