@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 
 #include "../inc/audio.h"
+#include "../inc/logger.h"
 
 #define check_range(val, min, max)                                             \
   (((val < min) ? (min) : (val > max) ? (max) : (val)))
@@ -115,13 +116,13 @@ struct mixer *mixer_open(const char *device) {
 
   fd = open(device, O_RDWR);
   if (fd < 0) {
-    printf("Control open failed\n");
+    logger(MSG_WARN, "Control open failed\n");
     return 0;
   }
 
   memset(&elist, 0, sizeof(elist));
   if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0) {
-    printf("SNDRV_CTL_IOCTL_ELEM_LIST failed\n");
+    logger(MSG_WARN, "SNDRV_CTL_IOCTL_ELEM_LIST failed\n");
     goto fail;
   }
 
@@ -210,12 +211,12 @@ void mixer_close(struct mixer *mixer) {
 void mixer_dump(struct mixer *mixer) {
   unsigned n, m;
 
-  printf("  id iface dev sub idx num perms     type   isvolume  name\n");
+  logger(MSG_WARN, "  id iface dev sub idx num perms     type   isvolume  name\n");
   for (n = 0; n < mixer->count; n++) {
     enum ctl_type type;
     struct snd_ctl_elem_info *ei = mixer->info + n;
 
-    printf("%4d %5s %3d %3d %3d %3d %c%c%c%c%c%c%c%c %-6s %8d  %s",
+    logger(MSG_WARN, "%4d %5s %3d %3d %3d %3d %c%c%c%c%c%c%c%c %-6s %8d  %s",
            ei->id.numid, elem_iface_name(ei->id.iface), ei->id.device,
            ei->id.subdevice, ei->id.index, ei->count,
            (ei->access & SNDRV_CTL_ELEM_ACCESS_READ) ? 'r' : ' ',
@@ -242,14 +243,14 @@ void mixer_dump(struct mixer *mixer) {
       break;
     case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
       unsigned m;
-      printf(" { %s=0", mixer->ctl[n].ename[0]);
+      logger(MSG_WARN, " { %s=0", mixer->ctl[n].ename[0]);
       for (m = 1; m < ei->value.enumerated.items; m++)
-        printf(", %s=%d", mixer->ctl[n].ename[m], m);
-      printf(" }");
+        logger(MSG_WARN, ", %s=%d", mixer->ctl[n].ename[m], m);
+      logger(MSG_WARN, " }");
       break;
     }
     }
-    printf("\n");
+    logger(MSG_WARN, "\n");
   }
 }
 
@@ -264,7 +265,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer, const char *name,
       }
     }
   }
-  fprintf(stderr, "%s: Mixer control %s not found\n", __func__, name);
+  logger(MSG_ERROR, "%s: Mixer control %s not found\n", __func__, name);
   return 0;
 }
 
@@ -288,7 +289,7 @@ struct mixer_ctl *get_ctl(struct mixer *mixer, char *name) {
   return mixer_get_control(mixer, name, idx);
 }
 static void print_dB(long dB) {
-  printf("%li.%02lidB", dB / 100, (dB < 0 ? -dB : dB) % 100);
+  logger(MSG_WARN, "%li.%02lidB", dB / 100, (dB < 0 ? -dB : dB) % 100);
 }
 
 static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent) {
@@ -319,15 +320,15 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val) {
   struct snd_ctl_elem_value ev;
   unsigned n;
   if (!ctl) {
-    fprintf(stderr, "%s: Bailing out, can't find control\n", __func__);
+    logger(MSG_ERROR, "%s: Bailing out, can't find control\n", __func__);
     return -1;
   }
   if (count < ctl->info->count || count > ctl->info->count) {
-    fprintf(stderr, "Count is invalid!: ");
+    logger(MSG_ERROR, "Count is invalid!: ");
     if (count < ctl->info->count)
-      fprintf(stderr, "Insufficent number of params \n");
+      logger(MSG_ERROR, "Insufficent number of params \n");
     if (count > ctl->info->count)
-      fprintf(stderr, "Too many params\n");
+      logger(MSG_ERROR, "Too many params\n");
 
     return -EINVAL;
   }
@@ -361,7 +362,7 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, int val) {
     }
     break;
   default:
-    printf("%s: Unknown element type\n", __func__);
+    logger(MSG_WARN, "%s: Unknown element type\n", __func__);
     errno = EINVAL;
     return errno;
   }
@@ -385,7 +386,7 @@ int mixer_ctl_read_tlv(struct mixer_ctl *ctl, unsigned int *tlv, long *min,
     xtlv->length = tlv_size;
     memcpy(xtlv->tlv, tlv, tlv_size);
     if (ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_TLV_READ, xtlv) < 0) {
-      fprintf(stderr, "SNDRV_CTL_IOCTL_TLV_READ failed\n");
+      logger(MSG_ERROR, "SNDRV_CTL_IOCTL_TLV_READ failed\n");
       free(xtlv);
       return -errno;
     }
@@ -403,39 +404,39 @@ int mixer_ctl_read_tlv(struct mixer_ctl *ctl, unsigned int *tlv, long *min,
     case SNDRV_CTL_TLVT_DB_SCALE: {
       int idx = 2;
       int step;
-      printf("dBscale-");
+      logger(MSG_WARN, "dBscale-");
       if (size != 2 * sizeof(unsigned int)) {
         while (size > 0) {
-          printf("0x%08x,", tlv[idx++]);
+          logger(MSG_WARN, "0x%08x,", tlv[idx++]);
           size -= sizeof(unsigned int);
         }
       } else {
-        printf(" min=");
+        logger(MSG_WARN, " min=");
         print_dB((int)tlv[2]);
         *min = (long)tlv[2];
-        printf(" step=");
+        logger(MSG_WARN, " step=");
         step = (tlv[3] & 0xffff);
         print_dB(tlv[3] & 0xffff);
-        printf(" max=");
+        logger(MSG_WARN, " max=");
         *max = (ctl->info->value.integer.max);
         print_dB((long)ctl->info->value.integer.max);
-        printf(" mute=%i\n", (tlv[3] >> 16) & 1);
+        logger(MSG_WARN, " mute=%i\n", (tlv[3] >> 16) & 1);
       }
       break;
     }
     case SNDRV_CTL_TLVT_DB_LINEAR: {
       int idx = 2;
-      printf("dBLiner-");
+      logger(MSG_WARN, "dBLiner-");
       if (size != 2 * sizeof(unsigned int)) {
         while (size > 0) {
-          printf("0x%08x,", tlv[idx++]);
+          logger(MSG_WARN, "0x%08x,", tlv[idx++]);
           size -= sizeof(unsigned int);
         }
       } else {
-        printf(" min=");
+        logger(MSG_WARN, " min=");
         *min = tlv[2];
         print_dB(tlv[2]);
-        printf(" max=");
+        logger(MSG_WARN, " max=");
         *max = tlv[3];
         print_dB(tlv[3]);
       }
@@ -459,25 +460,25 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent) {
   unsigned int tlv_type;
 
   if (!ctl) {
-    fprintf(stderr, "can't find control\n");
+    logger(MSG_ERROR, "can't find control\n");
     return -1;
   }
 
   if (is_volume(ctl->info->id.name, &type)) {
     tlv = calloc(1, DEFAULT_TLV_SIZE);
     if (tlv == NULL) {
-      printf("failed to allocate memory\n");
+      logger(MSG_WARN, "failed to allocate memory\n");
     } else if (!mixer_ctl_read_tlv(ctl, tlv, &min, &max, &tlv_type)) {
       switch (tlv_type) {
       case SNDRV_CTL_TLVT_DB_LINEAR:
-        printf("tlv db linear: b4 %d\n", percent);
+        logger(MSG_WARN, "tlv db linear: b4 %d\n", percent);
 
         if (min < 0) {
           max = max - min;
           min = 0;
         }
         percent = check_range(percent, min, max);
-        printf("tlv db linear: %d %ld %ld\n", percent, min, max);
+        logger(MSG_WARN, "tlv db linear: %d %ld %ld\n", percent, min, max);
         volume = 1;
         break;
       default:
@@ -487,7 +488,7 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent) {
         break;
       }
     } else
-      printf("mixer_ctl_read_tlv failed\n");
+      logger(MSG_WARN, "mixer_ctl_read_tlv failed\n");
     free(tlv);
   }
   memset(&ev, 0, sizeof(ev));
@@ -533,7 +534,8 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val) {
   unsigned int tlv_type;
   int ret;
   if (is_volume(ctl->info->id.name, &type)) {
-    fprintf(stderr, "Volume levels not handled\n");
+    logger(MSG_WARN, "Volume levels badly handled\n");
+    return mixer_ctl_mulvalues(ctl, count, val);
   } else {
     return mixer_ctl_mulvalues(ctl, count, val);
   }
