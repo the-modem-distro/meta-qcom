@@ -39,6 +39,8 @@ static const struct {
     {22, "net report", "Network report", "Get network report "},
     {23, "enable tracking", "Signal tracking: enabled", "Switch on network monitoring"},
     {24, "disable tracking", "Signal tracking: disbled", "Switch off network monitoring"},
+    {25, "enable persistent logging", "Persistent logging: enabled", "Switch on persistent logging"},
+    {26, "disable persistent logging", "Persistent logging: disbled", "Switch off persistent logging"},
 }; 
 
 static const struct {

@@ -18,6 +18,7 @@
 #include "../inc/audio.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
+#include "../inc/config.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/md5sum.h"

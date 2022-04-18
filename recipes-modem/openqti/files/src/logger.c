@@ -6,6 +6,8 @@
 #include <time.h>
 
 #include "../inc/helpers.h"
+#include "../inc/logger.h"
+#include "../inc/config.h"
 #include "../inc/openqti.h"
 
 bool log_to_file = true;
@@ -40,6 +42,7 @@ void logger(uint8_t level, char *format, ...) {
   va_list args;
   double elapsed_time;
   struct timespec current_time;
+  int persist = use_persistent_logging();
   clock_gettime(CLOCK_MONOTONIC, &current_time);
   elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
                   (current_time.tv_nsec - startup_time.tv_nsec)) /
@@ -49,7 +52,11 @@ void logger(uint8_t level, char *format, ...) {
     if (!log_to_file) {
       fd = stdout;
     } else {
-      fd = fopen("/var/log/openqti.log", "a");
+      if (persist) {
+        fd = fopen(PERSISTENT_LOGPATH, "a");
+      } else {
+        fd = fopen(VOLATILE_LOGPATH, "a");
+      }
       if (fd < 0) {
         fprintf(stderr, "[%s] Error opening logfile \n", __func__);
         fd = stdout;

@@ -133,142 +133,6 @@ void store_audio_output_mode(uint8_t mode) {
   close(fd);
 }
 
-int use_custom_alert_tone() {
-  int fd;
-  char buff[32];
-  fd = open("/dev/mtdblock12", O_RDONLY);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
-    return 0;
-  }
-  lseek(fd, 128, SEEK_SET);
-  if (read(fd, buff, sizeof(PERSIST_CUSTOM_ALERT_TONE)) <= 0) {
-    logger(MSG_ERROR, "%s: Error reading alert tone flag\n", __func__);
-  }
-  close(fd);
-  if (strcmp(buff, PERSIST_CUSTOM_ALERT_TONE) == 0) {
-    logger(MSG_DEBUG, "%s: Using custom alert tone\n", __func__);
-    return 1;
-  }
-
-  logger(MSG_DEBUG, "%s: Using default alert tone provided by the carrier \n",
-         __func__);
-  return 0;
-}
-
-void set_custom_alert_tone(bool en) {
-  char buff[32];
-  memset(buff, 0, 32);
-
-  int fd;
-  if (en) { // Store the magic string in the second block of the misc partition
-    logger(MSG_WARN, "Enabling Custom alert tone\n");
-    strncpy(buff, PERSIST_CUSTOM_ALERT_TONE, sizeof(PERSIST_CUSTOM_ALERT_TONE));
-  } else {
-    logger(MSG_WARN, "Disabling custom alert tone\n");
-  }
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR,
-           "%s: Error opening misc partition to set alert tone flag \n",
-           __func__);
-    return;
-  }
-  lseek(fd, 128, SEEK_SET);
-  if (write(fd, &buff, sizeof(buff)) < 0) {
-    logger(MSG_ERROR, "%s: Error writing the alert tone flag \n", __func__);
-  }
-  close(fd);
-}
-
-int get_modem_name(char *buff) {
-  int fd, i;
-  fd = open("/dev/mtdblock12", O_RDONLY);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
-    return 0;
-  }
-  lseek(fd, 160, SEEK_SET);
-  if (read(fd, buff, 32) <= 0) {
-    logger(MSG_ERROR, "%s: Error reading modem name\n", __func__);
-    strncpy(buff, "Modem", strlen("Modem"));
-  }
-  close(fd);
-  if (buff[0] == '\0') {
-    for (i = 1; i < 32; i++) {
-      buff[i - 1] = buff[i];
-    }
-    logger(MSG_INFO, "%s: Your modem name is %s\n", __func__, buff);
-    return 1;
-  }
-
-  logger(MSG_DEBUG, "%s: Using default name \n", __func__);
-  snprintf(buff, 32, "Admin");
-  return 1;
-}
-
-int get_user_name(char *buff) {
-  int fd, i;
-  fd = open("/dev/mtdblock12", O_RDONLY);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening the misc partition \n", __func__);
-    return 0;
-  }
-  lseek(fd, 200, SEEK_SET);
-  if (read(fd, buff, 32) <= 0) {
-    logger(MSG_ERROR, "%s: Error reading modem name\n", __func__);
-    strncpy(buff, "Admin", strlen("Admin"));
-  }
-  close(fd);
-  if (buff[0] == '\0') {
-    for (i = 1; i < 32; i++) {
-      buff[i - 1] = buff[i];
-    }
-    logger(MSG_INFO, "%s: Your name is %s\n", __func__, buff);
-    return 1;
-  }
-
-  logger(MSG_DEBUG, "%s: Using default name \n", __func__);
-  snprintf(buff, 32, "Admin");
-  return 1;
-}
-
-void set_modem_name(char *name) {
-  char buff[33];
-  memset(buff, 0, 33);
-
-  int fd;
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening misc partition \n", __func__);
-    return;
-  }
-  lseek(fd, 160, SEEK_SET);
-  snprintf(buff + 1, sizeof(buff) - 1, "%s", name);
-  if (write(fd, &buff, sizeof(buff)) < 0) {
-    logger(MSG_ERROR, "%s: Error writing modem's name \n", __func__);
-  }
-  close(fd);
-}
-
-void set_user_name(char *name) {
-  char buff[33];
-  memset(buff, 0, 33);
-
-  int fd;
-  fd = open("/dev/mtdblock12", O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Error opening misc partition \n", __func__);
-    return;
-  }
-  lseek(fd, 200, SEEK_SET);
-  snprintf(buff + 1, sizeof(buff) - 1, "%s", name);
-  if (write(fd, &buff, sizeof(buff)) < 0) {
-    logger(MSG_ERROR, "%s: Error writing user's name \n", __func__);
-  }
-  close(fd);
-}
-
 void reset_usb_port() {
   if (write_to(USB_EN_PATH, "0", O_RDWR) < 0) {
     logger(MSG_ERROR, "%s: Error disabling USB \n", __func__);
@@ -343,18 +207,22 @@ char *get_gpio_dirpath(char *gpio) {
 
   return path;
 }
-void prepare_dtr_gpio() {
-  logger(MSG_INFO, "%s: Getting GPIO ready\n", __func__);
-  if (write_to(GPIO_EXPORT_PATH, GPIO_DTR, O_WRONLY) < 0) {
-    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
-  }
-}
 
 char *get_gpio_value_path(char *gpio) {
   char *path;
   path = calloc(256, sizeof(char));
   snprintf(path, 256, "%s%s/%s", GPIO_SYSFS_BASE, gpio, GPIO_SYSFS_VALUE);
   return path;
+}
+
+/* We're not using this: */
+
+/*
+void prepare_dtr_gpio() {
+  logger(MSG_INFO, "%s: Getting GPIO ready\n", __func__);
+  if (write_to(GPIO_EXPORT_PATH, GPIO_DTR, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error exporting GPIO_DTR pin\n", __func__);
+  }
 }
 
 uint8_t get_dtr_state() {
@@ -379,17 +247,17 @@ uint8_t get_dtr_state() {
 
   close(dtr);
   return ret;
-}
+} */
 
 uint8_t pulse_ring_in() {
   int i;
-  logger(MSG_INFO, "%s: [[[RING IN]]]\n", __func__);
+  logger(MSG_INFO, "[[[RING IN]]]\n");
 
   if (write_to(GPIO_EXPORT_PATH, GPIO_RING_IN, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error exporting GPIO_RING_IN pin\n", __func__);
   }
   if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_OUTPUT, O_RDWR) < 0) {
-    logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin\n", __func__);
+    logger(MSG_ERROR, "%s: Error set dir: GPIO_RING_IN pin\n", __func__);
   }
   usleep(300);
   for (i = 0; i < 10; i++) {
@@ -406,11 +274,6 @@ uint8_t pulse_ring_in() {
   }
 
   usleep(300);
-  /* if (write_to(get_gpio_dirpath(GPIO_RING_IN), GPIO_MODE_INPUT, O_WRONLY) <
-   0) { logger(MSG_ERROR, "%s: Error set dir: GPIO_WAKEUP_IN pin at %s\n",
-            __func__);
-   }
- */
   if (write_to(GPIO_UNEXPORT_PATH, GPIO_RING_IN, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error unexporting GPIO_RING_IN pin\n", __func__);
   }
@@ -439,6 +302,7 @@ int get_int_from_str(char *str, int offset) {
   val = strtol(tmp, NULL, 10);
   return val;
 }
+
 void *power_key_event() {
   int fd = 0;
   struct input_event ev;
@@ -466,8 +330,7 @@ void *power_key_event() {
       } else if (ev.type == EV_KEY && ev.code == KEY_POWER && ev.value == 0) {
         memcpy(&cur, &ev.time, sizeof(struct timeval));
         if (elapsed_time(&prev, &cur) > 1000000) {
-          logger(MSG_ERROR, "%s: Suspend/Resume\n", __func__);
-          system("echo mem > /sys/power/state");
+          logger(MSG_ERROR, "%s: Power GPIO long press detected\n", __func__);
         } else {
           logger(MSG_ERROR, "%s: Poweroff requested!\n", __func__);
           syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,

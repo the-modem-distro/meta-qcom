@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "../inc/config.h"
 #include "../inc/cell.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
@@ -31,7 +32,6 @@
 struct network_state net_status;
 
 struct {
-  bool enable_tracking;
   uint8_t history_sz;
   struct cell_report current_report;
   struct cell_report history[128];
@@ -60,15 +60,6 @@ uint8_t get_signal_strength() {
 
   return 0;
 }
-void enable_signal_tracking(bool en) {
-  if (en) {
-    report_data.enable_tracking = true;
-  } else {
-    report_data.enable_tracking = false;
-  }
-}
-
-bool is_signal_tracking_enabled() { return report_data.enable_tracking; }
 
 struct network_state get_network_status() {
   return net_status;
@@ -774,7 +765,7 @@ void update_network_data(uint8_t network_type, uint8_t signal_level) {
   net_status.signal_level = signal_level;
   logger(MSG_DEBUG, "%s: Request AT+CIND\n", __func__);
   read_at_cind();
-  if (report_data.enable_tracking) {
+  if (is_signal_tracking_enabled()) {
     logger(MSG_INFO, "%s: Read serving and neighbour cell data\n", __func__);
     read_serving_cell();
   }

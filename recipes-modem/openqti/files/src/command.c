@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "../inc/config.h"
 #include "../inc/command.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
@@ -715,6 +716,18 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(false);
     break;
+   case 25:
+    strsz =
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enable persistent logging\n");
+    add_message_to_queue(reply, strsz);
+    set_persistent_logging(true);
+    break;
+  case 26:
+    strsz =
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disable persistent logging\n");
+    add_message_to_queue(reply, strsz);
+    set_persistent_logging(false);
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
@@ -728,6 +741,7 @@ uint8_t parse_command(uint8_t *command) {
   case 103:
     debug_cb_message(command);
     break;
+ 
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Invalid command id %i\n", cmd_id);
