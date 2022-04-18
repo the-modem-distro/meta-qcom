@@ -31,6 +31,7 @@
 
 /* adaptation layer defines */
 #define PICO_MEM_SIZE 2500000
+#define RESOURCE_NAME_SZ 200
 #define DummyLen 100000000
 
 /* string constants */
@@ -133,7 +134,7 @@ int pico2aud(char *phrase, size_t len) {
 
   logger(MSG_DEBUG, "%s: Text analysis resource file\n", __func__);
   /* Get the text analysis resource name.     */
-  picoTaResourceName = (pico_Char *)malloc(PICO_MAX_RESOURCE_NAME_SIZE);
+  picoTaResourceName = (pico_Char *)malloc(RESOURCE_NAME_SZ);
   if ((ret = pico_getResourceName(picoSystem, picoTaResource,
                                   (char *)picoTaResourceName))) {
     pico_getSystemStatusMessage(picoSystem, ret, outMessage);
@@ -144,7 +145,7 @@ int pico2aud(char *phrase, size_t len) {
 
   logger(MSG_DEBUG, "%s: Signal generation resource file\n", __func__);
   /* Get the signal generation resource name. */
-  picoSgResourceName = (pico_Char *)malloc(PICO_MAX_RESOURCE_NAME_SIZE);
+  picoSgResourceName = (pico_Char *)malloc(RESOURCE_NAME_SZ);
   if ((ret = pico_getResourceName(picoSystem, picoSgResource,
                                   (char *)picoSgResourceName))) {
     pico_getSystemStatusMessage(picoSystem, ret, outMessage);
