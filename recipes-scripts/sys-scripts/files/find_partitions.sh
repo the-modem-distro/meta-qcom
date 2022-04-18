@@ -31,4 +31,7 @@ mount -t ubifs -o ro /dev/ubi1_0 /firmware
 # Tell the Hexagon it can boot once the firmware is in place
 echo 1 > /sys/kernel/boot_adsp/boot
 
-mount -t tmpfs -o size=16m tmpfs /data
+# We have 10 seconds of spare time between adsp boot signal to actually
+# ready, so after telling it to boot we mount persistent storage
+ubiattach -m 14 -d 2 /dev/ubi_ctrl 
+mount -t ubifs -o rw /dev/ubi2_0 /persist
