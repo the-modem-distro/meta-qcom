@@ -11,6 +11,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "../inc/config.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/command.h"
@@ -49,10 +50,20 @@ int main(int argc, char **argv) {
 
   // To track thread exits
   void *retgps, *retrmnet, *retatfwd;
+
+  /* Set initial settings before moving to actual initialization */
+  set_initial_config();
+
+  /* Reset logtime and set log method to logfile */
   reset_logtime();
   set_log_method(false);
 
+  /* Try to read the config file on top of the defaults */
+  read_settings_from_file();
+  
   logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", RELEASE_VER);
+
+  /* Begin */
   reset_client_handler();
   reset_dirty_reconnects();
   set_log_level(1); // By default, set log level to info
@@ -110,6 +121,7 @@ int main(int argc, char **argv) {
     return -EBUSY;
   }
 
+  /* Set cpu governor to performance to speed it up a bit */
   if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error setting up governor in performance mode\n",
            __func__);
@@ -127,11 +139,13 @@ int main(int argc, char **argv) {
     return -EINVAL;
   }
 
+  /* Set empty IPC security */
   logger(MSG_DEBUG, "%s: Init: IPC Security settings\n", __func__);
   if (setup_ipc_security() != 0) {
     logger(MSG_ERROR, "%s: Error setting up MSM IPC Security!\n", __func__);
   }
 
+  /* Try to start DPM */
   logger(MSG_DEBUG, "%s: Init: Dynamic Port Mapper \n", __func__);
   if (init_port_mapper() < 0) {
     logger(MSG_ERROR, "%s: Error setting up port mapper!\n", __func__);
@@ -151,7 +165,9 @@ int main(int argc, char **argv) {
     usleep(100);
   } while (rmnet_nodes.node2.fd < 0);
 
-  prepare_dtr_gpio();
+  /* We're not using this anyway */
+  /* prepare_dtr_gpio(); */
+
   logger(MSG_INFO, "%s: Init: AT Command forwarder \n", __func__);
   if ((ret = pthread_create(&atfwd_thread, NULL, &start_atfwd_thread, NULL))) {
     logger(MSG_ERROR, "%s: Error creating ATFWD  thread\n", __func__);
@@ -174,11 +190,11 @@ int main(int argc, char **argv) {
   if (ret < 0)
     logger(MSG_ERROR, "%s: Set modem online: %i \n", __func__, ret);
 
+  /* Reset Openqti's internal audio settings first */
   logger(MSG_INFO, "%s: Init: Setup default I2S Audio settings \n", __func__);
-  /* Reset Openqti's internal  audio settings first */
   set_audio_runtime_default();
 
-  /* Initial set up of the audio codec */
+  /* Initial audio port/codec setup */
   setup_codec();
 
   /* Switch between I2S and usb audio
@@ -193,12 +209,13 @@ int main(int argc, char **argv) {
     configure_custom_alert_tone(true);
   }
 
+  /* Set runtime defaults for everything */
   set_atfwd_runtime_default();
   reset_sms_runtime();
   reset_call_state();
   set_cmd_runtime_defaults();
 
-  // Enable or disable ADB depending on the misc partition setting
+  /* Enable or disable ADB depending on the misc partition setting */
   set_adb_runtime(is_adb_enabled());
 
   logger(MSG_INFO, "%s: Init: Create GPS runtime thread \n", __func__);
@@ -235,7 +252,7 @@ int main(int argc, char **argv) {
            __func__);
   }
 
-  // just in case we previously died...
+  /* just in case we previously died... */
   enable_usb_port();
 
   /* This pipes messages between rmnet_ctl and smdcntl8,
