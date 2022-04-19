@@ -444,6 +444,10 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     set_record(false);
     break;
+  case 142: // Wipe message storage
+    sckret = send_pkt(qmidev, response, pkt_size);
+    wipe_message_storage();
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {

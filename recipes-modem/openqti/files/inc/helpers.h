@@ -12,6 +12,8 @@
 
 #define INPUT_DEV "/dev/input/event0"
 
+#define MSG_DELETE_PARTIAL_CMD "AT+CMGD="
+
 int write_to(const char *path, const char *val, int flags);
 uint32_t get_curr_timestamp();
 void store_adb_setting(bool en);
@@ -30,5 +32,6 @@ uint8_t pulse_ring_in();
 
 int get_int_from_str(char *str, int offset);
 void *power_key_event();
+int wipe_message_storage();
 
 #endif

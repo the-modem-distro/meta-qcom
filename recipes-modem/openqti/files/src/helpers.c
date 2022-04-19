@@ -342,3 +342,26 @@ void *power_key_event() {
 
   return NULL;
 }
+
+
+int wipe_message_storage() {
+  int fd, sz, ret, i;
+  char command[128];
+
+  logger(MSG_INFO, "%s: Wiping message storage\n", __func__);
+  fd = open(SMD_SEC_AT, O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Cannot open SMD10 entry\n", __func__);
+    return -EINVAL;
+  }
+
+  for (i = 0; i <= 100; i++) {
+    sz = snprintf(command, 128,"%s%i\r\n", MSG_DELETE_PARTIAL_CMD, i);
+    ret = write(fd, command, sz);
+    usleep(100000);
+  }
+  close(fd);
+  logger(MSG_INFO, "%s: Message storage cleared\n", __func__);
+
+  return 0;
+}

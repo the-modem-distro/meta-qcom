@@ -152,6 +152,7 @@ static const struct {
     {139, "+RESETAUDPA"},
     {140, "+RECON"},
     {141, "+RECOFF"},
+    {142, "+WIPESMS"},
 };
 
 
