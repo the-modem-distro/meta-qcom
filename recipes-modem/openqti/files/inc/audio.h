@@ -7,6 +7,14 @@
 #include <sound/asound.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+/* AFE Mixer */
+#define AFE_LOOPBACK "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
+#define AFE_LOOPBACK_GAIN_CTL "/sys/kernel/debug/afe_loopback_gain"
+#define AFE_LOOPBACK_PORT_ID "0x100d"
+#define AFE_LOOPBACK_VOLUME_DEFAULT 0
+// echo 0x100d 0 > afe_loopback_gain
+
 /* Mixers used in VoLTE / VoLTE HD */
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
 #define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
@@ -16,12 +24,10 @@
 #define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
 
 /* Mixers used in VoLTE / VoLTE HD calls with USB Audio */
-#define AFECTL_VOLTE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOLTE "AFE_PCM_RX_Voice Mixer VoLTE"
 #define AFETX_VOLTE "VoLTE_Tx Mixer AFE_PCM_TX_VoLTE"
 
 /* Mixers used in Circuit Switch type voice calls (2G/3G) with USB Audio */
-#define AFECTL_VOICE "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
 
@@ -34,12 +40,24 @@
 #define SEC_AUXPCM_MODE "SEC_AUXPCM Mode"
 #define AUX_PCM_SAMPLERATE "AUX PCM SampleRate"
 
+/* Volume levels */
+#define RX_GAIN_LEV "Voice Rx Gain"
+#define LOOPBACK_VOL "SEC AUXPCM LOOPBACK Volume"
+
+enum {
+  VOICE_SESSION_VSID = 0x10C01000,
+  VOICE2_SESSION_VSID = 0x10DC1000,
+  VOLTE_SESSION_VSID = 0x10C02000,
+  VOIP_SESSION_VSID = 0x10004000,
+};
+
 enum call_direction {
   AUDIO_DIRECTION_OUTGOING = 0x01,
   AUDIO_DIRECTION_INCOMING = 0x02,
 };
 
 enum call_status {
+  AUDIO_CALL_NOT_STARTED_YET = 0x00,
   AUDIO_CALL_ORIGINATING = 0x01,
   AUDIO_CALL_RINGING = 0x02,
   AUDIO_CALL_ESTABLISHED = 0x03,
@@ -70,8 +88,12 @@ enum ctl_type {
 };
 
 struct mixer_ctl {
+  /** The mixer that the mixer control belongs to */
   struct mixer *mixer;
+  /** Information on the control's value (i.e. type, number of values) */
   struct snd_ctl_elem_info *info;
+  /** A list of string representations of enumerated values (only valid for
+   * enumerated controls) */
   char **ename;
 };
 
@@ -187,12 +209,12 @@ void set_audio_mute(bool mute);
 /* Mixer functions */
 struct mixer *mixer_open(const char *device);
 void mixer_close(struct mixer *mixer);
-void mixer_dump(struct mixer *mixer);
 struct mixer_ctl *get_ctl(struct mixer *mixer, char *name);
+unsigned get_ctl_index(struct mixer *mixer, char *name);
 struct mixer_ctl *mixer_get_control(struct mixer *mixer, const char *name,
                                     unsigned index);
 struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
-int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, int val);
+int mixer_ctl_set_value(struct mixer_ctl *ctl, unsigned int id, int value);
 
 /* PCM functions */
 struct pcm *pcm_open(unsigned flags, char *device);
@@ -201,9 +223,9 @@ int set_params(struct pcm *pcm, int path);
 
 /* OpenQTI audio setting helpers */
 int set_mixer_ctl(struct mixer *mixer, char *name, int value);
+int mixer_ctl_set_gain(struct mixer_ctl *ctl, int call_type, int value);
 int stop_audio();
 int start_audio(int type);
-int dump_audio_mixer();
 void handle_call_pkt(struct call_status_indication *pkt, int sz,
                      uint8_t *phone_number);
 int set_audio_defaults();
@@ -216,5 +238,7 @@ unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
 void setup_codec();
 
 int pico2aud(char *text, size_t len);
+void set_multimedia_mixer();
+void stop_multimedia_mixer();
 
 #endif

@@ -370,7 +370,6 @@ void *simulated_call_tts_handler() {
   int num_read;
   FILE *file;
   struct pcm *pcm0;
-  struct mixer *mymixer;
   int i;
   bool handled;
   char *phrase; //[MAX_TTS_TEXT_SIZE];
@@ -382,15 +381,8 @@ void *simulated_call_tts_handler() {
   if (get_call_simulation_mode()) {
     logger(MSG_INFO, "%s: Started TTS thread\n", __func__);
     /* Initial set up of the audio codec */
-    setup_codec();
 
-    mymixer = mixer_open(SND_CTL);
-    if (!mymixer) {
-      logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
-      return NULL;
-    }
-    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 1);
-    mixer_close(mymixer);
+    set_multimedia_mixer();
 
     pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
     if (pcm0 == NULL) {
@@ -477,13 +469,7 @@ void *simulated_call_tts_handler() {
   free(buffer);
   buffer = NULL;
   pcm_close(pcm0);
-  mymixer = mixer_open(SND_CTL);
-  if (!mymixer) {
-    logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
-    return NULL;
-  }
-  set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
-  mixer_close(mymixer);
+  stop_multimedia_mixer();
 
   for (i = 0; i < QUEUE_SIZE; i++) {
     call_rt.msg[i].state = 0;
@@ -553,8 +539,6 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   case VO_SVC_CALL_REQUEST:
     j = 0;
     req = (struct call_request_indication *)bytes;
-    logger(MSG_INFO, "%s: Call request to %s\n", __func__,
-           req->number.phone_number);
     for (i = 0; i < req->number.phone_num_length; i++) {
       if (req->number.phone_number[i] >= 0x30 &&
           req->number.phone_number[i] <= 0x39) {
