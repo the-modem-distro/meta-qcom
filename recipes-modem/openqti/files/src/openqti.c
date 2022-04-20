@@ -67,13 +67,8 @@ int main(int argc, char **argv) {
   reset_client_handler();
   reset_dirty_reconnects();
   set_log_level(1); // By default, set log level to info
-  while ((ret = getopt(argc, argv, "adulv?")) != -1)
+  while ((ret = getopt(argc, argv, "dulv?")) != -1)
     switch (ret) {
-    case 'a':
-      fprintf(stdout, "Dump audio mixer data \n");
-      return dump_audio_mixer();
-      break;
-
     case 'd':
       fprintf(stdout, "Print logs to stdout\n");
       set_log_method(true);
@@ -95,7 +90,6 @@ int main(int argc, char **argv) {
       fprintf(stdout, "openQTI version %s\n", RELEASE_VER);
       fprintf(stdout, "---------------------\n");
       fprintf(stdout, "Options:\n");
-      fprintf(stdout, " -a: Dump audio mixer controls\n");
       fprintf(stdout, " -u: Print available ADSP firmware services\n");
       fprintf(stdout, " -d: Send logs to stdout\n");
       fprintf(stdout, " -l: Set log level to debug\n");
