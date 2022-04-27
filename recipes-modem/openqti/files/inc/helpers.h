@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #define PERSIST_ADB_ON_MAGIC "persistent_adb_on"
 #define PERSIST_ADB_OFF_MAGIC "persistent_adb_off"
@@ -32,6 +33,8 @@ uint8_t pulse_ring_in();
 
 int get_int_from_str(char *str, int offset);
 void *power_key_event();
+int read_adsp_version();
 int wipe_message_storage();
+void add_message_to_queue(uint8_t *message, size_t len);
 
 #endif

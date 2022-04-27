@@ -9,6 +9,9 @@
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
+#include "../inc/adspfw.h"
+#include "../inc/md5sum.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
@@ -344,6 +347,42 @@ void *power_key_event() {
 }
 
 
+int read_adsp_version() {
+  char *md5_result;
+  char *hex_md5_res;
+  int ret, i, j;
+  int element = 0;
+  int offset = 0;
+  md5_result = calloc(64, sizeof(char));
+  hex_md5_res = calloc(64, sizeof(char));
+  bool matched = false;
+
+  ret = md5_file(ADSPFW_GEN_FILE, md5_result);
+  if (strlen(md5_result) < 16) {
+    logger(MSG_ERROR, "%s: Error calculating the MD5 for your firmware (%s) \n",
+           __func__, md5_result);
+  } else {
+    for (j = 0; j < strlen(md5_result); j++) {
+      offset += sprintf(hex_md5_res + offset, "%02x", md5_result[j]);
+    }
+    for (i = 0; i < (sizeof(known_adsp_fw) / sizeof(known_adsp_fw[0])); i++) {
+      if (strcmp(hex_md5_res, known_adsp_fw[i].md5sum) == 0) {
+        logger(MSG_INFO, "%s: Found your ADSP firmware: (%s) \n", __func__,
+               known_adsp_fw[i].fwstring);
+        element = i;
+        matched = true;
+        break;
+      }
+    }
+  }
+  if (!matched) {
+    logger(MSG_WARN, "%s: Could not detect your ADSP firmware! \n", __func__);
+  }
+  free(md5_result);
+  free(hex_md5_res);
+  return element;
+}
+
 int wipe_message_storage() {
   int fd, sz, ret, i;
   char command[128];
@@ -364,4 +403,17 @@ int wipe_message_storage() {
   logger(MSG_INFO, "%s: Message storage cleared\n", __func__);
 
   return 0;
+}
+
+void add_message_to_queue(uint8_t *message, size_t len) {
+  if (len <= 0) {
+    logger(MSG_ERROR, "%s: Can't parse message, size is %i\n", __func__, len);
+    return;
+  }
+
+  if (get_call_simulation_mode()) {
+    add_voice_message_to_queue(message, len);
+  } else {
+   add_sms_to_queue(message, len);
+  }
 }
