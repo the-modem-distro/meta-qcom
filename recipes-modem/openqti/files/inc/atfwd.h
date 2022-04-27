@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 #ifndef _ATFWD_H_
 #define _ATFWD_H_
+#include "../inc/qmi.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include "../inc/qmi.h"
 
 static const struct {
   unsigned int command_id;
@@ -155,7 +155,6 @@ static const struct {
     {142, "+WIPESMS"},
 };
 
-
 #define AT_REG_REQ 0x0020
 #define AT_CMD_RES 0x0022
 /*
@@ -187,17 +186,18 @@ struct atcmd_reg_request {
 
 struct at_command_meta {
   uint8_t client_handle; // 0x01
-  uint16_t at_pkt_len; // AT packet size
-} __attribute__ ((packed));
+  uint16_t at_pkt_len;   // AT packet size
+} __attribute__((packed));
 
 struct at_command_respnse {
   struct qmi_packet qmipkt;
   struct at_command_meta meta;
-  uint32_t handle; // 0x0b 0x00 0x00 0x00 
-  uint8_t result; // 1 OK 2 OTHER, 0 ERR
+  uint32_t handle;  // 0x0b 0x00 0x00 0x00
+  uint8_t result;   // 1 OK 2 OTHER, 0 ERR
   uint8_t response; // 3 == Complete response in one packet
   uint16_t replysz;
-  char reply[MAX_REPLY_SZ]; // When there's something in here, it seems it needs \r\0\r\n[reply]\n\n
+  char reply[MAX_REPLY_SZ]; // When there's something in here, it seems it needs
+                            // \r\0\r\n[reply]\n\n
 } __attribute__((packed));
 
 void set_sms_notification_pending_state(bool en);
