@@ -23,6 +23,12 @@ enum {
     TASK_TYPE_WAKE_HOST,
     /* ....*/
 };
+
+/* Time mode */
+enum {
+    SCHED_MODE_TIME_AT = 0,
+    SCHED_MODE_TIME_COUNTDOWN
+};
 /*
  *  Status:
  *      0 -> free
@@ -37,13 +43,23 @@ enum {
  *
  *
  */
+
+struct execution_time {
+    time_t exec_time;
+    uint8_t mode; // 0 -> Specific time ; 1 -> In specific time from creation
+    uint8_t hh;
+    uint8_t mm;
+};
+
 struct task_p {
     uint8_t type;
     uint8_t param;
     uint8_t status;
+    struct execution_time time;
     char arguments[ARG_SIZE];
 };
 
 
 void *start_scheduler_thread();
+int add_task(struct task_p task);
 #endif
