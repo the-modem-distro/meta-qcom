@@ -6,6 +6,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../inc/config.h"
 #include "../inc/atfwd.h"
 #include "../inc/call.h"
 #include "../inc/cell_broadcast.h"
@@ -395,7 +396,7 @@ int handle_message_state(int fd, uint32_t message_id) {
     return 0;
   }
 
-  logger(MSG_ERROR, "%s: Attempting handle message ID: %i\n", __func__,
+  logger(MSG_DEBUG, "%s: Attempting to handle message ID: %i\n", __func__,
          message_id);
 
   switch (sms_runtime.queue.msg[message_id].state) {
@@ -640,14 +641,12 @@ int process_message_queue(int fd) {
  * Update message queue and add new message text
  * to the array
  */
-void add_message_to_queue(uint8_t *message, size_t len) {
+void add_sms_to_queue(uint8_t *message, size_t len) {
   if (sms_runtime.queue.queue_pos > QUEUE_SIZE - 2) {
     logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
     return;
   }
-  if (get_call_simulation_mode() && len > 0) {
-    add_voice_message_to_queue(message, len);
-  } else if (len > 0) {
+if (len > 0) {
     set_notif_pending(true);
     set_pending_notification_source(MSG_INTERNAL);
     logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
@@ -660,7 +659,8 @@ void add_message_to_queue(uint8_t *message, size_t len) {
   } else {
     logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
   }
-};
+}
+
 
 /* Generate a notification indication */
 uint8_t do_inject_notification(int fd) {
@@ -707,6 +707,7 @@ uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd, uint16_t messa
   free(receive_ack);
   return ret;
 }
+
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
@@ -757,6 +758,55 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
   return 0;
 }
 
+
+/* Sniff on an sms */
+uint8_t log_message_contents(void *bytes, size_t len) {
+  size_t temp_sz;
+  uint8_t *output;
+  uint8_t ret;
+  int outsize;
+  struct outgoing_sms_packet *pkt;
+  struct outgoing_no_validity_period_sms_packet *nodate_pkt;
+
+  output = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
+  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
+    pkt = (struct outgoing_sms_packet *)bytes;
+    nodate_pkt = (struct outgoing_no_validity_period_sms_packet *)bytes;
+    /* This will need to be rebuilt for oFono, probably
+     *  0x31 -> Most of ModemManager stuff
+     *  0x11 -> From jeremy, still keeps 0x21
+     *  0x01 -> Skips the 0x21 and jumps to content
+     */
+    if (pkt->pdu_type >= 0x11) {
+      ret = gsm7_to_ascii(pkt->contents.contents,
+                          strlen((char *)pkt->contents.contents),
+                          (char *)output, pkt->contents.content_sz);
+    } else if (pkt->pdu_type == 0x01) {
+      ret = gsm7_to_ascii(nodate_pkt->contents.contents,
+                          strlen((char *)nodate_pkt->contents.contents),
+                          (char *)output, nodate_pkt->contents.content_sz);
+    } else {
+      set_log_level(0);
+
+      logger(MSG_ERROR,
+             "%s: Don't know how to handle this. Please contact biktorgj and "
+             "get him the following dump:\n",
+             __func__);
+      dump_pkt_raw(bytes, len);
+      logger(MSG_ERROR,
+             "%s: Don't know how to handle this. Please contact biktorgj and "
+             "get him the following dump:\n",
+             __func__);
+      set_log_level(1);
+    }
+
+    logger(MSG_INFO, "%s: New message received/sent: Contents: %s", __func__, output);
+  }
+  pkt = NULL;
+  nodate_pkt = NULL;
+  free(output);
+  return 0;
+}
 int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
 //  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
@@ -771,6 +821,10 @@ int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
       logger(MSG_INFO, "%s: We got a message \n", __func__);
       intercept_and_parse(bytes, len, adspfd, usbfd);
       needs_rerouting = 1;
+    }
+    if (is_sms_logging_enabled()) {
+      log_message_contents(bytes, len);
+
     }
   }
   return needs_rerouting;
