@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/config.h"
 #include "../inc/command.h"
+#include "../inc/adspfw.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
+#include "../inc/config.h"
 #include "../inc/logger.h"
 #include "../inc/proxy.h"
+#include "../inc/scheduler.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
 #include <ctype.h>
@@ -181,28 +183,6 @@ void set_custom_user_name(uint8_t *command) {
     }
   }
   add_message_to_queue(reply, strsz);
-  free(reply);
-  reply = NULL;
-}
-
-void debug_cb_message(uint8_t *command) {
-  int strsz = 0;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
-  uint8_t example_pkt[] = {
-      0x01, 0x71, 0x00, 0x80, 0x05, 0x01, 0x04, 0x08, 0x00, 0x01, 0x00, 0x65,
-      0x00, 0x11, 0x5E, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0x56, 0x00,
-      0x67, 0x60, 0x11, 0x12, 0x0F, 0x66, 0xF2, 0x37, 0xBD, 0x70, 0x2E, 0xCB,
-      0x5D, 0x20, 0xE8, 0xBB, 0x2E, 0x07, 0x95, 0xDD, 0xA0, 0x79, 0xD8, 0xFE,
-      0x4E, 0xCB, 0x41, 0x70, 0x76, 0x7D, 0x0E, 0x9A, 0xD7, 0xE5, 0x20, 0x76,
-      0x79, 0x0E, 0x6A, 0x97, 0xE7, 0xF3, 0xF0, 0xB9, 0x3C, 0x07, 0x91, 0x4F,
-      0x61, 0x76, 0x59, 0x4E, 0x2F, 0xB3, 0x40, 0xF6, 0x72, 0x3D, 0xCD, 0x66,
-      0x97, 0xF5, 0xA0, 0xF1, 0xDB, 0x3D, 0xAF, 0xB3, 0xE9, 0x65, 0x39, 0xE8,
-      0x7E, 0xBF, 0xBB, 0xCA, 0xEE, 0x30, 0xBB, 0x2C, 0xA7, 0x97, 0x5D, 0xE3,
-      0x77, 0xBB, 0x16, 0x01, 0x00, 0x00};
-
-  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Dummy CB Message parse\n");
-  add_message_to_queue(reply, strsz);
-  check_cb_message(example_pkt, sizeof(example_pkt), 0, 0);
   free(reply);
   reply = NULL;
 }
@@ -421,6 +401,413 @@ void render_gsm_signal_data() {
   free(reply);
   reply = NULL;
 }
+
+/* Syntax:
+ * Remind me in X[hours]:[optional minutes] [optional description spoken by tts]
+ * Remind me at X[hours]:[optional minutes] [optional description spoken by tts]
+ * Examples:
+ *  remind me at 5 do some stuff
+ *  remind me at 5:05 do some stuff
+ *  remind me at 15:05 do some stuff
+ *  remind me in 1 do some stuff
+ *  remind me in 99 do some stuff
+ *
+ */
+void schedule_reminder(uint8_t *command) {
+  uint8_t *offset_command;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  int strsz = 0;
+  char temp_str[160];
+  char reminder_text[160] = {0};
+  char current_word[160] = {0};
+  int markers[128] = {0};
+  int phrase_size = 1;
+  int start = 0;
+  int end = 0;
+  char sep[] = " ";
+  struct task_p scheduler_task;
+  scheduler_task.time.mode = SCHED_MODE_TIME_AT; // 0 at, 1 in
+  /* Initial command check */
+  offset_command = (uint8_t *)strstr((char *)command, partial_commands[3].cmd);
+  if (offset_command == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Command mismatch!\n");
+    add_message_to_queue(reply, strsz);
+    free(reply);
+    reply = NULL;
+    return;
+  }
+
+  strcpy(temp_str, (char *)command);
+  int init_size = strlen(temp_str);
+  char *ptr = strtok(temp_str, sep);
+  while (ptr != NULL) {
+    logger(MSG_INFO, "%s: '%s'\n", __func__, ptr);
+    ptr = strtok(NULL, sep);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (temp_str[i] == 0) {
+      markers[phrase_size] = i;
+      phrase_size++;
+    }
+  }
+
+  logger(MSG_INFO, "%s: Total words in command: %i\n", __func__, phrase_size);
+  for (int i = 0; i < phrase_size; i++) {
+    start = markers[i];
+    if (i + 1 >= phrase_size) {
+      end = init_size;
+    } else {
+      end = markers[i + 1];
+    }
+    // So we don't pick the null byte separating the word
+    if (i > 0) {
+      start++;
+    }
+    // Copy this token
+    memset(current_word, 0, 160);
+    memcpy(current_word, temp_str + start, (end - start));
+    // current_word[strlen(current_word)] = '\0';
+
+    /*
+     * remind me [at|in] 00[:00] [Text chunk]
+     *  ^      ^   ^^^^  ^^  ^^     ^^^^^
+     *  0      1     2   ?3 3OPT     4
+     */
+
+    logger(MSG_INFO, "Current word: %s\n", current_word);
+    switch (i) {
+    case 0:
+      if (strstr(current_word, "remind") == NULL) {
+        logger(MSG_ERROR, "%s: First word is not remind, %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "First word in command is wrong\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      } else {
+        logger(MSG_INFO, "%s: Word ok: %s\n", __func__, current_word);
+      }
+      break;
+    case 1:
+      if (strstr(current_word, "me") == NULL) {
+        logger(MSG_ERROR, "%s: Second word is not me, %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Second word in command is wrong\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      }
+      break;
+    case 2:
+      if (strstr(current_word, "at") != NULL) {
+        logger(MSG_INFO, "%s: Remind you AT \n", __func__);
+      } else if (strstr((char *)command, "in") != NULL) {
+        logger(MSG_INFO, "%s: Remind you IN \n", __func__);
+        scheduler_task.time.mode = SCHED_MODE_TIME_COUNTDOWN;
+      } else {
+        logger(MSG_ERROR,
+               "%s: Don't know when you want me to remind you: %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Do you want me to remind you *at* a specific time or "
+                         "*in* some time from now\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      }
+      break;
+    case 3:
+      if (strchr(current_word, ':') != NULL) {
+        logger(MSG_INFO, "%s: Time has minutes", __func__);
+        char *offset = strchr((char *)current_word, ':');
+        scheduler_task.time.hh = get_int_from_str(current_word, 0);
+        scheduler_task.time.mm = get_int_from_str(offset, 1);
+
+        if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
+          if (scheduler_task.time.hh > 23 && scheduler_task.time.mm > 59) {
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Ha ha, very funny. Please give me a time value I "
+                             "can work with if you want me to do anything \n");
+          } else if (scheduler_task.time.hh > 23 ||
+                     scheduler_task.time.mm > 59) {
+            if (scheduler_task.time.hh > 23)
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough hours in a day \n");
+            if (scheduler_task.time.mm > 59)
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough minutes in an hour \n");
+            add_message_to_queue(reply, strsz);
+            free(reply);
+            reply = NULL;
+            return;
+          }
+        }
+      } else {
+        logger(MSG_INFO, "%s:  Only hours have been specified\n", __func__);
+        if (strlen(current_word) > 2) {
+          logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
+                 __func__, current_word);
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "I can't wait for a task that long... %s\n",
+                           current_word);
+          add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
+        } else {
+          scheduler_task.time.hh = atoi(current_word);
+          scheduler_task.time.mm = 0;
+          if (scheduler_task.time.mode)
+            logger(MSG_WARN, "%s: Waiting for %i hours\n", __func__,
+                   scheduler_task.time.hh);
+          else
+            logger(MSG_WARN, "%s: Waiting until %i to call you back\n",
+                   __func__, scheduler_task.time.hh);
+        }
+      }
+      break;
+    case 4:
+      memcpy(reminder_text, command + start, (strlen((char *)command) - start));
+      logger(MSG_INFO, "%s: Reminder has the following text: %s\n", __func__,
+             reminder_text);
+      if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         " Remind you at %.2i:%.2i.\n%s\n", scheduler_task.time.hh,
+                         scheduler_task.time.mm, reminder_text);
+      } else if (scheduler_task.time.mode == SCHED_MODE_TIME_COUNTDOWN) {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         " Remind you in %i hours and %i minutes\n%s\n",
+                         scheduler_task.time.hh, scheduler_task.time.mm,
+                         reminder_text);
+      }
+      break;
+    }
+  }
+  scheduler_task.type = TASK_TYPE_CALL;
+  scheduler_task.status = STATUS_PENDING;
+  scheduler_task.param = 0;
+  scheduler_task.time.mode = scheduler_task.time.mode;
+  strncpy(scheduler_task.arguments, reminder_text, strlen(reminder_text));
+  if (add_task(scheduler_task) < 0) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     " Can't add reminder, my task queue is full!\n");
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
+
+/* Syntax:
+ * Remind me in X[hours]:[optional minutes] [optional description spoken by tts]
+ * Remind me at X[hours]:[optional minutes] [optional description spoken by tts]
+ * Examples:
+ *  remind me at 5 do some stuff
+ *  remind me at 5:05 do some stuff
+ *  remind me at 15:05 do some stuff
+ *  remind me in 1 do some stuff
+ *  remind me in 99 do some stuff
+ *
+ */
+void schedule_wakeup(uint8_t *command) {
+  uint8_t *offset_command;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  int strsz = 0;
+  char temp_str[160];
+  char reminder_text[160] = {0};
+  char current_word[160] = {0};
+  int markers[128] = {0};
+  int phrase_size = 1;
+  int start = 0;
+  int end = 0;
+  char sep[] = " ";
+  struct task_p scheduler_task;
+  scheduler_task.time.mode = SCHED_MODE_TIME_AT; // 0 at, 1 in
+  /* Initial command check */
+  offset_command = (uint8_t *)strstr((char *)command, partial_commands[4].cmd);
+  if (offset_command == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Command mismatch!\n");
+    add_message_to_queue(reply, strsz);
+    free(reply);
+    reply = NULL;
+    return;
+  }
+
+  strcpy(temp_str, (char *)command);
+  int init_size = strlen(temp_str);
+  char *ptr = strtok(temp_str, sep);
+  while (ptr != NULL) {
+    logger(MSG_INFO, "%s: '%s'\n", __func__, ptr);
+    ptr = strtok(NULL, sep);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (temp_str[i] == 0) {
+      markers[phrase_size] = i;
+      phrase_size++;
+    }
+  }
+
+  logger(MSG_INFO, "%s: Total words in command: %i\n", __func__, phrase_size);
+  for (int i = 0; i < phrase_size; i++) {
+    start = markers[i];
+    if (i + 1 >= phrase_size) {
+      end = init_size;
+    } else {
+      end = markers[i + 1];
+    }
+    // So we don't pick the null byte separating the word
+    if (i > 0) {
+      start++;
+    }
+    // Copy this token
+    memset(current_word, 0, 160);
+    memcpy(current_word, temp_str + start, (end - start));
+    // current_word[strlen(current_word)] = '\0';
+
+    /*
+     * remind me [at|in] 00[:00] [Text chunk]
+     *  ^      ^   ^^^^  ^^  ^^     ^^^^^
+     *  0      1     2   ?3 3OPT     4
+     */
+
+    logger(MSG_INFO, "Current word: %s\n", current_word);
+    switch (i) {
+    case 0:
+      if (strstr(current_word, "wake") == NULL) {
+        logger(MSG_ERROR, "%s: First word is not wake, %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "First word in command is wrong\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      } else {
+        logger(MSG_INFO, "%s: Word ok: %s\n", __func__, current_word);
+      }
+      break;
+    case 1:
+      if (strstr(current_word, "me") == NULL) {
+        logger(MSG_ERROR, "%s: Second word is not me, %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Second word in command is wrong\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      }
+      break;
+    case 2:
+      if (strstr(current_word, "up") == NULL) {
+        logger(MSG_ERROR, "%s: Third word is not up, %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Second word in command is wrong\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      }
+      break;
+    case 3:
+      if (strstr(current_word, "at") != NULL) {
+        logger(MSG_INFO, "%s: Remind you AT \n", __func__);
+      } else if (strstr((char *)command, "in") != NULL) {
+        logger(MSG_INFO, "%s: Remind you IN \n", __func__);
+        scheduler_task.time.mode = SCHED_MODE_TIME_COUNTDOWN;
+      } else {
+        logger(MSG_ERROR,
+               "%s: Don't know when you want me to wake you up: %s \n", __func__,
+               current_word);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Do you want me to wake you up *at* a specific time or "
+                         "*in* some time from now?\n");
+        add_message_to_queue(reply, strsz);
+        free(reply);
+        reply = NULL;
+        return;
+      }
+      break;
+    case 4:
+      if (strchr(current_word, ':') != NULL) {
+        logger(MSG_INFO, "%s: Time has minutes", __func__);
+        char *offset = strchr((char *)current_word, ':');
+        scheduler_task.time.hh = get_int_from_str(current_word, 0);
+        scheduler_task.time.mm = get_int_from_str(offset, 1);
+
+        if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
+          if (scheduler_task.time.hh > 23 && scheduler_task.time.mm > 59) {
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Ha ha, very funny. Please give me a time value I "
+                             "can work with if you want me to do anything \n");
+          } else if (scheduler_task.time.hh > 23 ||
+                     scheduler_task.time.mm > 59) {
+            if (scheduler_task.time.hh > 23)
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough hours in a day \n");
+            if (scheduler_task.time.mm > 59)
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough minutes in an hour \n");
+            add_message_to_queue(reply, strsz);
+            free(reply);
+            reply = NULL;
+            return;
+          }
+        }
+      } else {
+        logger(MSG_INFO, "%s:  Only hours have been specified\n", __func__);
+        if (strlen(current_word) > 2) {
+          logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
+                 __func__, current_word);
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "I can't wait for a task that long... %s\n",
+                           current_word);
+          add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
+        } else {
+          scheduler_task.time.hh = atoi(current_word);
+          scheduler_task.time.mm = 0;
+          if (scheduler_task.time.mode)
+            logger(MSG_WARN, "%s: Waiting for %i hours\n", __func__,
+                   scheduler_task.time.hh);
+          else
+            logger(MSG_WARN, "%s: Waiting until %i to call you back\n",
+                   __func__, scheduler_task.time.hh);
+        }
+      }
+      break;
+    }
+  }
+  scheduler_task.type = TASK_TYPE_CALL;
+  scheduler_task.status = STATUS_PENDING;
+  scheduler_task.param = 0;
+  scheduler_task.time.mode = scheduler_task.time.mode;
+  snprintf(scheduler_task.arguments, MAX_MESSAGE_SIZE, "It's time to wakeup, %s", cmd_runtime.user_name);
+  if (add_task(scheduler_task) < 0) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     " Can't add reminder, my task queue is full!\n");
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
+
+
 uint8_t parse_command(uint8_t *command) {
   int ret = 0;
   uint16_t i, random;
@@ -437,13 +824,12 @@ uint8_t parse_command(uint8_t *command) {
   for (i = 0; i < command[i]; i++) {
     lowercase_cmd[i] = tolower(command[i]);
   }
-  lowercase_cmd[strlen((char*)command)] = '\0';
+  lowercase_cmd[strlen((char *)command)] = '\0';
   /* Static commands */
   for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
-    if (
-      (strcmp((char *)command, bot_commands[i].cmd) == 0) ||
+    if ((strcmp((char *)command, bot_commands[i].cmd) == 0) ||
         (strcmp(lowercase_cmd, bot_commands[i].cmd) == 0)) {
-          logger(MSG_INFO, "%s: Match! %s\n", __func__, bot_commands[i].cmd);
+      logger(MSG_INFO, "%s: Match! %s\n", __func__, bot_commands[i].cmd);
       cmd_id = bot_commands[i].id;
     }
   }
@@ -452,7 +838,7 @@ uint8_t parse_command(uint8_t *command) {
   if (cmd_id == -1) {
     for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
          i++) {
-      if ((strstr((char *)command, partial_commands[i].cmd) != NULL) || 
+      if ((strstr((char *)command, partial_commands[i].cmd) != NULL) ||
           (strstr((char *)lowercase_cmd, partial_commands[i].cmd) != NULL)) {
         cmd_id = partial_commands[i].id;
       }
@@ -503,7 +889,9 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 3:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                      "I'm at version %s\n", RELEASE_VER);
+                      "I'm at version %s\n"
+                      "ADSP Version is %s\n",
+                      RELEASE_VER, known_adsp_fw[read_adsp_version()].fwstring);
     add_message_to_queue(reply, strsz);
     break;
   case 4:
@@ -716,15 +1104,15 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(false);
     break;
-   case 25:
-    strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enable persistent logging\n");
+  case 25:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Enable persistent logging\n");
     add_message_to_queue(reply, strsz);
     set_persistent_logging(true);
     break;
   case 26:
-    strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disable persistent logging\n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Disable persistent logging\n");
     add_message_to_queue(reply, strsz);
     set_persistent_logging(false);
     break;
@@ -739,9 +1127,11 @@ uint8_t parse_command(uint8_t *command) {
     sleep(2); // our string gets wiped out before we have a chance
     break;
   case 103:
-    debug_cb_message(command);
+    schedule_reminder(command);
     break;
- 
+  case 104:
+    schedule_wakeup(command);
+    break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Invalid command id %i\n", cmd_id);

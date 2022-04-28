@@ -41,6 +41,8 @@ static const struct {
     {24, "disable tracking", "Signal tracking: disbled", "Switch off network monitoring"},
     {25, "enable persistent logging", "Persistent logging: enabled", "Switch on persistent logging"},
     {26, "disable persistent logging", "Persistent logging: disbled", "Switch off persistent logging"},
+    {27, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
+    //{27, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
 }; 
 
 static const struct {
@@ -52,7 +54,9 @@ static const struct {
     {100, "set name ", "Set Modem Name", "Set a new name for the modem"},
     {101, "set user name ", "Set User Name", "Set new username"},
     {102, "call me in ", "Calling you back in ", "Call me in X seconds"},
-    {103, "dbg", "Debug CB message", "Used for debugging cell broadcasting messages (will disappear from here)"}
+    {103, "remind me ", "Will call you ", "Call you [at/in] hh[:xx min] [and remind you of something]"},
+    {104, "wake me up ", "Will wake you up ", "Wake you up [at/in] hh[:xx min]"},
+    {105, "delete task ", "Removing task ", "delete task X: Removes task X from the scheduler"}
 };
 static const struct {
   unsigned int id;
