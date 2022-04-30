@@ -292,7 +292,7 @@ void start_simulated_call(int usbfd) {
   call_rt.sim_call_direction = AUDIO_DIRECTION_INCOMING;
   set_call_simulation_mode(true);
   pulse_ring_in();
-  usleep(200000);
+  usleep(300000); // try with 300ms
   logger(MSG_WARN, " Call update notification: RINGING to %x\n", usbfd);
   send_voice_call_status_event(usbfd, call_rt.transaction_id,
                                AUDIO_DIRECTION_INCOMING, AUDIO_CALL_RINGING);
