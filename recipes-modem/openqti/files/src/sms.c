@@ -6,11 +6,11 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
 #include "../inc/atfwd.h"
 #include "../inc/call.h"
 #include "../inc/cell_broadcast.h"
 #include "../inc/command.h"
+#include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
@@ -146,6 +146,33 @@ uint8_t swap_byte(uint8_t source) {
   return parsed;
 }
 
+int decode_phone_number(uint8_t *buffer, int len, char *out) {
+  char output[128];
+  int i = 0, j = 0;
+  bool is_international = false;
+  while (i < len) {
+    if (i == 0 &&
+        buffer[j] ==
+            0x91) { // 0x91 == international number, no need to print it
+      j++;
+      is_international = true;
+    }
+    if (i % 2 == 0) {
+      output[i] = (buffer[j] & 0x0f) + '0';
+    } else {
+      output[i] = ((buffer[j] & 0xf0) >> 4) + '0';
+      j++;
+    }
+    i++;
+  }
+  output[len] = '\0';
+  if (is_international) {
+    snprintf(out, 128, "+%s", output);
+  } else {
+    snprintf(out, 128, "%s", output);
+  }
+  return len;
+}
 /*
  * This sends a notification message, ModemManager should answer it
  * with a request to get the actual message
@@ -280,7 +307,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->data.smsc.phone_number_size =
       0x07; // hardcoded as we use a dummy one
   this_sms->data.smsc.is_international_number = 0x91; // yes
-  this_sms->data.smsc.number[0] = 0x10;// 0x51;
+  this_sms->data.smsc.number[0] = 0x10;               // 0x51;
   this_sms->data.smsc.number[1] = 0x55;
   this_sms->data.smsc.number[2] = 0x05;
   this_sms->data.smsc.number[3] = 0x91;
@@ -297,7 +324,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
   this_sms->data.phone.phone_number_size = 0x0c;       // hardcoded
   this_sms->data.phone.is_international_number = 0x91; // yes
 
-  this_sms->data.phone.number[0] = 0x10;// 0x51;
+  this_sms->data.phone.number[0] = 0x10; // 0x51;
   this_sms->data.phone.number[1] = 0x55;
   this_sms->data.phone.number[2] = 0x05;
   this_sms->data.phone.number[3] = 0x91;
@@ -510,10 +537,13 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
       offset = get_tlv_offset_by_id(bytes, len, 0x01);
       if (offset > 0) {
         struct sms_storage_type *storage;
-        storage = (struct sms_storage_type *) (bytes + offset);
-        logger(MSG_INFO, "%s: Calculated from offset: 0x%.2x, from request: 0x%.2x\n", __func__, storage->message_id, request->storage.message_id);
+        storage = (struct sms_storage_type *)(bytes + offset);
+        logger(MSG_INFO,
+               "%s: Calculated from offset: 0x%.2x, from request: 0x%.2x\n",
+               __func__, storage->message_id, request->storage.message_id);
       }
-      logger(MSG_INFO, "%s: TLV ID for this query should be 0x%.2x\n", __func__, request->message_tag.id);
+      logger(MSG_INFO, "%s: TLV ID for this query should be 0x%.2x\n", __func__,
+             request->message_tag.id);
       if (request->message_tag.id == 0x01) {
         logger(MSG_INFO,
                "oFono gives us the message id tlv in a different order...\n ");
@@ -646,7 +676,7 @@ void add_sms_to_queue(uint8_t *message, size_t len) {
     logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
     return;
   }
-if (len > 0) {
+  if (len > 0) {
     set_notif_pending(true);
     set_pending_notification_source(MSG_INTERNAL);
     logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
@@ -660,7 +690,6 @@ if (len > 0) {
     logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
   }
 }
-
 
 /* Generate a notification indication */
 uint8_t do_inject_notification(int fd) {
@@ -679,7 +708,8 @@ uint8_t inject_message(uint8_t message_id) {
   return 0;
 }
 
-uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd, uint16_t message_id) {
+uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd,
+                              uint16_t message_id) {
   int ret;
   struct sms_received_ack *receive_ack;
   receive_ack = calloc(1, sizeof(struct sms_received_ack));
@@ -700,9 +730,10 @@ uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd, uint16_t messa
 
   receive_ack->message_tlv_id = 0x01;
   receive_ack->message_id_len = 0x0002;
-  receive_ack->message_id = 0x0021; // this one gets ignored both by ModemManager and oFono
+  receive_ack->message_id =
+      0x0021; // this one gets ignored both by ModemManager and oFono
   logger(MSG_DEBUG, "%s: Sending Host->Modem SMS ACK\n", __func__);
-  dump_pkt_raw((uint8_t*) receive_ack, sizeof(struct sms_received_ack));
+  dump_pkt_raw((uint8_t *)receive_ack, sizeof(struct sms_received_ack));
   ret = write(usbfd, receive_ack, sizeof(struct sms_received_ack));
   free(receive_ack);
   return ret;
@@ -758,58 +789,131 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
   return 0;
 }
 
+int pdu_decode(uint8_t *buffer, int buffer_length,
+               char *output_sender_phone_number, uint8_t *output_sms_text) {
+  logger(MSG_ERROR, "%s: start\n", __func__);
+  set_log_level(0);
+  dump_pkt_raw(buffer, buffer_length);
+  if (buffer_length <= 0)
+    return -1;
+  logger(MSG_ERROR, "%s: start2\n", __func__);
+  int sender_phone_number_size = 128;
+  int sms_text_size = 160;
+  const int sms_deliver_start = 1 + buffer[0];
+  if (sms_deliver_start + 1 > buffer_length)
+    return -1;
+  if ((buffer[sms_deliver_start] & 0x04) != 0x04){
+  logger(MSG_ERROR, "%s: Dbuf not 0x04\n", __func__);
+
+    return -1;
+  }
+
+  const int sender_number_length = buffer[sms_deliver_start + 1];
+  if (sender_number_length + 1 > sender_phone_number_size)
+    return -1; // Buffer too small to hold decoded phone number.
+  logger(MSG_ERROR, "%s: Decode phone number\n", __func__);
+
+  // const int sender_type_of_address = buffer[sms_deliver_start + 2];
+  //	DecodePhoneNumber(buffer + sms_deliver_start + 3, sender_number_length,
+  //output_sender_phone_number);
+  decode_phone_number(buffer + sms_deliver_start + 3, sender_number_length,
+                      output_sender_phone_number);
+
+  const int sms_pid_start =
+      sms_deliver_start + 3 + (buffer[sms_deliver_start + 1] + 1) / 2;
+  logger(MSG_ERROR, "%s: Looking for contents\n", __func__);
+
+  const int sms_start = sms_pid_start + 2 + 7;
+  if (sms_start + 1 > buffer_length) {
+    logger(MSG_ERROR, "%s: Invalid input buffer\n", __func__);
+    return -1; // Invalid input buffer.
+  }
+
+  const int output_sms_text_length = buffer[sms_start];
+  if (sms_text_size < output_sms_text_length) {
+    logger(MSG_ERROR, "%s: Cant hold buffer\n", __func__);
+    return -1; // Cannot hold decoded buffer.
+  }
+  const int decoded_sms_text_size =
+      gsm7_to_ascii(buffer + sms_start + 1, buffer_length - (sms_start + 1),
+                    (char *)output_sms_text, output_sms_text_length);
+
+  if (decoded_sms_text_size != output_sms_text_length) {
+    logger(MSG_ERROR, "%s: Invalid decoded length\n", __func__);
+
+    return -1; // Decoder length is not as expected.
+  }
+
+  // Add a C string end.
+  if (output_sms_text_length < sms_text_size)
+    output_sms_text[output_sms_text_length] = 0;
+  else
+    output_sms_text[sms_text_size - 1] = 0;
+
+  return output_sms_text_length;
+}
 
 /* Sniff on an sms */
-uint8_t log_message_contents(void *bytes, size_t len) {
+uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
   size_t temp_sz;
   uint8_t *output;
   uint8_t ret;
-  int outsize;
-  struct outgoing_sms_packet *pkt;
-  struct outgoing_no_validity_period_sms_packet *nodate_pkt;
-
+  int outsize, j = 0;
+  char phone_numb[128];
   output = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
-  if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
-    pkt = (struct outgoing_sms_packet *)bytes;
-    nodate_pkt = (struct outgoing_no_validity_period_sms_packet *)bytes;
-    /* This will need to be rebuilt for oFono, probably
-     *  0x31 -> Most of ModemManager stuff
-     *  0x11 -> From jeremy, still keeps 0x21
-     *  0x01 -> Skips the 0x21 and jumps to content
-     */
-    if (pkt->pdu_type >= 0x11) {
-      ret = gsm7_to_ascii(pkt->contents.contents,
-                          strlen((char *)pkt->contents.contents),
-                          (char *)output, pkt->contents.content_sz);
-    } else if (pkt->pdu_type == 0x01) {
-      ret = gsm7_to_ascii(nodate_pkt->contents.contents,
-                          strlen((char *)nodate_pkt->contents.contents),
-                          (char *)output, nodate_pkt->contents.content_sz);
-    } else {
-      set_log_level(0);
-
-      logger(MSG_ERROR,
-             "%s: Don't know how to handle this. Please contact biktorgj and "
-             "get him the following dump:\n",
-             __func__);
-      dump_pkt_raw(bytes, len);
-      logger(MSG_ERROR,
-             "%s: Don't know how to handle this. Please contact biktorgj and "
-             "get him the following dump:\n",
-             __func__);
-      set_log_level(1);
+  if (source == FROM_HOST) {
+    struct outgoing_sms_packet *pkt;
+    struct outgoing_no_validity_period_sms_packet *nodate_pkt;
+    if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
+      pkt = (struct outgoing_sms_packet *)bytes;
+      nodate_pkt = (struct outgoing_no_validity_period_sms_packet *)bytes;
+      ret = decode_phone_number(pkt->target.phone_number, pkt->target.sz,
+                                phone_numb);
+      /* This will need to be rebuilt for oFono, probably
+       *  0x31 -> Most of ModemManager stuff
+       *  0x11 -> From jeremy, still keeps 0x21
+       *  0x01 -> Skips the 0x21 and jumps to content
+       */
+      if (pkt->pdu_type >= 0x11) {
+        ret = gsm7_to_ascii(pkt->contents.contents,
+                            strlen((char *)pkt->contents.contents),
+                            (char *)output, pkt->contents.content_sz);
+      } else if (pkt->pdu_type == 0x01) {
+        ret = gsm7_to_ascii(nodate_pkt->contents.contents,
+                            strlen((char *)nodate_pkt->contents.contents),
+                            (char *)output, nodate_pkt->contents.content_sz);
+      } else {
+        logger(MSG_ERROR, "%s: Unimplemented PDU type (0x%.2x)\n", __func__,
+               pkt->pdu_type);
+      }
+      logger(MSG_INFO, "[SMS] From User to %s | Contents: %s\n", phone_numb,
+             output);
     }
+    pkt = NULL;
+    nodate_pkt = NULL;
+  } else if (source == FROM_DSP) {
+    logger(MSG_WARN, "%s: Not implemented yet\n", __func__);
+    int offset = get_tlv_offset_by_id(bytes, len, 0x01);
+    if (offset > 0) {
+      struct empty_tlv *pdu = (struct empty_tlv *)bytes + offset;
+      /* pdu->data doesn't get read, need to take a look at this */
+      pdu_decode(pdu->data, pdu->len, phone_numb, output);
+      pdu = NULL;
+      logger(MSG_INFO, "[SMS] From %s to User | Contents: %s\n", phone_numb,
+             output);
 
-    logger(MSG_INFO, "%s: New message received/sent: Contents: %s", __func__, output);
+    } else {
+      logger(MSG_ERROR, "%s: Failed to find PDU offset from the data TLV\n",
+             __func__);
+    }
   }
-  pkt = NULL;
-  nodate_pkt = NULL;
   free(output);
   return 0;
 }
-int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
+int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
+                      int usbfd) {
   size_t temp_sz;
-//  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
+  //  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   uint8_t our_phone[] = {0x91, 0x10, 0x55, 0x05, 0x91, 0x99, 0x99};
   int needs_rerouting = 0;
   struct outgoing_sms_packet *pkt;
@@ -823,8 +927,7 @@ int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd) {
       needs_rerouting = 1;
     }
     if (is_sms_logging_enabled()) {
-      log_message_contents(bytes, len);
-
+      log_message_contents(source, bytes, len);
     }
   }
   return needs_rerouting;
@@ -843,7 +946,7 @@ int check_wms_indication_message(void *bytes, size_t len, int adspfd,
         get_transceiver_suspend_state()) {
       logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
       pulse_ring_in(); // try to wake the host
-      sleep(5);        // sleep for 300ms
+      sleep(5);        // sleep for 5s
       // Enqueue an incoming notification
       set_pending_notification_source(MSG_EXTERNAL);
       set_notif_pending(true);

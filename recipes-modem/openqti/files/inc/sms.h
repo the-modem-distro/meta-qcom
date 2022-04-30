@@ -282,7 +282,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int hostfd, int adspfd);
 int process_message_queue(int fd);
 void add_sms_to_queue(uint8_t *message, size_t len);
 void notify_wms_event(uint8_t *bytes,size_t len, int fd);
-int check_wms_message(void *bytes, size_t len, int adspfd, int usbfd);
+int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd, int usbfd);
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd);
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);

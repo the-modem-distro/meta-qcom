@@ -282,7 +282,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
     if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_BYPASS; // We bypass response
-    } else if (check_wms_message(pkt, pkt_size, adspfd, usbfd)) {
+    } else if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_BYPASS; // We bypass response
     } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
