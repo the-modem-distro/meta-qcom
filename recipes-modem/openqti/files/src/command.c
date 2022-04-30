@@ -976,7 +976,7 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 10:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                      "Allowing USB tu suspend again\n");
+                      "Allowing USB to suspend again\n");
     set_suspend_inhibit(false);
     add_message_to_queue(reply, strsz);
     break;
@@ -1094,27 +1094,35 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 23:
     strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enable signal tracking\n");
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(true);
     break;
   case 24:
     strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disable signal tracking\n");
+        snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(false);
     break;
   case 25:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "Enable persistent logging\n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_persistent_logging(true);
     break;
   case 26:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "Disable persistent logging\n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_persistent_logging(false);
+    break;
+    case 27:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_sms_logging(true);
+    break;
+    case 28:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_sms_logging(false);
     break;
   case 100:
     set_custom_modem_name(command);

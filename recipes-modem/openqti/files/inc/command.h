@@ -41,7 +41,9 @@ static const struct {
     {24, "disable tracking", "Signal tracking: disbled", "Switch off network monitoring"},
     {25, "enable persistent logging", "Persistent logging: enabled", "Switch on persistent logging"},
     {26, "disable persistent logging", "Persistent logging: disbled", "Switch off persistent logging"},
-    {27, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
+    {27, "enable sms logging", "Enabling SMS logging", "Store all incoming/outgoing messages to a log"},
+    {28, "disable sms logging", "Disabling SMS logging", "Disables logging of all incoming/outgoing messages"},
+    {29, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
     //{27, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
 }; 
 
