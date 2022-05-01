@@ -171,6 +171,7 @@ int decode_phone_number(uint8_t *buffer, int len, char *out) {
   } else {
     snprintf(out, 128, "%s", output);
   }
+  logger(MSG_INFO, "%s: ->> Phone number: %s %s\n", __func__, output, out);
   return len;
 }
 /*
@@ -791,31 +792,23 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
 
 int pdu_decode(uint8_t *buffer, int buffer_length,
                char *output_sender_phone_number, uint8_t *output_sms_text) {
-  logger(MSG_ERROR, "%s: start\n", __func__);
-  set_log_level(0);
-  dump_pkt_raw(buffer, buffer_length);
   if (buffer_length <= 0)
     return -1;
-  logger(MSG_ERROR, "%s: start2\n", __func__);
+
   int sender_phone_number_size = 128;
   int sms_text_size = 160;
   const int sms_deliver_start = 1 + buffer[0];
   if (sms_deliver_start + 1 > buffer_length)
     return -1;
   if ((buffer[sms_deliver_start] & 0x04) != 0x04){
-  logger(MSG_ERROR, "%s: Dbuf not 0x04\n", __func__);
-
+    logger(MSG_ERROR, "%s: buf not 0x04\n", __func__);
     return -1;
   }
 
   const int sender_number_length = buffer[sms_deliver_start + 1];
   if (sender_number_length + 1 > sender_phone_number_size)
     return -1; // Buffer too small to hold decoded phone number.
-  logger(MSG_ERROR, "%s: Decode phone number\n", __func__);
 
-  // const int sender_type_of_address = buffer[sms_deliver_start + 2];
-  //	DecodePhoneNumber(buffer + sms_deliver_start + 3, sender_number_length,
-  //output_sender_phone_number);
   decode_phone_number(buffer + sms_deliver_start + 3, sender_number_length,
                       output_sender_phone_number);
 
@@ -892,12 +885,18 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
     pkt = NULL;
     nodate_pkt = NULL;
   } else if (source == FROM_DSP) {
-    logger(MSG_WARN, "%s: Not implemented yet\n", __func__);
+    logger(MSG_WARN, "[WARN] UNTESTED!! \n");
     int offset = get_tlv_offset_by_id(bytes, len, 0x01);
     if (offset > 0) {
-      struct empty_tlv *pdu = (struct empty_tlv *)bytes + offset;
-      /* pdu->data doesn't get read, need to take a look at this */
-      pdu_decode(pdu->data, pdu->len, phone_numb, output);
+      struct empty_tlv *pdu = (struct empty_tlv *)(bytes + offset);
+      /*
+      |------------------------------------------------------------------------|
+      |4 byte |  1-12 bytes   | 1  | 2-12 |  1  |  1  | 0||1||7 | 1   | 0-140  |
+      |------------------------------------------------------------------------|
+      | ???   |SCA | PDU Type | MR |  DA  | PID | DCS |    VP   | UDL |   UD   |
+      |------------------------------------------------------------------------|
+      */
+      pdu_decode(pdu->data+4, le16toh(pdu->len)-4, phone_numb, output);
       pdu = NULL;
       logger(MSG_INFO, "[SMS] From %s to User | Contents: %s\n", phone_numb,
              output);
@@ -907,6 +906,7 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
              __func__);
     }
   }
+  logger(MSG_INFO, "%s: END\n", __func__);
   free(output);
   return 0;
 }
@@ -926,8 +926,10 @@ int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
       intercept_and_parse(bytes, len, adspfd, usbfd);
       needs_rerouting = 1;
     }
-    if (is_sms_logging_enabled()) {
-      log_message_contents(source, bytes, len);
+    if (is_sms_logging_enabled() && 
+    (pkt->qmipkt.msgid == WMS_READ_MESSAGE ||
+     pkt->qmipkt.msgid == WMS_RAW_SEND)) {
+     log_message_contents(source, bytes, len);
     }
   }
   return needs_rerouting;
