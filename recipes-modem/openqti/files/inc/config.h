@@ -48,6 +48,7 @@ void set_persistent_logging(bool en);
 
 /* Is first boot? */
 bool is_first_boot();
+void clear_ifrst_boot_flag();
 
 /* SMS logging */
 int is_sms_logging_enabled();

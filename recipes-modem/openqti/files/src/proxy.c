@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "../inc/config.h"
 #include "../inc/proxy.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
@@ -206,7 +207,12 @@ uint8_t process_wms_packet(void *bytes, size_t len, int adspfd,
   pkt = NULL;
   return needs_rerouting;
 }
-
+void send_hello_world() {
+  char message[160];
+  snprintf(message, 160, "Hi!\nWelcome to your (nearly) free modem\nSend \"help\" in this chat to get a list of commands you can run");
+  clear_ifrst_boot_flag();
+  add_message_to_queue((uint8_t*)message, strlen(message));
+}
 /* Node1 -> RMNET , Node2 -> SMD */
 /*
  *  process_packet()
@@ -266,6 +272,9 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     if (level->qmipkt.msgid == 0x0002 && level->signal.id == 0x10) {
       update_network_data(level->signal.network_type,
                           level->signal.signal_level);
+      if (is_first_boot()) {
+        send_hello_world();
+      }
       if (get_call_simulation_mode()) {
         logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
                __func__);

@@ -192,8 +192,13 @@ int read_settings_from_file() {
   }
   return 0;
 }
+
 bool is_first_boot() {
   return settings->first_boot;
+}
+
+void clear_ifrst_boot_flag() {
+  settings->first_boot = false;
 }
 
 int use_persistent_logging() { 
