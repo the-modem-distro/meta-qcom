@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "../inc/timesync.h"
+#include "../inc/cell.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
-#include "../inc/cell.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -70,7 +70,8 @@ void *time_sync() {
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
   while (!get_network_type()) {
-    logger(MSG_INFO, "%s: Waiting for network to be ready... %i\n", __func__, is_network_in_service());
+    logger(MSG_INFO, "%s: Waiting for network to be ready... %i\n", __func__,
+           is_network_in_service());
     sleep(30);
   }
 
@@ -85,7 +86,8 @@ void *time_sync() {
     cmd_ret = send_at_command(GET_QLTS, sizeof(GET_QLTS), response);
     if (strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
-      if (get_int_from_str(begin, 1) == 20 && get_int_from_str(begin, 3) >= 22) {
+      if (get_int_from_str(begin, 1) == 20 &&
+          get_int_from_str(begin, 3) >= 22) {
         time_sync_data.year = get_int_from_str(begin, 3);
         time_sync_data.month = get_int_from_str(begin, 6);
         time_sync_data.day = get_int_from_str(begin, 9);
@@ -99,8 +101,10 @@ void *time_sync() {
             time_sync_data.negative_offset = true;
           }
         }
-        sync_completed = true; // Might need to recheck here, can't recall the types of invalid reported dates by carriers...
-        logger(MSG_INFO, "%s: Network reported time: %i-%.2i-%.2i %.2i:%.2i:%.2i\n",
+        sync_completed = true; // Might need to recheck here, can't recall the
+                               // types of invalid reported dates by carriers...
+        logger(MSG_INFO,
+               "%s: Network reported time: %i-%.2i-%.2i %.2i:%.2i:%.2i\n",
                __func__, time_sync_data.year, time_sync_data.month,
                time_sync_data.day, time_sync_data.hour, time_sync_data.minute,
                time_sync_data.second);
@@ -109,7 +113,7 @@ void *time_sync() {
       logger(MSG_WARN,
              "%s: Couldn't sync time from the network, attempting local sync\n",
              __func__);
-    logger(MSG_INFO, "%s: Send CCLK\n", __func__);
+      logger(MSG_INFO, "%s: Send CCLK\n", __func__);
       cmd_ret = send_at_command(GET_CCLK, sizeof(GET_CCLK), response);
       if (strstr(response, "+CCLK: ") != NULL) {
         begin = strchr(response, '"');
@@ -132,18 +136,16 @@ void *time_sync() {
                 time_sync_data.negative_offset = true;
               }
             }
-            sync_completed = true; 
+            sync_completed = true;
           } // if year != 80
         }
       }
     }
-    if (time_sync_data.month > 12 || 
-        time_sync_data.day > 31 || 
-        time_sync_data.hour > 23 ||
-        time_sync_data.minute > 59) {
-          sync_completed = false;
-          logger(MSG_WARN, "%s: Invalid date, retrying sync...\n", __func__);
-        }
+    if (time_sync_data.month > 12 || time_sync_data.day > 31 ||
+        time_sync_data.hour > 23 || time_sync_data.minute > 59) {
+      sync_completed = false;
+      logger(MSG_WARN, "%s: Invalid date, retrying sync...\n", __func__);
+    }
   }
   if (time_sync_data.timezone_offset != 0) {
     // gmtoff is specified in seconds
@@ -152,10 +154,26 @@ void *time_sync() {
       gmtoff *= -1;
     }
   }
-  logger(MSG_INFO, "%s: Syncing date and time: %i-%i-%i %.2i:%.2i:%.2i (GMT %ld)\n",
+  logger(MSG_INFO,
+         "%s: Syncing date and time: %i-%i-%i %.2i:%.2i:%.2i (GMT %ld)\n",
          __func__, time_sync_data.year, time_sync_data.month,
          time_sync_data.day, time_sync_data.hour, time_sync_data.minute,
-         time_sync_data.second, (gmtoff/3600));
+         time_sync_data.second, (gmtoff / 3600));
+  if (tm_ptr) {
+    tm_ptr->tm_mon = time_sync_data.month - 1;
+    tm_ptr->tm_mday = time_sync_data.day;
+    tm_ptr->tm_year = time_sync_data.year + 100;
+    tm_ptr->tm_hour = time_sync_data.hour;
+    tm_ptr->tm_min = time_sync_data.minute;
+    tm_ptr->tm_sec = time_sync_data.second;
+    if (time_sync_data.timezone_offset != 0) {
+      // gmtoff is specified in seconds
+      gmtoff = time_sync_data.timezone_offset * 60 * 60;
+      if (time_sync_data.negative_offset) {
+        gmtoff *= -1;
+      }
+    }
+  }
   const struct timeval tv = {(mktime(tm_ptr) + gmtoff), 0};
   settimeofday(&tv, 0);
   free(response);
