@@ -116,27 +116,54 @@ int gsm7_to_ascii(const unsigned char *buffer, int buffer_length,
   return output_text_length;
 }
 
-uint8_t ascii_to_gsm7(const uint8_t *in, uint8_t *out) {
-  unsigned bit_count = 0;
-  unsigned bit_queue = 0;
-  uint8_t bytes_written = 0;
-  while (*in) {
-    bit_queue |= (*in & 0x7Fu) << bit_count;
-    bit_count += 7;
-    if (bit_count >= 8) {
-      *out++ = (uint8_t)bit_queue;
-      bytes_written++;
-      bit_count -= 8;
-      bit_queue >>= 8;
-    }
-    in++;
+static inline void Write7Bits(uint8_t *bufferPtr, uint8_t val, uint32_t pos) {
+  val &= 0x7F;
+  uint8_t idx = pos / 8;
+
+  if (!(pos & 7)) {
+    bufferPtr[idx] = val;
+  } else if ((pos & 7) == 1) {
+    bufferPtr[idx] = bufferPtr[idx] | (val << 1);
+  } else {
+    bufferPtr[idx] = bufferPtr[idx] | (val << (pos & 7));
+    bufferPtr[idx + 1] = (val >> (8 - (pos & 7)));
   }
-  if (bit_count > 0) {
-    *out++ = (uint8_t)bit_queue;
-    bytes_written++;
+}
+/**
+ * Convert an ascii array into a 7bits array
+ * length is the number of bytes in the ascii buffer
+ *
+ * @return the size of the a7bit string (in 7bit chars!), or LE_OVERFLOW if
+ * a7bitPtr is too small.
+ */
+uint8_t ascii_to_gsm7(const uint8_t *a8bitPtr, ///< [IN] 8bits array to convert
+                      uint8_t *a7bitPtr        ///< [OUT] 7bits array result
+) {
+  int read;
+  int write = 0;
+  int size = 0;
+  int pos = 0;
+  int length = strlen((char *)a8bitPtr);
+
+  for (read = pos; read < length + pos; ++read) {
+    uint8_t byte = Ascii8to7[a8bitPtr[read]];
+
+    /* Escape */
+    if (byte >= 128) {
+      Write7Bits(a7bitPtr, 0x1B, write * 7);
+      write++;
+      byte -= 128;
+    }
+
+    Write7Bits(a7bitPtr, byte, write * 7);
+    write++;
+
+    /* Number of 8 bit chars */
+    size = (write * 7);
+    size = (size % 8 != 0) ? (size / 8 + 1) : (size / 8);
   }
 
-  return bytes_written;
+  return write;
 }
 
 uint8_t swap_byte(uint8_t source) {
@@ -800,7 +827,7 @@ int pdu_decode(uint8_t *buffer, int buffer_length,
   const int sms_deliver_start = 1 + buffer[0];
   if (sms_deliver_start + 1 > buffer_length)
     return -1;
-  if ((buffer[sms_deliver_start] & 0x04) != 0x04){
+  if ((buffer[sms_deliver_start] & 0x04) != 0x04) {
     logger(MSG_ERROR, "%s: buf not 0x04\n", __func__);
     return -1;
   }
@@ -896,7 +923,7 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
       | ???   |SCA | PDU Type | MR |  DA  | PID | DCS |    VP   | UDL |   UD   |
       |------------------------------------------------------------------------|
       */
-      pdu_decode(pdu->data+4, le16toh(pdu->len)-4, phone_numb, output);
+      pdu_decode(pdu->data + 4, le16toh(pdu->len) - 4, phone_numb, output);
       pdu = NULL;
       logger(MSG_INFO, "[SMS] From %s to User | Contents: %s\n", phone_numb,
              output);
@@ -926,10 +953,9 @@ int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
       intercept_and_parse(bytes, len, adspfd, usbfd);
       needs_rerouting = 1;
     }
-    if (is_sms_logging_enabled() && 
-    (pkt->qmipkt.msgid == WMS_READ_MESSAGE ||
-     pkt->qmipkt.msgid == WMS_RAW_SEND)) {
-     log_message_contents(source, bytes, len);
+    if (is_sms_logging_enabled() && (pkt->qmipkt.msgid == WMS_READ_MESSAGE ||
+                                     pkt->qmipkt.msgid == WMS_RAW_SEND)) {
+      log_message_contents(source, bytes, len);
     }
   }
   return needs_rerouting;
