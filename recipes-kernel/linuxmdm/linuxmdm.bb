@@ -1,9 +1,8 @@
 # Recipe for building the MDM9607 Kernel tree
-# Biktorgj 2020
+# Biktorgj 2022
 # Released under the MIT license (see COPYING.MIT for the terms)
 
 inherit kernel
-inherit pythonnative
 
 DESCRIPTION = "Linux Kernel for Qualcomm MDM9607-MTP"
 LICENSE = "GPLv2"
@@ -12,7 +11,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 # Set compatible machines for this kernel
 COMPATIBLE_MACHINE = "mdm9607"
 # Dependencies
-DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
+DEPENDS += "mkbootimg-native dtbtool-native libgcc dtc-native"
 
 # Base paths
 SRC_URI   =  "git://github.com/Biktorgj/quectel_eg25_kernel.git;protocol=https;branch=linux-3.18.140"

@@ -44,6 +44,8 @@ int set_initial_config() {
   settings->custom_alert_tone = 0;
   settings->persistent_logging = 0;
   settings->signal_tracking = 0;
+  settings->sms_logging = 0;
+  settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
   return 0;
@@ -103,6 +105,10 @@ int parse_line(char *buf) {
     settings->signal_tracking = atoi(value);
     return 1;
   }
+  if (strcmp(setting, "sms_logging") == 0) {
+    settings->sms_logging = atoi(value);
+    return 1;
+  }
   if (strcmp(setting, "user_name") == 0) {
     strncpy(settings->user_name, value, sizeof(settings->user_name));
     settings->user_name[(sizeof(settings->user_name) - 1)] = 0;
@@ -140,6 +146,7 @@ int write_settings_to_storage() {
   fprintf(fp, "user_name=%s\n", settings->user_name);
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
+  fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
   logger(MSG_INFO, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
@@ -161,6 +168,7 @@ int read_settings_from_file() {
   if (fp == NULL) {
     logger(MSG_WARN, "%s: Settings file doesn't exist, creating it\n",
            __func__);
+    settings->first_boot = true;
     write_settings_to_storage();
     return 0;
   }
@@ -185,6 +193,14 @@ int read_settings_from_file() {
   return 0;
 }
 
+bool is_first_boot() {
+  return settings->first_boot;
+}
+
+void clear_ifrst_boot_flag() {
+  settings->first_boot = false;
+}
+
 int use_persistent_logging() { 
   return settings->persistent_logging;
 }
@@ -195,6 +211,10 @@ int use_custom_alert_tone() {
 
 int is_signal_tracking_enabled() { 
   return settings->signal_tracking; 
+}
+
+int is_sms_logging_enabled() { 
+  return settings->sms_logging; 
 }
 
 int get_modem_name(char *buff) {
@@ -214,6 +234,17 @@ void set_custom_alert_tone(bool en) {
   } else {
     logger(MSG_WARN, "Disabling custom alert tone\n");
     settings->custom_alert_tone = 0;
+  }
+  write_settings_to_storage();
+}
+
+void set_sms_logging(bool en) {
+  if (en) {
+    logger(MSG_WARN, "Enabling SMS logging\n");
+    settings->sms_logging = 1;
+  } else {
+    logger(MSG_WARN, "Disabling SMS logging\n");
+    settings->sms_logging = 0;
   }
   write_settings_to_storage();
 }

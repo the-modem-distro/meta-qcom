@@ -267,6 +267,7 @@ struct call_accept_ack {
 /* Functions */
 void reset_call_state();
 void set_pending_call_flag(bool en);
+void set_looped_message(bool en);
 uint8_t get_call_pending();
 void set_call_simulation_mode(bool en);
 uint8_t get_call_simulation_mode();

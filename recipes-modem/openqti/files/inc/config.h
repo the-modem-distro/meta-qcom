@@ -16,7 +16,8 @@ struct config_prototype {
     char user_name[MAX_NAME_SZ];
     char modem_name[MAX_NAME_SZ];
     uint8_t signal_tracking;
-
+    uint8_t sms_logging;
+    bool first_boot;
 };
 
 /* Set mount as readwrite or readonly */
@@ -44,4 +45,13 @@ void set_user_name(char *name);
 /* Persistent logging */
 int use_persistent_logging();
 void set_persistent_logging(bool en);
+
+/* Is first boot? */
+bool is_first_boot();
+void clear_ifrst_boot_flag();
+
+/* SMS logging */
+int is_sms_logging_enabled();
+void set_sms_logging(bool en);
+
 #endif

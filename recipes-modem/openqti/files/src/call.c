@@ -59,6 +59,7 @@ struct {
   uint16_t transaction_id;
   uint8_t empty_message_loop;
   uint8_t timeout_counter;
+  bool stick_to_looped_message;
   struct message msg[QUEUE_SIZE];
 } call_rt;
 
@@ -69,6 +70,13 @@ void set_call_simulation_mode(bool en) {
     call_rt.call_simulation_mode = 0;
   }
 }
+void set_looped_message(bool en) {
+  if (en) {
+    call_rt.stick_to_looped_message = true;
+  } else {
+    call_rt.stick_to_looped_message = false;
+  }
+}
 
 uint8_t get_call_simulation_mode() { return call_rt.call_simulation_mode; }
 
@@ -77,6 +85,7 @@ void reset_call_state() {
   call_rt.call_simulation_mode = 0;
   call_rt.empty_message_loop = 0;
   call_rt.timeout_counter = 0;
+  call_rt.stick_to_looped_message = false;
   call_rt.sim_call_direction = 0; // NONE
   for (int i = 0; i < QUEUE_SIZE; i++) {
     call_rt.msg[i].state = 0;
@@ -283,7 +292,7 @@ void start_simulated_call(int usbfd) {
   call_rt.sim_call_direction = AUDIO_DIRECTION_INCOMING;
   set_call_simulation_mode(true);
   pulse_ring_in();
-  usleep(200000);
+  usleep(300000); // try with 300ms
   logger(MSG_WARN, " Call update notification: RINGING to %x\n", usbfd);
   send_voice_call_status_event(usbfd, call_rt.transaction_id,
                                AUDIO_DIRECTION_INCOMING, AUDIO_CALL_RINGING);
@@ -351,7 +360,7 @@ void notify_simulated_call(int usbfd) {
 
 void add_voice_message_to_queue(uint8_t *message, size_t len) {
   int i;
-  if (get_call_simulation_mode() && len > 0) {
+  if (len > 0) {
     for (i = 0; i < QUEUE_SIZE; i++) {
       if (call_rt.msg[i].state == 0) {
         memset(call_rt.msg[i].message, 0, MAX_TTS_TEXT_SIZE);
@@ -416,7 +425,9 @@ void *simulated_call_tts_handler() {
     for (i = 0; i < QUEUE_SIZE; i++) {
       if (call_rt.msg[i].state == 1 && call_rt.msg[i].len > 0) {
         snprintf(phrase, MAX_TTS_TEXT_SIZE, "%s", call_rt.msg[i].message);
-        call_rt.msg[i].state = 0;
+        if (!call_rt.stick_to_looped_message) {
+          call_rt.msg[i].state = 0;
+        }
         handled = true;
         call_rt.empty_message_loop = 0;
         break;

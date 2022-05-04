@@ -34,14 +34,23 @@ static const struct {
     {17, "call me", "Calling you now!", "Generate an incoming call"},
     {18, "username", "Your name is ", "Show you your name"},
     {19, "off", "Goodbye", "Shutdown the modem"},
-    {20, "gsm signal","RF Signal status:", "Show network and signal data"},
+    {20, "gsm signal", "RF Signal status:", "Show network and signal data"},
     {21, "reboot", "See you soon", "Reboot the modem"},
     {22, "net report", "Network report", "Get network report "},
-    {23, "enable tracking", "Signal tracking: enabled", "Switch on network monitoring"},
-    {24, "disable tracking", "Signal tracking: disbled", "Switch off network monitoring"},
-    {25, "enable persistent logging", "Persistent logging: enabled", "Switch on persistent logging"},
-    {26, "disable persistent logging", "Persistent logging: disbled", "Switch off persistent logging"},
-}; 
+    {23, "enable tracking", "Signal tracking: enabled",
+     "Switch on network monitoring"},
+    {24, "disable tracking", "Signal tracking: disbled",
+     "Switch off network monitoring"},
+    {25, "enable persistent logging", "Persistent logging: enabled",
+     "Switch on persistent logging"},
+    {26, "disable persistent logging", "Persistent logging: disbled",
+     "Switch off persistent logging"},
+    {27, "enable sms logging", "Enabling SMS logging",
+     "Store all incoming/outgoing messages to a log"},
+    {28, "disable sms logging", "Disabling SMS logging",
+     "Disables logging of all incoming/outgoing messages"},
+    {29, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
+};
 
 static const struct {
   unsigned int id;
@@ -52,8 +61,12 @@ static const struct {
     {100, "set name ", "Set Modem Name", "Set a new name for the modem"},
     {101, "set user name ", "Set User Name", "Set new username"},
     {102, "call me in ", "Calling you back in ", "Call me in X seconds"},
-    {103, "dbg", "Debug CB message", "Used for debugging cell broadcasting messages (will disappear from here)"}
-};
+    {103, "remind me ", "Will call you ",
+     "Call you [at/in] hh[:xx min] [text]"},
+    {104, "wake me up ", "Will wake you up ",
+     "Wake you up [at/in] hh[:xx min]"},
+    {105, "delete task ", "Removing task ",
+     "delete task X: Removes task X from the scheduler"}};
 static const struct {
   unsigned int id;
   const char *answer;

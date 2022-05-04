@@ -60,6 +60,9 @@ uint8_t get_signal_strength() {
 
   return 0;
 }
+int is_network_in_service() {
+  return net_status.in_service;
+}
 
 struct network_state get_network_status() {
   return net_status;

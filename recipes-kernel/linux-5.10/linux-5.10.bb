@@ -3,7 +3,6 @@
 # Released under the MIT license (see COPYING.MIT for the terms)
 
 inherit kernel
-inherit pythonnative
 
 DESCRIPTION = "Linux Kernel for Qualcomm MDM9607-MTP"
 LICENSE = "GPLv2"
@@ -12,7 +11,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aedcd7e46"
 # Set compatible machines for this kernel
 COMPATIBLE_MACHINE = "mdm9607"
 # Dependencies
-DEPENDS += "mkbootimg-native dtbtool-native libgcc python-native dtc-native"
+DEPENDS += "mkbootimg-native dtbtool-native libgcc dtc-native"
 
 # Base paths
 SRC_URI   =  "git://github.com/SoMainline/linux.git;protocol=https;branch=konrad/pinemodem"

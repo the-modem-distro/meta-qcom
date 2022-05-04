@@ -144,6 +144,7 @@ static const char *network_types[] = {
 
 uint8_t get_network_type();
 uint8_t get_signal_strength();
+int is_network_in_service();
 void update_network_data(uint8_t network_type, uint8_t signal_level);
 struct network_state get_network_status();
 struct cell_report get_current_cell_report();

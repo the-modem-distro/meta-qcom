@@ -48,9 +48,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/scheduler.c \
            file://src/config.c \
            file://init_openqti \
-           file://external/ring8k.wav \
-           file://external/hearme.wav"
-
+           file://external/ring8k.wav"
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 do_compile() {
@@ -68,7 +66,6 @@ do_install() {
 
     # default dialing tone
     install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
-    install -m 0644 ${S}/external/hearme.wav ${D}/usr/share/tones/
 
   #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }

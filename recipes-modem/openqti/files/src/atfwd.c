@@ -21,7 +21,6 @@
 #include "../inc/config.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
-#include "../inc/md5sum.h"
 #include "../inc/openqti.h"
 #include "../inc/proxy.h"
 #include "../inc/sms.h"
@@ -83,41 +82,6 @@ int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt,
                 sizeof(qmidev->socket));
 }
 
-int read_adsp_version() {
-  char *md5_result;
-  char *hex_md5_res;
-  int ret, i, j;
-  int element = -1;
-  int offset = 0;
-  md5_result = calloc(64, sizeof(char));
-  hex_md5_res = calloc(64, sizeof(char));
-  bool matched = false;
-
-  ret = md5_file(ADSPFW_GEN_FILE, md5_result);
-  if (strlen(md5_result) < 16) {
-    logger(MSG_ERROR, "%s: Error calculating the MD5 for your firmware (%s) \n",
-           __func__, md5_result);
-  } else {
-    for (j = 0; j < strlen(md5_result); j++) {
-      offset += sprintf(hex_md5_res + offset, "%02x", md5_result[j]);
-    }
-    for (i = 0; i < (sizeof(known_adsp_fw) / sizeof(known_adsp_fw[0])); i++) {
-      if (strcmp(hex_md5_res, known_adsp_fw[i].md5sum) == 0) {
-        logger(MSG_INFO, "%s: Found your ADSP firmware: (%s) \n", __func__,
-               known_adsp_fw[i].fwstring);
-        element = i;
-        matched = true;
-        break;
-      }
-    }
-  }
-  if (!matched) {
-    logger(MSG_WARN, "%s: Could not detect your ADSP firmware! \n", __func__);
-  }
-  free(md5_result);
-  free(hex_md5_res);
-  return element;
-}
 
 /* When a command is requested via AT interface,
    this function is used to answer to them */
