@@ -2,11 +2,11 @@
 #include "../inc/scheduler.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
+#include "../inc/helpers.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
-#include "../inc/helpers.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -37,7 +37,7 @@ int find_free_task_slot() {
 }
 
 void delay_task_execution(int taskID, uint8_t seconds) {
-  sch_runtime.tasks[taskID].time.exec_time+= seconds;
+  sch_runtime.tasks[taskID].time.exec_time += seconds;
 }
 
 int add_task(struct task_p task) {
@@ -57,34 +57,41 @@ int add_task(struct task_p task) {
     sch_runtime.tasks[taskID].status = STATUS_PENDING;
     /* Calculate tick time from now */
     switch (task.time.mode) {
-      case SCHED_MODE_TIME_AT:
+    case SCHED_MODE_TIME_AT:
       new_time = tm;
       new_time.tm_sec = 0;
-        if (tm.tm_hour > sch_runtime.tasks[taskID].time.hh) {
-          // Change to next day, then let mktime fix the rest
-          new_time.tm_mday = tm.tm_mday+1;
-        }
-        new_time.tm_hour = sch_runtime.tasks[taskID].time.hh;
-        new_time.tm_min = sch_runtime.tasks[taskID].time.mm;
-        sch_runtime.tasks[taskID].time.exec_time = mktime(&new_time);
-        logger(MSG_INFO, "Current time: %i-%i-%i %i:%i:%i\n", tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-        logger(MSG_INFO, "Target time: %i-%i-%i %i:%i:%i\n", new_time.tm_year, new_time.tm_mon, new_time.tm_mday, new_time.tm_hour, new_time.tm_min, new_time.tm_sec);
-        logger(MSG_INFO, "From echo: Now %ld -> Exec at %ld\n", t, sch_runtime.tasks[taskID].time.exec_time);
-        break;
-      case SCHED_MODE_TIME_COUNTDOWN:
-           sch_runtime.tasks[taskID].time.exec_time = t + 
-                                                      sch_runtime.tasks[taskID].time.hh * 3600 +
-                                                      sch_runtime.tasks[taskID].time.mm * 60;
+      if (tm.tm_hour > sch_runtime.tasks[taskID].time.hh) {
+        // Change to next day, then let mktime fix the rest
+        new_time.tm_mday = tm.tm_mday + 1;
+      }
+      new_time.tm_hour = sch_runtime.tasks[taskID].time.hh;
+      new_time.tm_min = sch_runtime.tasks[taskID].time.mm;
+      sch_runtime.tasks[taskID].time.exec_time = mktime(&new_time);
+      logger(MSG_INFO, "Current time: %i-%i-%i %i:%i:%i\n", tm.tm_year,
+             tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+      logger(MSG_INFO, "Target time: %i-%i-%i %i:%i:%i\n", new_time.tm_year,
+             new_time.tm_mon, new_time.tm_mday, new_time.tm_hour,
+             new_time.tm_min, new_time.tm_sec);
+      logger(MSG_INFO, "From echo: Now %ld -> Exec at %ld\n", t,
+             sch_runtime.tasks[taskID].time.exec_time);
+      break;
+    case SCHED_MODE_TIME_COUNTDOWN:
+      sch_runtime.tasks[taskID].time.exec_time =
+          t + sch_runtime.tasks[taskID].time.hh * 3600 +
+          sch_runtime.tasks[taskID].time.mm * 60;
 
-        break;
+      break;
     }
-
   }
   return taskID;
 }
 
 int remove_task(int taskID) {
+  int ret = -EINVAL;
   if (taskID < MAX_NUM_TASKS) {
+    if (sch_runtime.tasks[taskID].status != STATUS_FREE) {
+      ret = 0;
+    }
     sch_runtime.tasks[taskID].status = 0;
     sch_runtime.tasks[taskID].param = 0;
     sch_runtime.tasks[taskID].type = 0;
@@ -92,9 +99,8 @@ int remove_task(int taskID) {
     sch_runtime.tasks[taskID].time.mm = 0;
     sch_runtime.tasks[taskID].time.mode = 0;
     memset(sch_runtime.tasks[taskID].arguments, 0, ARG_SIZE);
-    return 0;
   }
-  return -EINVAL;
+  return ret;
 }
 
 int update_task_status(int taskID, uint8_t status) {
@@ -144,7 +150,8 @@ int run_task(int taskID) {
     } else {
       set_pending_call_flag(true);
       set_looped_message(true);
-      add_voice_message_to_queue((uint8_t *)sch_runtime.tasks[taskID].arguments, strlen(sch_runtime.tasks[taskID].arguments));
+      add_voice_message_to_queue((uint8_t *)sch_runtime.tasks[taskID].arguments,
+                                 strlen(sch_runtime.tasks[taskID].arguments));
     }
     break;
   case TASK_TYPE_WAKE_HOST:
@@ -162,8 +169,11 @@ void *start_scheduler_thread() {
     sch_runtime.cur_time = time(NULL);
     for (i = 0; i < MAX_NUM_TASKS; i++) {
       if (sch_runtime.tasks[i].status == STATUS_PENDING) {
-        logger(MSG_INFO, "%s: Checking time for task %i of type %i\n Exec time %ld, current %ld\n", __func__, i,
-               sch_runtime.tasks[i].type, sch_runtime.tasks[i].time.exec_time, sch_runtime.cur_time);
+        logger(MSG_INFO,
+               "%s: Checking time for task %i of type %i\n Exec time %ld, "
+               "current %ld\n",
+               __func__, i, sch_runtime.tasks[i].type,
+               sch_runtime.tasks[i].time.exec_time, sch_runtime.cur_time);
         if (sch_runtime.cur_time >= sch_runtime.tasks[i].time.exec_time) {
           ret = run_task(i);
         }
@@ -173,4 +183,43 @@ void *start_scheduler_thread() {
     sleep(1);
   }
   return NULL;
+}
+
+void dump_pending_tasks() {
+  int strsz = 0;
+  int count = 0;
+  char reply[MAX_MESSAGE_SIZE];
+  for (int i = 0; i < MAX_NUM_TASKS; i++) {
+    if (sch_runtime.tasks[i].status == STATUS_PENDING) {
+      count++;
+      memset(reply, 0, MAX_MESSAGE_SIZE);
+      switch (sch_runtime.tasks[i].type) {
+      case TASK_TYPE_CALL:
+        strsz = snprintf(
+            reply, MAX_MESSAGE_SIZE,
+            "Task %i:\n Call me (%ld min to exec): args: %s", i,
+            (sch_runtime.tasks[i].time.exec_time - sch_runtime.cur_time) / 60,
+            sch_runtime.tasks[i].arguments);
+        break;
+      case TASK_TYPE_SMS:
+        strsz = snprintf(
+            reply, MAX_MESSAGE_SIZE,
+            "Task %i:\n Text me (%ld min to exec): args: %s", i,
+            (sch_runtime.tasks[i].time.exec_time - sch_runtime.cur_time) / 60,
+            sch_runtime.tasks[i].arguments);
+        break;
+      case TASK_TYPE_WAKE_HOST:
+        strsz = snprintf(
+            reply, MAX_MESSAGE_SIZE,
+            "Task %i:\n Wake host up (%ld min to exec)", i,
+            (sch_runtime.tasks[i].time.exec_time - sch_runtime.cur_time) / 60);
+        break;
+      }
+      add_message_to_queue((uint8_t *)reply, strsz);
+    }
+  }
+  if (count == 0) {
+    strsz = snprintf(reply, MAX_MESSAGE_SIZE, "There are no pending tasks!");
+    add_message_to_queue((uint8_t *)reply, strsz);
+  }
 }
