@@ -187,6 +187,33 @@ void set_custom_user_name(uint8_t *command) {
   reply = NULL;
 }
 
+void delete_task(uint8_t *command) {
+  int strsz = 0;
+  uint8_t *offset;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  int taskID;
+  char command_args[64];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[5].cmd);
+  if (offset == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Command mismatch!\n");
+  } else {
+    int ofs = (int)(offset - command) + strlen(partial_commands[5].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(command_args, 64, "%s", (char *)command + ofs);
+      taskID = atoi((char *)command + ofs);
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Removed task %i \n",
+                       taskID);
+      if (remove_task(taskID) < 0) {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Remove task %i failed: It doesn't exist!\n", taskID);
+      }
+    }
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
 void dump_signal_report() {
   int strsz = 0;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
@@ -388,16 +415,13 @@ void render_gsm_signal_data() {
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Unknown (0x%.2x)\n", get_network_type());
   }
-
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Signal strength: %i %%\n", get_signal_strength());
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "%s roaming \n", netstat.is_roaming ? "Is " : "Not ");
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "%s in call \n", netstat.in_call ? "Is" : "Isn't");
-
   add_message_to_queue(reply, strsz);
-
   free(reply);
   reply = NULL;
 }
@@ -580,9 +604,9 @@ void schedule_reminder(uint8_t *command) {
       logger(MSG_INFO, "%s: Reminder has the following text: %s\n", __func__,
              reminder_text);
       if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         " Remind you at %.2i:%.2i.\n%s\n", scheduler_task.time.hh,
-                         scheduler_task.time.mm, reminder_text);
+        strsz = snprintf(
+            (char *)reply, MAX_MESSAGE_SIZE, " Remind you at %.2i:%.2i.\n%s\n",
+            scheduler_task.time.hh, scheduler_task.time.mm, reminder_text);
       } else if (scheduler_task.time.mode == SCHED_MODE_TIME_COUNTDOWN) {
         strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                          " Remind you in %i hours and %i minutes\n%s\n",
@@ -728,11 +752,12 @@ void schedule_wakeup(uint8_t *command) {
         scheduler_task.time.mode = SCHED_MODE_TIME_COUNTDOWN;
       } else {
         logger(MSG_ERROR,
-               "%s: Don't know when you want me to wake you up: %s \n", __func__,
-               current_word);
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         "Do you want me to wake you up *at* a specific time or "
-                         "*in* some time from now?\n");
+               "%s: Don't know when you want me to wake you up: %s \n",
+               __func__, current_word);
+        strsz =
+            snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Do you want me to wake you up *at* a specific time or "
+                     "*in* some time from now?\n");
         add_message_to_queue(reply, strsz);
         free(reply);
         reply = NULL;
@@ -797,7 +822,8 @@ void schedule_wakeup(uint8_t *command) {
   scheduler_task.status = STATUS_PENDING;
   scheduler_task.param = 0;
   scheduler_task.time.mode = scheduler_task.time.mode;
-  snprintf(scheduler_task.arguments, MAX_MESSAGE_SIZE, "It's time to wakeup, %s", cmd_runtime.user_name);
+  snprintf(scheduler_task.arguments, MAX_MESSAGE_SIZE,
+           "It's time to wakeup, %s", cmd_runtime.user_name);
   if (add_task(scheduler_task) < 0) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      " Can't add reminder, my task queue is full!\n");
@@ -806,7 +832,6 @@ void schedule_wakeup(uint8_t *command) {
   free(reply);
   reply = NULL;
 }
-
 
 uint8_t parse_command(uint8_t *command) {
   int ret = 0;
@@ -955,7 +980,7 @@ uint8_t parse_command(uint8_t *command) {
     strsz = 0;
     for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
          i++) {
-      if (strlen(partial_commands[i].cmd) + (3 * sizeof(uint8_t)) +
+      if (strlen(partial_commands[i].cmd) + (5 * sizeof(uint8_t)) +
               strlen(partial_commands[i].help) + strsz >
           MAX_MESSAGE_SIZE) {
         add_message_to_queue(reply, strsz);
@@ -1093,36 +1118,43 @@ uint8_t parse_command(uint8_t *command) {
     dump_signal_report();
     break;
   case 23:
-    strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", bot_commands[cmd_id].cmd_text);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(true);
     break;
   case 24:
-    strsz =
-        snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", bot_commands[cmd_id].cmd_text);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_signal_tracking(false);
     break;
   case 25:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_persistent_logging(true);
     break;
   case 26:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_persistent_logging(false);
     break;
-    case 27:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+  case 27:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_sms_logging(true);
     break;
-    case 28:
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,"%s\n", bot_commands[cmd_id].cmd_text);
+  case 28:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_sms_logging(false);
+    break;
+  case 29: /* List pending tasks */
+    dump_pending_tasks();
     break;
   case 100:
     set_custom_modem_name(command);
@@ -1139,6 +1171,10 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 104:
     schedule_wakeup(command);
+    break;
+  case 105: /* Delete task %i */
+    delete_task(command);
+
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
