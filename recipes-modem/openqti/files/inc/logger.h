@@ -8,6 +8,7 @@
 
 #define VOLATILE_LOGPATH "/var/log/openqti.log"
 #define PERSISTENT_LOGPATH "/persist/openqti.log"
+
 void reset_logtime();
 double get_elapsed_time();
 void logger(uint8_t level, char *format, ...);

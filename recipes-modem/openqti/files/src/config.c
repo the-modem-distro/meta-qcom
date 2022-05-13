@@ -35,9 +35,7 @@ int set_persistent_partition_ro() {
   return 0;
 }
 
-void do_sync_fs() {
-    system("sync");
-}
+void do_sync_fs() { system("sync"); }
 
 int set_initial_config() {
   settings = malloc(sizeof(struct config_prototype));
@@ -85,10 +83,11 @@ int parse_line(char *buf) {
   value[sizeof(setting) - 1] = 0;
 
   if (setting[0] == '#') { // Ignore if it's a comment
-      return 1;
+    return 1;
   }
 
-  logger(MSG_INFO, "%s: Key %s -> val %s -> toint %i\n",__func__, setting, value, atoi(value));
+  logger(MSG_INFO, "%s: Key %s -> val %s -> toint %i\n", __func__, setting,
+         value, atoi(value));
   if (strcmp(setting, "custom_alert_tone") == 0) {
     settings->custom_alert_tone = atoi(value);
     return 1;
@@ -96,7 +95,7 @@ int parse_line(char *buf) {
   if (strcmp(setting, "persistent_logging") == 0) {
     settings->persistent_logging = atoi(value);
     /* As soon as we read this, we remount the partition as rw */
-    if (settings->persistent_logging) { 
+    if (settings->persistent_logging) {
       set_persistent_partition_rw();
     }
     return 1;
@@ -152,8 +151,9 @@ int write_settings_to_storage() {
   do_sync_fs();
   if (!settings->persistent_logging) {
     if (set_persistent_partition_ro() < 0) {
-        logger(MSG_ERROR, "%s: Can't set persist partition in RO mode\n", __func__);
-        return -1;
+      logger(MSG_ERROR, "%s: Can't set persist partition in RO mode\n",
+             __func__);
+      return -1;
     }
   }
   return 0;
@@ -179,43 +179,31 @@ int read_settings_from_file() {
       /* There was some error or unknown in the config file
        * To avoid problems, we regenerate the config file
        * with whatever we could retrieve */
-      recreate_cfg_required = true; 
+      recreate_cfg_required = true;
     }
   }
   fclose(fp);
   dump_current_config();
   if (recreate_cfg_required) {
-      write_settings_to_storage();
+    write_settings_to_storage();
   }
   if (!settings->persistent_logging) {
-      set_persistent_partition_ro();
+    set_persistent_partition_ro();
   }
   return 0;
 }
 
-bool is_first_boot() {
-  return settings->first_boot;
-}
+bool is_first_boot() { return settings->first_boot; }
 
-void clear_ifrst_boot_flag() {
-  settings->first_boot = false;
-}
+void clear_ifrst_boot_flag() { settings->first_boot = false; }
 
-int use_persistent_logging() { 
-  return settings->persistent_logging;
-}
+int use_persistent_logging() { return settings->persistent_logging; }
 
-int use_custom_alert_tone() { 
-  return settings->custom_alert_tone; 
-}
+int use_custom_alert_tone() { return settings->custom_alert_tone; }
 
-int is_signal_tracking_enabled() { 
-  return settings->signal_tracking; 
-}
+int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
-int is_sms_logging_enabled() { 
-  return settings->sms_logging; 
-}
+int is_sms_logging_enabled() { return settings->sms_logging; }
 
 int get_modem_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->modem_name);
@@ -253,10 +241,10 @@ void set_persistent_logging(bool en) {
   if (en) {
     logger(MSG_WARN, "Enabling Persistent logs\n");
     if (set_persistent_partition_rw() < 0) {
-          logger(MSG_WARN, "Failed to set partition as RW\n");
-          settings->persistent_logging = 0;
+      logger(MSG_WARN, "Failed to set partition as RW\n");
+      settings->persistent_logging = 0;
     } else {
-        settings->persistent_logging = 1;
+      settings->persistent_logging = 1;
     }
   } else {
     logger(MSG_WARN, "Disabling Persistent logs\n");

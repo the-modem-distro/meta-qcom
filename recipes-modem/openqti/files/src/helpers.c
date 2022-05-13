@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 
 #include "../inc/helpers.h"
+#include "../inc/adspfw.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/devices.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
+#include "../inc/md5sum.h"
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
-#include "../inc/adspfw.h"
-#include "../inc/md5sum.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -346,7 +346,6 @@ void *power_key_event() {
   return NULL;
 }
 
-
 int read_adsp_version() {
   char *md5_result;
   char *hex_md5_res;
@@ -395,7 +394,7 @@ int wipe_message_storage() {
   }
 
   for (i = 0; i <= 100; i++) {
-    sz = snprintf(command, 128,"%s%i\r\n", MSG_DELETE_PARTIAL_CMD, i);
+    sz = snprintf(command, 128, "%s%i\r\n", MSG_DELETE_PARTIAL_CMD, i);
     ret = write(fd, command, sz);
     usleep(100000);
   }
@@ -414,6 +413,6 @@ void add_message_to_queue(uint8_t *message, size_t len) {
   if (get_call_simulation_mode()) {
     add_voice_message_to_queue(message, len);
   } else {
-   add_sms_to_queue(message, len);
+    add_sms_to_queue(message, len);
   }
 }

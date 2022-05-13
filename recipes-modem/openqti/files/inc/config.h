@@ -11,13 +11,13 @@
 #define PERSISTENT_LOGFILE_PATH "/persist/log"
 #define MAX_NAME_SZ 32
 struct config_prototype {
-    uint8_t custom_alert_tone;
-    uint8_t persistent_logging;
-    char user_name[MAX_NAME_SZ];
-    char modem_name[MAX_NAME_SZ];
-    uint8_t signal_tracking;
-    uint8_t sms_logging;
-    bool first_boot;
+  uint8_t custom_alert_tone;
+  uint8_t persistent_logging;
+  char user_name[MAX_NAME_SZ];
+  char modem_name[MAX_NAME_SZ];
+  uint8_t signal_tracking;
+  uint8_t sms_logging;
+  bool first_boot;
 };
 
 /* Set mount as readwrite or readonly */

@@ -11,10 +11,10 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/command.h"
+#include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 
   /* Try to read the config file on top of the defaults */
   read_settings_from_file();
-  
+
   logger(MSG_INFO, "Welcome to OpenQTI Version %s \n", RELEASE_VER);
 
   /* Begin */

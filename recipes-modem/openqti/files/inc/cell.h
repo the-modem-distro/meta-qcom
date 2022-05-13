@@ -26,8 +26,8 @@ struct gsm_neighbour {
 };
 
 struct gsm_data {
-  char lac[4];          // only GSM/WCDMA
-  int bsic;             // only in GSM
+  char lac[4]; // only GSM/WCDMA
+  int bsic;    // only in GSM
   int arfcn;
   int band;
   int rxlev;
@@ -67,7 +67,7 @@ struct wcdma_neighbour {
 };
 
 struct wcdma_data {
-  char lac[4];          // only GSM/WCDMA
+  char lac[4]; // only GSM/WCDMA
   int uarfcn;
   int psc;
   int rac;
@@ -81,7 +81,6 @@ struct wcdma_data {
   uint8_t neighbour_sz;
   struct wcdma_neighbour neighbours[8];
 };
-
 
 struct lte_neighbour {
   bool is_intra; // is intrafrequency or not?
@@ -115,15 +114,14 @@ struct lte_data {
   struct lte_neighbour neighbours[16];
 };
 
-
 struct cell_report {
   char cmd_id[16];      // servingcell || neighbourcell
   char state[16];       // NOCONN
   char network_mode[6]; // GSM  || WCDMA || LTE
   int mcc;              // Country code
   int mnc;              // Network code
-  char cell_id[16];        // Current Cell ID
-  int net_type; // 0 GSM || 1 WCDMA || 2 LTE
+  char cell_id[16];     // Current Cell ID
+  int net_type;         // 0 GSM || 1 WCDMA || 2 LTE
   struct gsm_data gsm;
   struct wcdma_data wcdma;
   struct lte_data lte;

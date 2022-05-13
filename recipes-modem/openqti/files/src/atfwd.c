@@ -16,14 +16,15 @@
 #include "../inc/adspfw.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
+#include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
-#include "../inc/config.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/proxy.h"
 #include "../inc/sms.h"
+
 struct {
   bool adb_enabled;
   bool is_sms_notification_pending;
@@ -81,7 +82,6 @@ int send_pkt(struct qmi_device *qmidev, struct at_command_respnse *pkt,
   return sendto(qmidev->fd, pkt, sz, MSG_DONTWAIT, (void *)&qmidev->socket,
                 sizeof(qmidev->socket));
 }
-
 
 /* When a command is requested via AT interface,
    this function is used to answer to them */

@@ -5,9 +5,9 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
-#include "../inc/config.h"
 #include "../inc/openqti.h"
 
 bool log_to_file = true;
