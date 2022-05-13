@@ -940,7 +940,6 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
 int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
                       int usbfd) {
   size_t temp_sz;
-  //  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   uint8_t our_phone[] = {0x91, 0x10, 0x55, 0x05, 0x91, 0x99, 0x99};
   int needs_rerouting = 0;
   struct outgoing_sms_packet *pkt;
@@ -964,7 +963,6 @@ int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd) {
   size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
   int needs_pass_through = 0;
   struct wms_message_indication_packet *pkt;
   if (len >= sizeof(struct wms_message_indication_packet)) {
@@ -974,7 +972,7 @@ int check_wms_indication_message(void *bytes, size_t len, int adspfd,
         get_transceiver_suspend_state()) {
       logger(MSG_INFO, "%s: Attempting to wake up the host", __func__);
       pulse_ring_in(); // try to wake the host
-      sleep(5);        // sleep for 5s
+      sleep(3);        // sleep for 5s
       // Enqueue an incoming notification
       set_pending_notification_source(MSG_EXTERNAL);
       set_notif_pending(true);
@@ -986,58 +984,54 @@ int check_wms_indication_message(void *bytes, size_t len, int adspfd,
 }
 
 /* Intercept and ACK a message */
-uint8_t intercept_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
-  size_t temp_sz;
+uint8_t intercept_cb_message(void *bytes, size_t len) {
   uint8_t *output;
   uint8_t ret;
   uint8_t strsz = 0;
   uint8_t offset = 0;
-  int outsize;
   struct cell_broadcast_message_prototype *pkt;
   uint8_t *reply = calloc(MAX_CB_MESSAGE_SIZE, sizeof(unsigned char));
 
   output = calloc(MAX_CB_MESSAGE_SIZE, sizeof(uint8_t));
-  logger(MSG_INFO, "%s: Checking length\n", __func__);
 
   if (len >= sizeof(struct cell_broadcast_message_prototype) -
                  (MAX_CB_MESSAGE_SIZE + 2)) {
     logger(MSG_INFO, "%s: Message size is big enough\n", __func__);
 
     pkt = (struct cell_broadcast_message_prototype *)bytes;
-    if (pkt->header.id >= 0x11) {
+    if (pkt->header.id == TLV_TRANSFER_MT_MESSAGE) {
       logger(MSG_INFO, "%s: TLV ID matches, trying to decode\n", __func__);
 
       ret = gsm7_to_ascii(pkt->message.pdu.contents,
                           strlen((char *)pkt->message.pdu.contents),
                           (char *)output, pkt->message.len); // 2 ui16, 2 ui8
-    }
 
-    set_log_level(0);
-    logger(MSG_DEBUG, "%s: CB MESSAGE DUMP\n", __func__);
-    dump_pkt_raw(bytes, len);
-    logger(MSG_DEBUG, "%s: CB MESSAGE DUMP END\n", __func__);
-    set_log_level(1);
-    // Now relay it
+      set_log_level(0);
+      logger(MSG_DEBUG, "%s: CB MESSAGE DUMP\n", __func__);
+      dump_pkt_raw(bytes, len);
+      logger(MSG_DEBUG, "%s: CB MESSAGE DUMP END\n", __func__);
+      set_log_level(1);
+      // Now relay it
 
-    if (strlen((char *)reply) > MAX_MESSAGE_SIZE) {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                       "A multipart CB Alert has been received\n");
-      add_message_to_queue(reply, strsz);
-      strsz = 0;
-      offset = 0;
-      while (offset < strlen((char *)output)) {
-        strsz =
-            snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output + offset);
+      if (strlen((char *)reply) > MAX_MESSAGE_SIZE) {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "A multipart CB Alert has been received\n");
         add_message_to_queue(reply, strsz);
-        offset += strsz;
-      }
+        strsz = 0;
+        offset = 0;
+        while (offset < strlen((char *)output)) {
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                           output + offset);
+          add_message_to_queue(reply, strsz);
+          offset += strsz;
+        }
 
-    } else {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output);
-      add_message_to_queue(reply, strsz);
+      } else {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output);
+        add_message_to_queue(reply, strsz);
+      }
     }
   }
-
   pkt = NULL;
   free(output);
   return 0;
@@ -1045,16 +1039,25 @@ uint8_t intercept_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
 
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
   size_t temp_sz;
-  uint8_t our_phone[] = {0x91, 0x51, 0x55, 0x10, 0x99, 0x99, 0xf9};
-  int needs_rerouting = 0;
   struct cell_broadcast_message_prototype *pkt;
   if (len >= sizeof(struct cell_broadcast_message_prototype) -
                  (MAX_CB_MESSAGE_SIZE + 2)) {
     pkt = (struct cell_broadcast_message_prototype *)bytes;
-    if (pkt->qmipkt.msgid == 0x0001 && pkt->header.id == 0x11) {
+    if (pkt->qmipkt.msgid == WMS_EVENT_REPORT &&
+        pkt->header.id == TLV_TRANSFER_MT_MESSAGE &&
+        pkt->message.id != 0x00) { /* Note below */
       logger(MSG_INFO, "%s: We got a CB message? \n", __func__);
-      intercept_cb_message(bytes, len, adspfd, usbfd);
+      intercept_cb_message(bytes, len);
     }
   }
-  return needs_rerouting; // We let it go anyway
+  return 0; // We let it go anyway
 }
+
+/*
+So far we only managed to catch 1 Cell broadcast message, and
+two MMS Event reports.
+
+The Cell Broadcast message had a PDU ID of 0x07, while both MMS
+event reports had a 0x00 in that TLV ID. So, until I know more,
+and without trying to decode the entire PDU, we care about everything
+which is *not* a 0x00 */
