@@ -40,7 +40,7 @@ KERNEL_TAGS_ADDR = "0x81E00000"
 # For Production use (faster)
 KERNEL_CMDLINE = "noinitrd ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 
-do_compile[nostamp] = "1"
+# do_compile[nostamp] = "1"
 
 kernel_conf_variable() {
 	CONF_SED_SCRIPT="$CONF_SED_SCRIPT /CONFIG_$1[ =]/d;"
