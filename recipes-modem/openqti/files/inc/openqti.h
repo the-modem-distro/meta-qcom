@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.6.4"
+#define RELEASE_VER "0.6.5"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
@@ -26,7 +26,7 @@
 #define GPIO_DTR "5"        // 0 low, 1 high, input
 #define GPIO_WAKEUP_IN "25" // input
 #define GPIO_SLEEP_IND "74" // output
-#define GPIO_RING_IN "75" // switch in-out-in?
+#define GPIO_RING_IN "75"   // switch in-out-in?
 #define GPIO_MODE_INPUT "in"
 #define GPIO_MODE_OUTPUT "out"
 
