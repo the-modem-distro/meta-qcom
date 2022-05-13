@@ -84,7 +84,7 @@ void *time_sync() {
     // Now attempt to sync from network
     logger(MSG_INFO, "%s: Send QLTS\n", __func__);
     cmd_ret = send_at_command(GET_QLTS, sizeof(GET_QLTS), response);
-    if (strstr(response, "+QLTS: ") != NULL) { // Sync was ok
+    if (cmd_ret == 0 && strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
       if (get_int_from_str(begin, 1) == 20 &&
           get_int_from_str(begin, 3) >= 22) {
@@ -109,11 +109,14 @@ void *time_sync() {
                time_sync_data.day, time_sync_data.hour, time_sync_data.minute,
                time_sync_data.second);
       }
-    } else {
+    }
+
+    if (!sync_completed) {
       logger(MSG_WARN,
              "%s: Couldn't sync time from the network, attempting local sync\n",
              __func__);
       logger(MSG_INFO, "%s: Send CCLK\n", __func__);
+      sleep(1);
       cmd_ret = send_at_command(GET_CCLK, sizeof(GET_CCLK), response);
       if (strstr(response, "+CCLK: ") != NULL) {
         begin = strchr(response, '"');
@@ -146,6 +149,7 @@ void *time_sync() {
       sync_completed = false;
       logger(MSG_WARN, "%s: Invalid date, retrying sync...\n", __func__);
     }
+    sleep(10); // Stop for 10 seconds after each attempt
   }
   if (time_sync_data.timezone_offset != 0) {
     // gmtoff is specified in seconds
