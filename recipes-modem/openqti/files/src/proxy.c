@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/config.h"
 #include "../inc/proxy.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
+#include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -54,7 +54,7 @@ int get_transceiver_suspend_state() {
 
   if (val > 0 && is_usb_suspended == 0) {
     is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
-   // system("echo mem > /sys/power/state");
+                          // system("echo mem > /sys/power/state");
   } else if (val == 0 && is_usb_suspended == 1) {
     usleep(100000);       // Allow time to finish wakeup
     is_usb_suspended = 0; // Then allow transfers again
@@ -161,8 +161,7 @@ void *gps_proxy() {
   }
 }
 
-uint8_t process_simulated_packet(uint8_t source, int adspfd,
-                                 int usbfd) {
+uint8_t process_simulated_packet(uint8_t source, int adspfd, int usbfd) {
   /* Messaging */
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     process_message_queue(usbfd);
@@ -192,27 +191,25 @@ uint8_t process_simulated_packet(uint8_t source, int adspfd,
   return 0;
 }
 
-uint8_t process_wms_packet(void *bytes, size_t len, int adspfd,
-                           int usbfd) {
+uint8_t process_wms_packet(void *bytes, size_t len, int adspfd, int usbfd) {
   int needs_rerouting = 0;
-  struct encapsulated_qmi_packet *pkt;
-  pkt = (struct encapsulated_qmi_packet *)bytes;
-
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     logger(MSG_WARN, "%s: We need to do stuff\n", __func__);
     notify_wms_event(bytes, len, usbfd);
     needs_rerouting = 1;
   }
-
-  pkt = NULL;
   return needs_rerouting;
 }
+
 void send_hello_world() {
   char message[160];
-  snprintf(message, 160, "Hi!\nWelcome to your (nearly) free modem\nSend \"help\" in this chat to get a list of commands you can run");
+  snprintf(message, 160,
+           "Hi!\nWelcome to your (nearly) free modem\nSend \"help\" in this "
+           "chat to get a list of commands you can run");
   clear_ifrst_boot_flag();
-  add_message_to_queue((uint8_t*)message, strlen(message));
+  add_message_to_queue((uint8_t *)message, strlen(message));
 }
+
 /* Node1 -> RMNET , Node2 -> SMD */
 /*
  *  process_packet()
@@ -289,14 +286,14 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   case 5: // Message for the WMS service
     action = PACKET_FORCED_PT;
     logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
-    if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
-      action = PACKET_BYPASS; // We bypass response
-    } else if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
+    if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_BYPASS; // We bypass response
     } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
     } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
+    } else if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_BYPASS; // We bypass response
     }
 
     break;
@@ -329,15 +326,16 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 /*
  *  is_inject_needed
  *    Notifies rmnet_proxy if there's pending data to push to the host
- * 
+ *
  */
 
 uint8_t is_inject_needed() {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
     logger(MSG_INFO, "%s: Internal generated message\n", __func__);
     return 1;
-  } else if (is_message_pending() && get_notification_source() == MSG_EXTERNAL) {
-    logger(MSG_INFO, "%s: EPending external message\n", __func__);
+  } else if (is_message_pending() &&
+             get_notification_source() == MSG_EXTERNAL) {
+    logger(MSG_INFO, "%s: Pending external message\n", __func__);
     return 1;
   } else if (get_call_pending()) {
     logger(MSG_INFO, "%s: Simulated call pending\n", __func__);
