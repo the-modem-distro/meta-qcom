@@ -5,7 +5,7 @@
 inherit kernel
 
 DESCRIPTION = "Linux Kernel for Qualcomm MDM9607-MTP"
-LICENSE = "GPLv2"
+LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 
 # Set compatible machines for this kernel
@@ -40,6 +40,7 @@ KERNEL_TAGS_ADDR = "0x81E00000"
 # For Production use (faster)
 KERNEL_CMDLINE = "noinitrd ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 
+# Uncomment this option if you want bitbake to force-rebuild the kernel
 # do_compile[nostamp] = "1"
 
 kernel_conf_variable() {
