@@ -4,11 +4,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 
 #include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
+#include "../inc/call.h"
 
 bool log_to_file = true;
 uint8_t log_level = 0;
@@ -28,6 +30,10 @@ void set_log_level(uint8_t level) {
   if (level >= 0 && level <= 2) {
     log_level = level;
   }
+}
+
+uint8_t get_log_level() {
+  return log_level;
 }
 
 double get_elapsed_time() {
@@ -134,4 +140,21 @@ void dump_pkt_raw(uint8_t *buf, int pktsize) {
       fclose(fd);
     }
   }
+}
+
+int mask_phone_number(char *orig, char *dest) {
+  int orig_size = strlen(orig);
+  if (orig_size < 1) {
+    snprintf(dest, MAX_PHONE_NUMBER_LENGTH, "[none]");
+    return -1;
+  }
+  snprintf(dest, MAX_PHONE_NUMBER_LENGTH, "%s", orig);
+  if (get_log_level() != MSG_DEBUG) {
+    for (int i = 0; i < (orig_size - 3); i++) {
+      dest[i] = '*';
+    }
+  }
+
+  logger(MSG_WARN, "%s: %s --> %s (%i)\n", __func__, orig, dest, orig_size);
+  return 0;
 }
