@@ -416,3 +416,52 @@ void add_message_to_queue(uint8_t *message, size_t len) {
     add_sms_to_queue(message, len);
   }
 }
+
+bool at_if_in_use = false;
+int send_at_command(char *at_command, size_t cmdlen, char *response, size_t response_sz) {
+  int fd, ret;
+  fd_set readfds;
+  struct timeval tv;
+
+
+  if (at_if_in_use) {
+    logger(MSG_ERROR, "%s: AT Interface is already in use\n", __func__);
+    return -EAGAIN;
+  }
+
+  at_if_in_use = true;
+  fd = open(SMD_SEC_AT, O_RDWR);
+  if (fd < 0) {
+    logger(MSG_ERROR, "%s: Cannot open %s\n", __func__, SMD_SEC_AT);
+    at_if_in_use = false;
+    return -EINVAL;
+  }
+
+  logger(MSG_DEBUG, "%s: Sending %s\n", __func__, at_command);
+  ret = write(fd, at_command, cmdlen);
+  if (ret < 0) {
+    logger(MSG_ERROR, "%s: Failed to write to %s\n", __func__, SMD_SEC_AT);
+    at_if_in_use = false;
+    return -EIO;
+  }
+  tv.tv_sec = 1;
+  tv.tv_usec = 500000;
+  FD_ZERO(&readfds);
+  FD_SET(fd, &readfds);
+  ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+  if (FD_ISSET(fd, &readfds)) {
+    ret = read(fd, response, response_sz);
+    if (ret < 0) {
+      logger(MSG_ERROR, "%s: Failed to read from %s\n", __func__, SMD_SEC_AT);
+      at_if_in_use = false;
+      close(fd);
+      return -EIO;
+    }
+  } else {
+    logger(MSG_ERROR, "%s: No response in time from %s\n", __func__, SMD_SEC_AT);
+  }
+  at_if_in_use = false;
+  logger(MSG_DEBUG, "%s: Received %s\n", __func__, response);
+  close(fd);
+  return 0;
+}

@@ -8,6 +8,8 @@
 #include <stdio.h>
 
 #define MAX_CB_MESSAGE_SIZE 1839
+#define CB_ENABLE_AT_CMD "AT+CSCB=0,\"0-6000\",\"0-15\"\r"
+#define CB_DISABLE_AT_CMD "AT+CSCB=1,\"0-6000\",\"0-15\"\r"
 
 struct cell_broadcast_header {
   uint8_t id; // 0x11

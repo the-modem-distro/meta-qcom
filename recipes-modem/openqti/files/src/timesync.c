@@ -36,28 +36,6 @@ int get_timezone() { return time_sync_data.timezone_offset; }
 
 bool is_timezone_offset_negative() { return time_sync_data.negative_offset; }
 
-int send_at_command(char *at_command, size_t cmdlen, char *response) {
-  int fd, ret;
-  fd = open(SMD_SEC_AT, O_RDWR);
-  if (fd < 0) {
-    logger(MSG_ERROR, "%s: Cannot open %s\n", __func__, SMD_SEC_AT);
-    return -EINVAL;
-  }
-  ret = write(fd, at_command, cmdlen);
-  if (ret < 0) {
-    logger(MSG_ERROR, "%s: Failed to write to %s\n", __func__, SMD_SEC_AT);
-    return -EIO;
-  }
-  sleep(1);
-  ret = read(fd, response, 128);
-  if (ret < 0) {
-    logger(MSG_ERROR, "%s: Failed to read from %s\n", __func__, SMD_SEC_AT);
-    return -EIO;
-  }
-  close(fd);
-  return 0;
-}
-
 void *time_sync() {
   int cmd_ret;
   char *begin;
@@ -79,11 +57,11 @@ void *time_sync() {
     memset(response, 0, 128);
     // Set CTZU first
     logger(MSG_DEBUG, "%s: Send CTZU\n", __func__);
-    cmd_ret = send_at_command(SET_CTZU, sizeof(SET_CTZU), response);
+    cmd_ret = send_at_command(SET_CTZU, sizeof(SET_CTZU), response, 128);
     sleep(1);
     // Now attempt to sync from network
     logger(MSG_DEBUG, "%s: Send QLTS\n", __func__);
-    cmd_ret = send_at_command(GET_QLTS, sizeof(GET_QLTS), response);
+    cmd_ret = send_at_command(GET_QLTS, sizeof(GET_QLTS), response, 128);
     if (cmd_ret == 0 && strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
       if (get_int_from_str(begin, 1) == 20 &&
@@ -118,7 +96,7 @@ void *time_sync() {
     if (!sync_completed) {
       logger(MSG_DEBUG, "%s: Send CCLK\n", __func__);
       sleep(1);
-      cmd_ret = send_at_command(GET_CCLK, sizeof(GET_CCLK), response);
+      cmd_ret = send_at_command(GET_CCLK, sizeof(GET_CCLK), response, 128);
       if (strstr(response, "+CCLK: ") != NULL) {
         begin = strchr(response, '"');
         if (begin != NULL) {

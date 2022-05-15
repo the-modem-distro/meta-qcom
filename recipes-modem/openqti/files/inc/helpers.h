@@ -36,5 +36,6 @@ void *power_key_event();
 int read_adsp_version();
 int wipe_message_storage();
 void add_message_to_queue(uint8_t *message, size_t len);
+int send_at_command(char *at_command, size_t cmdlen, char *response, size_t response_sz);
 
 #endif
