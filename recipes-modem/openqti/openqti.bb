@@ -48,9 +48,11 @@ SRC_URI = "file://inc/openqti.h \
            file://src/scheduler.c \
            file://src/config.c \
            file://init_openqti \
-           file://external/ring8k.wav"
+           file://external/ring8k.wav \
+           file://thankyou/thankyou.txt"
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
+FILES:${PN} += "/usr/share/thank_you/*"
 do_compile() {
     ${CC} ${LDFLAGS} -O2 src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
@@ -60,12 +62,14 @@ do_install() {
     install -d ${D}/etc/init.d
     install -d ${D}/etc/rcS.d
     install -d ${D}/usr/share/tones/
+    install -d ${D}/usr/share/thank_you/
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
 
     # default dialing tone
     install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
+    install -m 0644 ${S}/thankyou/thankyou.txt ${D}/usr/share/thank_you/
 
   #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }

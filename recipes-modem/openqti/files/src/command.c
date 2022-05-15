@@ -4,6 +4,7 @@
 #include "../inc/adspfw.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
+#include "../inc/cell_broadcast.h"
 #include "../inc/config.h"
 #include "../inc/logger.h"
 #include "../inc/proxy.h"
@@ -139,6 +140,7 @@ int get_memory(uint8_t *output) {
 
   return 0;
 }
+
 void set_custom_modem_name(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
@@ -833,6 +835,34 @@ void schedule_wakeup(uint8_t *command) {
   reply = NULL;
 }
 
+void set_cb_broadcast(bool en) {
+  char *response = malloc(128 * sizeof(char));
+  uint8_t *reply = calloc(160, sizeof(unsigned char));
+  int strsz;
+  int cmd_ret;
+  if (en) {
+    cmd_ret = send_at_command(CB_ENABLE_AT_CMD, sizeof(CB_ENABLE_AT_CMD), response, 128);
+    if (cmd_ret < 0 || (strstr(response, "OK") == NULL)) {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Failed to enable cell broadcasting messages\n");
+    } else {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enabling Cell broadcast messages\n");
+    }
+  } else {
+    cmd_ret = send_at_command(CB_DISABLE_AT_CMD, sizeof(CB_DISABLE_AT_CMD), response, 128);
+    if (cmd_ret < 0 || (strstr(response, "OK") == NULL)) {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Failed to disable cell broadcasting messages\n");
+    } else {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disabling Cell broadcast messages\n");
+    }
+  }
+  add_message_to_queue(reply, strsz);
+
+  free(response);
+  free(reply);
+  response = NULL;
+  reply = NULL;
+  }
+
 uint8_t parse_command(uint8_t *command) {
   int ret = 0;
   uint16_t i, random;
@@ -843,8 +873,8 @@ uint8_t parse_command(uint8_t *command) {
   pthread_t disposable_thread;
   struct network_state netstat;
   char lowercase_cmd[160];
-  uint8_t *tmpbuf = calloc(128, sizeof(unsigned char));
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *tmpbuf = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
   srand(time(NULL));
   for (i = 0; i < command[i]; i++) {
     lowercase_cmd[i] = tolower(command[i]);
@@ -854,7 +884,7 @@ uint8_t parse_command(uint8_t *command) {
   for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
     if ((strcmp((char *)command, bot_commands[i].cmd) == 0) ||
         (strcmp(lowercase_cmd, bot_commands[i].cmd) == 0)) {
-      logger(MSG_INFO, "%s: Match! %s\n", __func__, bot_commands[i].cmd);
+      logger(MSG_DEBUG, "%s: Match! %s\n", __func__, bot_commands[i].cmd);
       cmd_id = bot_commands[i].id;
     }
   }
@@ -870,7 +900,6 @@ uint8_t parse_command(uint8_t *command) {
     }
   }
   ret = find_cmd_history_match(cmd_id);
-  logger(MSG_INFO, "Repeated cmds %i\n", ret);
   if (ret >= 5) {
     logger(MSG_WARN, "You're pissing me off\n");
     random = rand() % 10;
@@ -1156,6 +1185,56 @@ uint8_t parse_command(uint8_t *command) {
   case 29: /* List pending tasks */
     dump_pending_tasks();
     break;
+  case 30:
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                      "Hi, my name is %s and I'm at version %s\n",
+                      cmd_runtime.bot_name, RELEASE_VER);
+    add_message_to_queue(reply, strsz);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "    .-.     .-.\n .****. .****.\n.*****.*****. Thank\n  .*********.    You\n    .*******.\n     .*****.\n       .***.\n          *\n");
+    add_message_to_queue(reply, strsz);
+    strsz = snprintf(
+        (char *)reply, MAX_MESSAGE_SIZE,
+        "Thank you for using me!\n And, especially, for all of you...");
+    add_message_to_queue(reply, strsz);
+    fp = fopen("/usr/share/thank_you/thankyou.txt", "r");
+    if (fp != NULL) {
+      size_t len = 0;
+      char *line;
+      memset(reply, 0, MAX_MESSAGE_SIZE);
+      strsz = 0;
+      i = 0;
+      while ((ret = getline(&line, &len, fp)) != -1) {
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s",
+                          line);
+        if (i > 15 || strsz > 140) {
+          add_message_to_queue(reply, strsz);
+          memset(reply, 0, MAX_MESSAGE_SIZE);
+          strsz = 0;
+          i = 0;
+        }
+        i++;
+      }
+      if (strsz > 0) {
+        add_message_to_queue(reply, strsz);
+      }
+      fclose(fp);
+      if (line) {
+        free(line);
+      }
+    }
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Thank you for supporting my development and improving me "
+                     "every day, I wouldn't have a purpose without you all!");
+    add_message_to_queue(reply, strsz);
+    break;
+  case 31:
+    set_cb_broadcast(true);
+    break;
+  case 32:
+    set_cb_broadcast(false);
+    break;
+    
   case 100:
     set_custom_modem_name(command);
     break;

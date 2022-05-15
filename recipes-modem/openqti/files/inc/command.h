@@ -50,6 +50,9 @@ static const struct {
     {28, "disable sms logging", "Disabling SMS logging",
      "Disables logging of all incoming/outgoing messages"},
     {29, "list tasks", "Show pending tasks", "Shows all the scheduled tasks"},
+    {30, "about", "", "Info about the firmware"},
+    {31, "enable cell broadcast", "Enabling Cell broadcasting for index 0-6000...", "Enables Cell broadcasting messages"},
+    {32, "disable cell broadcast", "Disabling cell broadcast...", "Disables Cell broadcasting messages"},
 };
 
 static const struct {
