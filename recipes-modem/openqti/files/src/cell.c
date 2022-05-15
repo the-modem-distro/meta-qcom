@@ -86,7 +86,6 @@ struct cell_report parse_report_data(char *orig_string) {
   positions[0] = 0;
   char *ptr = strtok(str, delim);
   while (ptr != NULL) {
-    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
     ptr = strtok(NULL, delim);
   }
 
@@ -120,7 +119,7 @@ struct cell_report parse_report_data(char *orig_string) {
   }
   report.net_type = -1;
   if (strstr(orig_string, "GSM") != NULL) {
-    logger(MSG_INFO, "%s GSM network data report\n", __func__);
+    logger(MSG_DEBUG, "%s GSM network data report\n", __func__);
     report.net_type = 0;
     report.mcc = strtol(slices[3], NULL, 10);
     report.mnc = strtol(slices[4], NULL, 10);
@@ -148,7 +147,7 @@ struct cell_report parse_report_data(char *orig_string) {
     report.gsm.voicecodec = strtol(slices[26], NULL, 10);
 
   } else if (strstr(orig_string, "WCDMA") != NULL) {
-    logger(MSG_INFO, "%s WCDMA network data report\n", __func__);
+    logger(MSG_DEBUG, "%s WCDMA network data report\n", __func__);
     report.net_type = 1;
     report.mcc = strtol(slices[3], NULL, 10);
     report.mnc = strtol(slices[4], NULL, 10);
@@ -166,7 +165,7 @@ struct cell_report parse_report_data(char *orig_string) {
     report.wcdma.conmod = strtol(slices[16], NULL, 10);
 
   } else if (strstr(orig_string, "LTE") != NULL) {
-    logger(MSG_INFO, "%s LTE network data report\n", __func__);
+    logger(MSG_DEBUG, "%s LTE network data report\n", __func__);
     report.net_type = 2;
     report.lte.is_tdd = strtol(slices[3], NULL, 10);
     report.mcc = strtol(slices[4], NULL, 10);
@@ -208,7 +207,6 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
   positions[0] = 0;
   char *ptr = strtok(str, delim);
   while (ptr != NULL) {
-    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
     ptr = strtok(NULL, delim);
   }
 
@@ -240,7 +238,7 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
     /*
     Now, go filling the blanks by position */
   }
-  logger(MSG_INFO, "%s LTE neighbourcell intrafrequency cell data report\n",
+  logger(MSG_DEBUG, "%s LTE neighbourcell intrafrequency cell data report\n",
          __func__);
   if (cur_word > 7) {
     report.is_intra = true;
@@ -266,7 +264,7 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
       report.s_intra_search = strtol(slices[14], NULL, 10);
 
     if (report_data.current_report.lte.neighbour_sz == 15) {
-      logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+      logger(MSG_DEBUG, "%s: Need to rotate neighbour log\n", __func__);
       // rotate
       for (i = 1; i < 16; i++) {
         report_data.current_report.lte.neighbours[i - 1] =
@@ -301,7 +299,6 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
   positions[0] = 0;
   char *ptr = strtok(str, delim);
   while (ptr != NULL) {
-    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
     ptr = strtok(NULL, delim);
   }
 
@@ -333,7 +330,7 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
     /*
     Now, go filling the blanks by position */
   }
-  logger(MSG_INFO, "%s LTE neighbourcell inter frequency cell data report\n",
+  logger(MSG_DEBUG, "%s LTE neighbourcell inter frequency cell data report\n",
          __func__);
   if (cur_word > 13) {
     report.is_intra = false;
@@ -359,7 +356,7 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
       report.s_intra_search = strtol(slices[14], NULL, 10);
 
     if (report_data.current_report.lte.neighbour_sz == 15) {
-      logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+      logger(MSG_DEBUG, "%s: Need to rotate neighbour log\n", __func__);
       // rotate
       for (i = 1; i < 16; i++) {
         report_data.current_report.lte.neighbours[i - 1] =
@@ -394,7 +391,6 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
   positions[0] = 0;
   char *ptr = strtok(str, delim);
   while (ptr != NULL) {
-    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
     ptr = strtok(NULL, delim);
   }
 
@@ -425,7 +421,7 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
     slices[i][strlen(slices[i])] = '\0';
     /* Now, go filling the blanks by position */
   }
-  logger(MSG_INFO, "%s WCDMA neighbour cell data report\n", __func__);
+  logger(MSG_DEBUG, "%s WCDMA neighbour cell data report\n", __func__);
   if (cur_word > 8) {
     report.uarfcn = strtol(slices[2], NULL, 10);
     report.cell_resel_priority = strtol(slices[3], NULL, 10);
@@ -437,7 +433,7 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
     report.srxlev = strtol(slices[9], NULL, 10);
 
     if (report_data.current_report.wcdma.neighbour_sz == 15) {
-      logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+      logger(MSG_DEBUG, "%s: Need to rotate neighbour log\n", __func__);
       // rotate
       for (i = 1; i < 16; i++) {
         report_data.current_report.wcdma.neighbours[i - 1] =
@@ -472,7 +468,6 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
   positions[0] = 0;
   char *ptr = strtok(str, delim);
   while (ptr != NULL) {
-    // logger(MSG_INFO, "'%s: %s'\n", __func__, ptr);
     ptr = strtok(NULL, delim);
   }
 
@@ -503,7 +498,7 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
     slices[i][strlen(slices[i])] = '\0';
     /* Now, go filling the blanks by position */
   }
-  logger(MSG_INFO, "%s GSM neighbour cell data report\n", __func__);
+  logger(MSG_DEBUG, "%s GSM neighbour cell data report\n", __func__);
   if (cur_word > 9) {
     report.arfcn = strtol(slices[2], NULL, 10);
     report.cell_resel_priority = strtol(slices[3], NULL, 10);
@@ -516,7 +511,7 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
     report.srxlev = strtol(slices[10], NULL, 10);
 
     if (report_data.current_report.wcdma.neighbour_sz == 15) {
-      logger(MSG_INFO, "%s: Need to rotate neighbour log\n", __func__);
+      logger(MSG_DEBUG, "%s: Need to rotate neighbour log\n", __func__);
       // rotate
       for (i = 1; i < 16; i++) {
         report_data.current_report.gsm.neighbours[i - 1] =
@@ -590,7 +585,7 @@ void analyze_data() {
     return;
   }
   for (i = report_data.history_sz; i > (report_data.history_sz - 1); i--) {
-    logger(MSG_INFO, "%s: Checking report %i\n", __func__, i);
+    logger(MSG_DEBUG, "%s: Checking report %i\n", __func__, i);
     if (report_data.history[i].net_type !=
         report_data.history[i - 1].net_type) {
       strsz +=
@@ -656,7 +651,7 @@ void read_neighbour_cells() {
   response = malloc(MAX_RESPONSE_SZ * sizeof(char));
   int command_length = strlen(GET_NEIGHBOUR_CELL);
 
-  logger(MSG_INFO, "%s: Read neighbour cell start\n", __func__);
+  logger(MSG_DEBUG, "%s: Read neighbour cell start\n", __func__);
   ret = get_data_from_command(GET_NEIGHBOUR_CELL, command_length,
                               GET_QENG_RESPONSE_PROTO, response);
   if (ret != 0) {
@@ -687,7 +682,7 @@ void read_neighbour_cells() {
         logger(MSG_DEBUG, "%s: Report end %s\n", __func__, start);
 
       } else {
-        logger(MSG_INFO, "%s: Unknown report type: %s\n", __func__, start);
+        logger(MSG_WARN, "%s: Unknown report type: %s\n", __func__, start);
       }
 
       start = end + 1;
@@ -705,14 +700,14 @@ void read_serving_cell() {
   response = malloc(MAX_RESPONSE_SZ * sizeof(char));
   int command_length = strlen(GET_SERVING_CELL);
 
-  logger(MSG_INFO, "%s: Read serving cell start\n", __func__);
+  logger(MSG_DEBUG, "%s: Read serving cell\n", __func__);
   ret = get_data_from_command(GET_SERVING_CELL, command_length,
                               GET_QENG_RESPONSE_PROTO, response);
   if (ret != 0) {
     logger(MSG_ERROR, "%s: Command %s failed. Response: %s\n", __func__,
            GET_SERVING_CELL, response);
   } else {
-    logger(MSG_INFO, "%s: Command %s succeeded! Response: %s\n", __func__,
+    logger(MSG_DEBUG, "%s: Command %s succeeded! Response: %s\n", __func__,
            GET_SERVING_CELL, response);
     if (strlen(response) > 18) {
       report_data.current_report = parse_report_data(response);
@@ -761,13 +756,13 @@ void read_at_cind() {
 }
 
 void update_network_data(uint8_t network_type, uint8_t signal_level) {
-  logger(MSG_INFO, "%s: update network data\n", __func__);
+  logger(MSG_DEBUG, "%s: update network data\n", __func__);
   net_status.network_type = network_type;
   net_status.signal_level = signal_level;
   logger(MSG_DEBUG, "%s: Request AT+CIND\n", __func__);
   read_at_cind();
   if (is_signal_tracking_enabled()) {
-    logger(MSG_INFO, "%s: Read serving and neighbour cell data\n", __func__);
+    logger(MSG_DEBUG, "%s: Read serving and neighbour cell data\n", __func__);
     read_serving_cell();
   }
 }

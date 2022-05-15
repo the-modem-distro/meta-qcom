@@ -194,7 +194,7 @@ uint8_t process_simulated_packet(uint8_t source, int adspfd, int usbfd) {
 uint8_t process_wms_packet(void *bytes, size_t len, int adspfd, int usbfd) {
   int needs_rerouting = 0;
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
-    logger(MSG_WARN, "%s: We need to do stuff\n", __func__);
+    logger(MSG_DEBUG, "%s: We need to do stuff\n", __func__);
     notify_wms_event(bytes, len, usbfd);
     needs_rerouting = 1;
   }

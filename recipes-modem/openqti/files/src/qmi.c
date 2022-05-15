@@ -58,7 +58,7 @@ uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid) {
   while ((cur_byte) < len) {
     this_tlv = (struct empty_tlv *)(arr + cur_byte);
     if (this_tlv->id == tlvid) {
-      logger(MSG_INFO,
+      logger(MSG_DEBUG,
              "Found TLV with ID 0x%.2x at offset %i with size 0x%.4x\n",
              this_tlv->id, cur_byte, le16toh(this_tlv->len));
       arr = NULL;

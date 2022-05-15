@@ -35,7 +35,11 @@ int set_persistent_partition_ro() {
   return 0;
 }
 
-void do_sync_fs() { system("sync"); }
+void do_sync_fs() {
+   if (system("sync") < 0)
+    logger(MSG_ERROR, "%s: Failed to sync fs\n", __func__);
+
+}
 
 int set_initial_config() {
   settings = malloc(sizeof(struct config_prototype));
@@ -50,7 +54,7 @@ int set_initial_config() {
 }
 
 void dump_current_config() {
-  logger(MSG_INFO,
+  logger(MSG_DEBUG,
          "[SETTINGS] Dump current configuration\n"
          "---> Custom alert tone: %i\n"
          "---> Persistent logging: %i\n"

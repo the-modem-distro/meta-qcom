@@ -78,11 +78,11 @@ void *time_sync() {
   while (!sync_completed) {
     memset(response, 0, 128);
     // Set CTZU first
-    logger(MSG_INFO, "%s: Send CTZU\n", __func__);
+    logger(MSG_DEBUG, "%s: Send CTZU\n", __func__);
     cmd_ret = send_at_command(SET_CTZU, sizeof(SET_CTZU), response);
     sleep(1);
     // Now attempt to sync from network
-    logger(MSG_INFO, "%s: Send QLTS\n", __func__);
+    logger(MSG_DEBUG, "%s: Send QLTS\n", __func__);
     cmd_ret = send_at_command(GET_QLTS, sizeof(GET_QLTS), response);
     if (cmd_ret == 0 && strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
@@ -109,13 +109,14 @@ void *time_sync() {
                time_sync_data.day, time_sync_data.hour, time_sync_data.minute,
                time_sync_data.second);
       }
-    }
-
-    if (!sync_completed) {
+    } else {
       logger(MSG_WARN,
              "%s: Couldn't sync time from the network, attempting local sync\n",
              __func__);
-      logger(MSG_INFO, "%s: Send CCLK\n", __func__);
+    }
+
+    if (!sync_completed) {
+      logger(MSG_DEBUG, "%s: Send CCLK\n", __func__);
       sleep(1);
       cmd_ret = send_at_command(GET_CCLK, sizeof(GET_CCLK), response);
       if (strstr(response, "+CCLK: ") != NULL) {
