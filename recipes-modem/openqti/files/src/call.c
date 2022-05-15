@@ -113,7 +113,7 @@ void send_call_request_response(int usbfd, uint16_t transaction_id) {
   struct call_request_response_packet *pkt;
   int bytes_written;
   int pkt_size = sizeof(struct call_request_response_packet);
-  logger(MSG_INFO, "%s: Sending Call Request Response\n", __func__);
+  logger(MSG_DEBUG, "%s: Sending Call Request Response\n", __func__);
   pkt = calloc(1, sizeof(struct call_request_response_packet));
   /* QMUX */
   pkt->qmuxpkt.version = 0x01;
@@ -156,10 +156,10 @@ void send_call_request_response(int usbfd, uint16_t transaction_id) {
 uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
                                      uint8_t call_direction,
                                      uint8_t call_state) {
-  logger(MSG_INFO, "%s: Send QMI call status message: Direction %i, state %i\n",
+  logger(MSG_DEBUG, "%s: Send QMI call status message: Direction %i, state %i\n",
          __func__, call_direction, call_state);
-  uint8_t phone_proto[] = {0x2b, 0x30, 0x31, 0x35, 0x35, 0x35, 0x30,
-                           0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
+  uint8_t phone_proto[] = {0x2b, 0x32, 0x32, 0x33, 0x33, 0x34, 0x34,
+                           0x35, 0x35, 0x36, 0x36, 0x37, 0x37};
   struct simulated_call_packet *pkt;
   int bytes_written;
   pkt = calloc(1, sizeof(struct simulated_call_packet));
@@ -234,7 +234,7 @@ uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
 
 void accept_simulated_call(int usbfd, uint8_t transaction_id) {
   struct call_accept_ack *pkt;
-  logger(MSG_INFO, "%s: Send QMI call ACCEPT message\n", __func__);
+  logger(MSG_DEBUG, "%s: Send QMI call ACCEPT message\n", __func__);
   int bytes_written;
   pkt = calloc(1, sizeof(struct call_accept_ack));
   int pkt_size = sizeof(struct call_accept_ack);
@@ -300,7 +300,7 @@ void start_simulated_call(int usbfd) {
 
 uint8_t send_voice_cal_disconnect_ack(int usbfd, uint16_t transaction_id) {
   struct end_call_response *pkt;
-  logger(MSG_WARN, "%s: Send QMI call END message\n", __func__);
+  logger(MSG_DEBUG, "%s: Send QMI call END message\n", __func__);
   int bytes_written;
   pkt = calloc(1, sizeof(struct end_call_response));
   int pkt_size = sizeof(struct end_call_response);
@@ -349,7 +349,7 @@ void notify_simulated_call(int usbfd) {
 
   if (call_rt.simulated_call_state != AUDIO_CALL_ESTABLISHED) {
     if (call_rt.timeout_counter > 60) {
-      logger(MSG_WARN, "%s: Killing internal call\n", __func__);
+      logger(MSG_INFO, "%s: Killing internal call\n", __func__);
       close_internal_call(usbfd, call_rt.transaction_id);
       reset_call_state();
     } else {
@@ -494,7 +494,6 @@ void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
   logger(MSG_INFO, "%s: Accepting simulated call \n", __func__);
   accept_simulated_call(usbfd, transaction_id);
   usleep(100000);
-  logger(MSG_INFO, "%s: Establishing call... \n", __func__);
   send_voice_call_status_event(usbfd, transaction_id + 1,
                                AUDIO_DIRECTION_INCOMING,
                                AUDIO_CALL_ESTABLISHED);
@@ -508,19 +507,19 @@ void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
 void send_dummy_call_established(int usbfd, uint16_t transaction_id) {
   pthread_t dummy_echo_thread;
   int ret;
-  logger(MSG_INFO, "%s: Sending response: ATTEMPT\n", __func__);
+  logger(MSG_DEBUG, "%s: Sending response: ATTEMPT\n", __func__);
   send_voice_call_status_event(usbfd, transaction_id, AUDIO_DIRECTION_OUTGOING,
                                AUDIO_CALL_ATTEMPT);
   usleep(100000);
-  logger(MSG_INFO, "%s: Sending response: Call request ACK \n", __func__);
+  logger(MSG_DEBUG, "%s: Sending response: Call request ACK \n", __func__);
   send_call_request_response(usbfd, transaction_id);
   usleep(100000);
-  logger(MSG_INFO, "%s: Sending response: ALERTING\n", __func__);
+  logger(MSG_DEBUG, "%s: Sending response: ALERTING\n", __func__);
   transaction_id++;
   send_voice_call_status_event(usbfd, transaction_id, AUDIO_DIRECTION_OUTGOING,
                                AUDIO_CALL_ALERTING);
   usleep(100000);
-  logger(MSG_INFO, "%s: Sending response: ESTABLISHED\n", __func__);
+  logger(MSG_DEBUG, "%s: Sending response: ESTABLISHED\n", __func__);
   transaction_id++;
   send_voice_call_status_event(usbfd, transaction_id, AUDIO_DIRECTION_OUTGOING,
                                AUDIO_CALL_ESTABLISHED);
@@ -540,11 +539,15 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   struct call_status_indication *ind;
 
   pkt = (struct encapsulated_qmi_packet *)bytes;
-  // 015550199999 in ASCII
-  uint8_t our_phone[] = {0x30, 0x31, 0x35, 0x35, 0x35, 0x30,
-                         0x31, 0x39, 0x39, 0x39, 0x39, 0x39};
+  uint8_t our_phone[] = {0x32, 0x32, 0x33, 0x33, 0x34, 0x34,
+                         0x35, 0x35, 0x36, 0x36, 0x37, 0x37};
+  // We need the original number to keep track of its state                         
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
   memset(phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
+  // But we also dont need to log it to disk unless requested
+  char log_phone_number[MAX_PHONE_NUMBER_LENGTH];
+  memset(log_phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
+
   switch (msgid) {
 
   case VO_SVC_CALL_REQUEST:
@@ -557,10 +560,10 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         j++;
       }
     }
+    mask_phone_number(phone_number, log_phone_number);
     if (j > 0 && memcmp(phone_number, our_phone, 12) == 0) {
-      logger(MSG_INFO, "%s: This call is for me: %s\n", __func__, phone_number);
+      logger(MSG_INFO, "%s: This call is for me: %s\n", __func__, log_phone_number);
       if (!get_call_simulation_mode()) {
-        logger(MSG_INFO, "%s: We're accepting this call\n", __func__);
         set_call_simulation_mode(true);
         send_dummy_call_established(usbfd, req->qmipkt.transaction_id);
         call_rt.sim_call_direction = AUDIO_DIRECTION_OUTGOING;
@@ -569,11 +572,10 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
       }
       needs_rerouting = 1;
     } else {
-      logger(MSG_INFO, "%s: This call is for someone else: %s\n", __func__,
-             phone_number);
+      logger(MSG_INFO, "%s: Outgoing call to %s\n", __func__,
+             log_phone_number);
       if (get_call_simulation_mode()) {
-        logger(MSG_WARN, "%s: User was talking to us, closing that call\n",
-               __func__);
+        logger(MSG_WARN, "%s: Ending internal call first\n", __func__);
         close_internal_call(usbfd, pkt->qmi.transaction_id);
       }
     }
@@ -582,7 +584,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
 
   case VO_SVC_CALL_ANSWER_REQ:
     if (get_call_simulation_mode()) {
-      logger(MSG_WARN, "%s: Admin wants to talk!\n", __func__);
+      logger(MSG_INFO, "%s: Admin wants to talk!\n", __func__);
       process_incoming_call_accept(usbfd, pkt->qmi.transaction_id);
       needs_rerouting = 1;
     }
@@ -592,6 +594,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     logger(MSG_INFO, "%s: VO_SVC_CALL_INFO: Unimplemented!\n", __func__);
     set_log_level(0);
     dump_pkt_raw(bytes, len);
+    set_log_level(1);
     break;
 
   case VO_SVC_CALL_STATUS:
@@ -604,17 +607,18 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         j++;
       }
     }
+    mask_phone_number(phone_number, log_phone_number);
 
     /* Caller ID is set */
     if (j > 0) {
-      logger(MSG_INFO, "%s: Call status for %s\n", __func__, phone_number);
+      logger(MSG_INFO, "%s: Call status for %s\n", __func__, log_phone_number);
       if (memcmp(phone_number, our_phone, 12) == 0) {
-        logger(MSG_WARN, "%s: Call status is for us\n", __func__);
+        logger(MSG_INFO, "%s: Internal call\n", __func__);
         needs_rerouting = 1;
       } else {
         if (get_call_simulation_mode()) {
           logger(MSG_WARN,
-                 "%s: Request is for a different number, closing out call\n",
+                 "%s: Request is for a different number, ending call\n",
                  __func__);
           close_internal_call(usbfd, pkt->qmi.transaction_id);
         }
@@ -625,7 +629,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
       if (get_call_simulation_mode()) {
         needs_rerouting = 1;
       } else {
-        logger(MSG_WARN, "%s: Unknown number %s\n", __func__, phone_number);
+        logger(MSG_WARN, "%s: Unknown number %s\n", __func__, log_phone_number);
         memcpy((uint8_t *)phone_number, (uint8_t *)"Unknown",
                strlen("Unknown"));
         handle_call_pkt(bytes, len, phone_number);
@@ -645,7 +649,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     break;
 
   case VO_SVC_CALL_END_REQ:
-    logger(MSG_WARN, "%s: Request to terminate the call\n", __func__);
+    logger(MSG_INFO, "%s: Request to terminate the call\n", __func__);
     if (get_call_simulation_mode()) {
       logger(MSG_DEBUG, "%s: Sending disconnect ACK\n", __func__);
       send_voice_cal_disconnect_ack(usbfd, pkt->qmi.transaction_id);

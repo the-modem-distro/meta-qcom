@@ -271,12 +271,17 @@ void handle_call_pkt(struct call_status_indication *pkt, int sz,
   bool call_in_memory = false;
   // Thread
   pthread_t tone_thread;
-  // also need to check pkt 0x24: VOICE_GET_CALL_INFO"
+
+  // Logging
+  char log_phone_number[MAX_PHONE_NUMBER_LENGTH];
+  memset(log_phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
+  mask_phone_number(phone_number, log_phone_number);
+
   for (i = 0; i < MAX_ACTIVE_CALLS; i++) {
     if (memcmp(audio_runtime_state.calls[i].phone_number, phone_number,
                MAX_PHONE_NUMBER_LENGTH) == 0) {
-      logger(MSG_WARN, "%s: Updating call state for %s\n", __func__,
-             phone_number);
+      logger(MSG_INFO, "%s: Updating call state for %s\n", __func__,
+             log_phone_number);
       audio_runtime_state.calls[i].direction = pkt->meta.call_direction;
       audio_runtime_state.calls[i].state = pkt->meta.call_state;
       audio_runtime_state.calls[i].call_type = pkt->meta.call_type;
@@ -287,8 +292,7 @@ void handle_call_pkt(struct call_status_indication *pkt, int sz,
         audio_runtime_state.calls[i].state !=
             AUDIO_CALL_DISCONNECTING && // Disconnecting
         audio_runtime_state.calls[i].state != AUDIO_CALL_HANGUP) { // Hanging up
-      logger(MSG_INFO, "%s: Call active for %s\n", __func__,
-             audio_runtime_state.calls[i].phone_number);
+      logger(MSG_INFO, "%s: Call active for %s\n", __func__,log_phone_number);
       calls_active++;
     }
   }
@@ -301,8 +305,8 @@ void handle_call_pkt(struct call_status_indication *pkt, int sz,
                MAX_PHONE_NUMBER_LENGTH);
         memcpy(audio_runtime_state.calls[i].phone_number, phone_number,
                MAX_PHONE_NUMBER_LENGTH);
-        logger(MSG_WARN, "%s: Adding / Replacing call: %s\n", __func__,
-               phone_number);
+        logger(MSG_INFO, "%s: Adding / Replacing call: %s\n", __func__,
+               log_phone_number);
         audio_runtime_state.calls[i].direction = pkt->meta.call_direction;
         audio_runtime_state.calls[i].state = pkt->meta.call_state;
         audio_runtime_state.calls[i].call_type = pkt->meta.call_type;
