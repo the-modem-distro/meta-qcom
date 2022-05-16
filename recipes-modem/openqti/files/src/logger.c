@@ -155,6 +155,6 @@ int mask_phone_number(char *orig, char *dest) {
     }
   }
 
-  logger(MSG_WARN, "%s: %s --> %s (%i)\n", __func__, orig, dest, orig_size);
+  logger(MSG_DEBUG, "%s: %s --> %s (%i)\n", __func__, orig, dest, orig_size);
   return 0;
 }
