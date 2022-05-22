@@ -151,7 +151,7 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     usleep(500);
     syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-            LINUX_REBOOT_CMD_RESTART, NULL);
+            LINUX_REBOOT_CMD_POWER_OFF, NULL);
     break;
   case 109:
     sckret = send_pkt(qmidev, response, pkt_size);
@@ -209,9 +209,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     }
     break;
   case 123: // Gracefully restart
-    if (system("reboot") != 0) {
-      response->result = 2;
-    }
+    syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+            LINUX_REBOOT_CMD_RESTART, NULL);
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
   case 124: // Custom alert tone ON
