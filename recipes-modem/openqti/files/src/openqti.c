@@ -25,6 +25,7 @@
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
 #include "../inc/tracking.h"
+#include "../inc/thermal.h"
 
 /*
  * OpenQTI
@@ -44,7 +45,7 @@ int main(int argc, char **argv) {
   pthread_t time_sync_thread;
   pthread_t pwrkey_thread;
   pthread_t scheduler_thread;
-
+  pthread_t thermal_thread;
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
 
@@ -238,6 +239,11 @@ int main(int argc, char **argv) {
   if ((ret = pthread_create(&scheduler_thread, NULL, &start_scheduler_thread,
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating scheduler thread\n", __func__);
+  }
+    logger(MSG_INFO, "%s: Init: Create Thermal monitor thread \n", __func__);
+  if ((ret = pthread_create(&thermal_thread, NULL, &thermal_monitoring_thread,
+                            NULL))) {
+    logger(MSG_ERROR, "%s: Error creating thermal monitor thread\n", __func__);
   }
 
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
