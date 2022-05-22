@@ -96,11 +96,16 @@ void logger(uint8_t level, char *format, ...) {
 void dump_packet(char *direction, uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
+  int persist = use_persistent_logging();
   if (log_level == 0) {
     if (!log_to_file) {
       fd = stdout;
     } else {
-      fd = fopen("/var/log/openqti.log", "a");
+      if (persist) {
+        fd = fopen(PERSISTENT_LOGPATH, "a");
+      } else {
+        fd = fopen(VOLATILE_LOGPATH, "a");
+      }
       if (fd < 0) {
         fprintf(stderr, "[%s] Error opening logfile \n", __func__);
         fd = stdout;
@@ -120,12 +125,17 @@ void dump_packet(char *direction, uint8_t *buf, int pktsize) {
 void dump_pkt_raw(uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
+  int persist = use_persistent_logging();
   if (log_level == 0) {
 
     if (!log_to_file) {
       fd = stdout;
     } else {
-      fd = fopen("/var/log/openqti.log", "a");
+      if (persist) {
+        fd = fopen(PERSISTENT_LOGPATH, "a");
+      } else {
+        fd = fopen(VOLATILE_LOGPATH, "a");
+      }
       if (fd < 0) {
         fprintf(stderr, "[%s] Error opening logfile \n", __func__);
         fd = stdout;
