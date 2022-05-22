@@ -19,12 +19,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/reboot.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <syscall.h>
-#include <linux/reboot.h>
+#include <unistd.h>
 
 int get_temperature(char *sensor_path) {
   int fd, val = 0;
@@ -56,41 +56,46 @@ void *thermal_monitoring_thread() {
   int last_notify_round = 0;
   logger(MSG_INFO, "Thermal monitor thread started\n");
   while (1) {
-
     for (i = 0; i < NO_OF_SENSORS; i++) {
       snprintf(sensor_path, sizeof(sensor_path), "%s%i%s", THRM_ZONE_PATH, i,
                THRM_ZONE_TRAIL);
       prev_sensor_reading[i] = sensors[i];
       sensors[i] = get_temperature(sensor_path);
-
     }
-    logger(MSG_INFO, "Thermal zones 0-6: %iC %iC %iC %iC %iC %iC %iC \n", 
-    sensors[0], sensors[1], sensors[2], sensors[3], sensors[4], sensors[5], sensors[6]);
+    logger(MSG_INFO, "Thermal zones 0-6: %iC %iC %iC %iC %iC %iC %iC \n",
+           sensors[0], sensors[1], sensors[2], sensors[3], sensors[4],
+           sensors[5], sensors[6]);
 
     for (i = 0; i < NO_OF_SENSORS; i++) {
       if (prev_sensor_reading[i] != 0 && sensors[i] != 0) {
-        if (sensors[i] > 85) {
-          msglen = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "I'm at %iC, I will shutdown now to help the phone cool down. Restart eg25-manager to power me up again\n",
-                            sensors[i]);
+        if (sensors[i] > 84) {
+          logger(MSG_ERROR, "%s: ERROR: Temperature threshold exceeded. Will shutdown now\n", __func__);
+          msglen =
+              snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "I'm at %iC, I will shutdown now to help the phone cool "
+                       "down. Restart eg25-manager to power me up again\n",
+                       sensors[i]);
           add_message_to_queue(reply, msglen);
           last_notify_round = round;
           notified_emergency = true;
-          sleep(5);
-                 syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-                  LINUX_REBOOT_CMD_RESTART, NULL);
-        } 
-        if (sensors[i] > 75 && !notified_emergency) {
-          msglen = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "I'm starting to overheat!\nIf temperature keeps raising I will shut down soon (Sensor %i, Current temperature: %i ºC)\n",
-                            i, sensors[i]);
+          // We stop here for a little while
+          // If everything is overheated ModemManager will need more time to retrieve the message
+          sleep(30);
+          syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
+                  LINUX_REBOOT_CMD_POWER_OFF, NULL);
+        }
+        if (sensors[i] > 79 && !notified_emergency) {
+          msglen = snprintf(
+              (char *)reply, MAX_MESSAGE_SIZE,
+              "I'm starting to overheat!\nIf temperature keeps raising I will "
+              "shut down soon (Sensor %i reports %iC)\n",
+              i, sensors[i]);
           add_message_to_queue(reply, msglen);
           last_notify_round = round;
           notified_emergency = true;
-        } else if (sensors[i] > 60 && !notified_warning) {
+        } else if (sensors[i] > 70 && !notified_warning) {
           msglen = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "It's getting hot in here... (Sensor %i, Current "
-                            "temperature: %iC)\n",
+                            "It's getting hot in here... (Sensor %i reports %iC)\n",
                             i, sensors[i]);
           add_message_to_queue(reply, msglen);
           last_notify_round = round;
@@ -109,7 +114,7 @@ void *thermal_monitoring_thread() {
 
     sleep(5);
     round++;
-    if (round - last_notify_round > 60) { 
+    if (round - last_notify_round > 60) {
       notified_emergency = false;
       notified_warning = false;
     }
