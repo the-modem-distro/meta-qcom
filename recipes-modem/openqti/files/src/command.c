@@ -772,7 +772,25 @@ void schedule_wakeup(uint8_t *command) {
         scheduler_task.time.hh = get_int_from_str(current_word, 0);
         scheduler_task.time.mm = get_int_from_str(offset, 1);
 
-        if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
+        if (offset - ((char *)current_word) > 2 || strlen(offset) > 3)
+        {
+          logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
+                 __func__, current_word);
+          if (offset - ((char *)current_word) > 2)
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "I can't wait for a task that long... %s\n",
+                             current_word);
+          if (strlen(offset) > 3)
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Add another hour rather than putting 100 or more "
+                             "minutes... %s\n",
+                             current_word);
+          add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
+        }
+        else if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
           if (scheduler_task.time.hh > 23 && scheduler_task.time.mm > 59) {
             strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                              "Ha ha, very funny. Please give me a time value I "
@@ -792,6 +810,17 @@ void schedule_wakeup(uint8_t *command) {
             reply = NULL;
             return;
           }
+          else {
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Waiting until %i:%02i to call you back\n",
+                             scheduler_task.time.hh, scheduler_task.time.mm);
+          }
+        }
+        else {
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "Waiting for %i hours and %i minutes to call you "
+                           "back\n",
+                           scheduler_task.time.hh, scheduler_task.time.mm);
         }
       } else {
         logger(MSG_INFO, "%s:  Only hours have been specified\n", __func__);
@@ -808,12 +837,31 @@ void schedule_wakeup(uint8_t *command) {
         } else {
           scheduler_task.time.hh = atoi(current_word);
           scheduler_task.time.mm = 0;
-          if (scheduler_task.time.mode)
+          if (scheduler_task.time.mode) {
             logger(MSG_WARN, "%s: Waiting for %i hours\n", __func__,
                    scheduler_task.time.hh);
-          else
-            logger(MSG_WARN, "%s: Waiting until %i to call you back\n",
-                   __func__, scheduler_task.time.hh);
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Waiting for %i hours to call you back\n",
+                             scheduler_task.time.hh);
+          }
+          else {
+            if (scheduler_task.time.hh > 24) {
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough hours in a day \n");
+              add_message_to_queue(reply, strsz);
+              free(reply);
+              reply = NULL;
+              return;
+            }
+            else {
+              logger(MSG_WARN, "%s: Waiting until %i to call you back\n",
+                     __func__, scheduler_task.time.hh);
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "Waiting until %i to call you back\n",
+                               scheduler_task.time.hh);
+            }
+          }
         }
       }
       break;
