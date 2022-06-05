@@ -633,14 +633,14 @@ void schedule_reminder(uint8_t *command) {
 }
 
 /* Syntax:
- * Remind me in X[hours]:[optional minutes] [optional description spoken by tts]
- * Remind me at X[hours]:[optional minutes] [optional description spoken by tts]
+ * Wake me up in X[hours]:[optional minutes]
+ * Wake me up at X[hours]:[optional minutes]
  * Examples:
- *  remind me at 5 do some stuff
- *  remind me at 5:05 do some stuff
- *  remind me at 15:05 do some stuff
- *  remind me in 1 do some stuff
- *  remind me in 99 do some stuff
+ *  wake me up at 5
+ *  wake me up at 5:05
+ *  wake me up at 15:05
+ *  wake me up in 1
+ *  wake me up in 99
  *
  */
 void schedule_wakeup(uint8_t *command) {
@@ -648,7 +648,6 @@ void schedule_wakeup(uint8_t *command) {
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   int strsz = 0;
   char temp_str[160];
-  char reminder_text[160] = {0};
   char current_word[160] = {0};
   int markers[128] = {0};
   int phrase_size = 1;
@@ -701,9 +700,9 @@ void schedule_wakeup(uint8_t *command) {
     // current_word[strlen(current_word)] = '\0';
 
     /*
-     * remind me [at|in] 00[:00] [Text chunk]
-     *  ^      ^   ^^^^  ^^  ^^     ^^^^^
-     *  0      1     2   ?3 3OPT     4
+     * wake me up [at|in] 00[:00]
+     *  ^    ^  ^   ^^^^  ^^  ^^
+     *  0    1  2     3   ?4 3OPT
      */
 
     logger(MSG_INFO, "Current word: %s\n", current_word);
@@ -748,9 +747,9 @@ void schedule_wakeup(uint8_t *command) {
       break;
     case 3:
       if (strstr(current_word, "at") != NULL) {
-        logger(MSG_INFO, "%s: Remind you AT \n", __func__);
+        logger(MSG_INFO, "%s: Wake you AT \n", __func__);
       } else if (strstr((char *)command, "in") != NULL) {
-        logger(MSG_INFO, "%s: Remind you IN \n", __func__);
+        logger(MSG_INFO, "%s: Wake you IN \n", __func__);
         scheduler_task.time.mode = SCHED_MODE_TIME_COUNTDOWN;
       } else {
         logger(MSG_ERROR,
@@ -828,7 +827,7 @@ void schedule_wakeup(uint8_t *command) {
            "It's time to wakeup, %s", cmd_runtime.user_name);
   if (add_task(scheduler_task) < 0) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     " Can't add reminder, my task queue is full!\n");
+                     " Can't schedule wakeup, my task queue is full!\n");
   }
   add_message_to_queue(reply, strsz);
   free(reply);
