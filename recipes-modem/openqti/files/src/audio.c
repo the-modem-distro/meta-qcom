@@ -261,170 +261,122 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
   }
 }
 
-/* Be careful when logging this as phone numbers will leak if you turn on
-   debugging */
-void handle_call_pkt(struct call_status_indication *pkt, int sz,
-                     uint8_t *phone_number) {
+void handle_call_pkt(uint8_t *pkt, int sz) {
   bool needs_setting_up_paths = false;
-  uint8_t direction, state, type, mode, ret, i;
+  uint8_t direction, state, call_mode, mode, ret, i;
   uint8_t calls_active = 0;
+  uint8_t call_id = 0;
   bool call_in_memory = false;
   // Thread
   pthread_t tone_thread;
+  /* REDO */
 
-  // Logging
-  char log_phone_number[MAX_PHONE_NUMBER_LENGTH];
-  memset(log_phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
-  mask_phone_number(phone_number, log_phone_number);
+  int offset = get_tlv_offset_by_id((uint8_t*)pkt, sz, TLV_CALL_INFO);
+  if (offset <= 0) {
+    logger(MSG_ERROR, "%s:Couldn't retrieve call metadata \n", __func__);
+  } else if (offset > 0) {
+    struct call_status_meta *meta;
+    meta = (struct call_status_meta *)(pkt + offset);
+    calls_active = meta->num_instances;
+    audio_runtime_state.calls[meta->call_id].direction = meta->call_direction;
+    audio_runtime_state.calls[meta->call_id].state = meta->call_state;
+    audio_runtime_state.calls[meta->call_id].call_type = meta->call_mode;
+  switch (meta->call_direction) {
+    case CALL_DIRECTION_OUTGOING:
+      logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,  meta->call_id, calls_active);
+      break;
+    case CALL_DIRECTION_INCOMING:
+      logger(MSG_WARN, "%s: Call %i of %i: Incoming \n", __func__,  meta->call_id, calls_active);
+      break;
+    default:
+      logger(MSG_WARN, "%s: Call %i of %i: Unknown direction \n", __func__,  meta->call_id, calls_active);
+      break;
+  }
 
-  for (i = 0; i < MAX_ACTIVE_CALLS; i++) {
-    if (memcmp(audio_runtime_state.calls[i].phone_number, phone_number,
-               MAX_PHONE_NUMBER_LENGTH) == 0) {
-      logger(MSG_INFO, "%s: Updating call state for %s\n", __func__,
-             log_phone_number);
-      audio_runtime_state.calls[i].direction = pkt->meta.call_direction;
-      audio_runtime_state.calls[i].state = pkt->meta.call_state;
-      audio_runtime_state.calls[i].call_type = pkt->meta.call_type;
-      call_in_memory = true;
+  switch (meta->call_mode) {
+    case CALL_MODE_NO_NETWORK:
+    case CALL_MODE_UNKNOWN:
+    case CALL_MODE_GSM:
+    case CALL_MODE_UMTS:
+    case CALL_MODE_UNKNOWN_ALT:
+      mode = CALL_STATUS_CS;
+      logger(MSG_INFO, "%s: --> Circuit Switch \n", __func__);
+      break;
+    case CALL_MODE_VOLTE:
+      mode = CALL_STATUS_VOLTE;
+      logger(MSG_INFO, "%s: --> VoLTE \n", __func__);
+      break;
+    default:
+      logger(MSG_ERROR, "%s: --> Unknown call type \n", __func__);
+      break;
     }
-    if (audio_runtime_state.calls[i].state !=
-            AUDIO_CALL_NOT_STARTED_YET && // Not started
-        audio_runtime_state.calls[i].state !=
-            AUDIO_CALL_DISCONNECTING && // Disconnecting
-        audio_runtime_state.calls[i].state != AUDIO_CALL_HANGUP) { // Hanging up
-      logger(MSG_INFO, "%s: Call active for %s\n", __func__,log_phone_number);
-      calls_active++;
-    }
-  }
-  if (!call_in_memory) {
-    // find first empty / hung up call and fill it and reset state
-    for (i = 0; i < MAX_ACTIVE_CALLS; i++) {
-      if (audio_runtime_state.calls[i].state == AUDIO_CALL_NOT_STARTED_YET ||
-          audio_runtime_state.calls[i].state == AUDIO_CALL_HANGUP) {
-        memset(audio_runtime_state.calls[i].phone_number, 0,
-               MAX_PHONE_NUMBER_LENGTH);
-        memcpy(audio_runtime_state.calls[i].phone_number, phone_number,
-               MAX_PHONE_NUMBER_LENGTH);
-        logger(MSG_INFO, "%s: Adding / Replacing call: %s\n", __func__,
-               log_phone_number);
-        audio_runtime_state.calls[i].direction = pkt->meta.call_direction;
-        audio_runtime_state.calls[i].state = pkt->meta.call_state;
-        audio_runtime_state.calls[i].call_type = pkt->meta.call_type;
-        call_in_memory = true;
-        break;
-      }
-    }
-  }
-  direction = pkt->meta.call_direction;
-  state = pkt->meta.call_state;
-  type = pkt->meta.call_type;
-  if (direction == AUDIO_DIRECTION_OUTGOING) {
-    logger(MSG_WARN, "%s: Outgoing call (total calls: %i) \n", __func__,
-           calls_active);
-  } else if (direction == AUDIO_DIRECTION_INCOMING) {
-    logger(MSG_WARN, "%s: Incoming call (total calls: %i)\n", __func__,
-           calls_active);
-  } else {
-    logger(MSG_ERROR, "%s: Unknown call direction (total calls: %i) \n",
-           __func__, calls_active);
-  }
 
-  switch (type) {
-  case CALL_TYPE_NO_NETWORK:
-  case CALL_TYPE_UNKNOWN:
-  case CALL_TYPE_GSM:
-  case CALL_TYPE_UMTS:
-  case CALL_TYPE_UNKNOWN_ALT:
-    mode = CALL_STATUS_CS;
-    logger(MSG_INFO, "%s: --> Circuit Switch \n", __func__);
-    break;
-  case CALL_TYPE_VOLTE:
-    mode = CALL_STATUS_VOLTE;
-    logger(MSG_INFO, "%s: --> VoLTE \n", __func__);
-    break;
-  default:
-    logger(MSG_ERROR, "%s: --> Unknown call type \n", __func__);
-    break;
-  }
 
-  switch (state) { // Call status
-  case AUDIO_CALL_PREPARING:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: -->  Preparing call... \n", __func__);
-    start_audio(mode);
-    break;
-  case AUDIO_CALL_ATTEMPT:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Attempt... \n", __func__);
-    start_audio(mode);
-    break;
-  case AUDIO_CALL_ORIGINATING:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Originating... \n", __func__);
-    start_audio(mode);
-    break;
-  case AUDIO_CALL_RINGING:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Ringing \n", __func__);
-    start_audio(mode);
-    break;
-  case AUDIO_CALL_ESTABLISHED:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Call established, mode %i\n", __func__, mode);
-    start_audio(mode);
-    break;
-  case AUDIO_CALL_ON_HOLD:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Call is on hold \n", __func__);
-    break;
-  case AUDIO_CALL_WAITING:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: --> Call waiting \n", __func__);
-    break;
-  case AUDIO_CALL_ALERTING:
-    logger(MSG_INFO, "%s: --> Alerting state \n", __func__);
-    if (!audio_runtime_state.custom_alert_tone) {
+  switch (meta->call_state) { // Call status
+    case CALL_STATE_PREPARING:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: -->  Preparing call... \n", __func__);
       start_audio(mode);
-    } else if (audio_runtime_state.custom_alert_tone &&
-               !audio_runtime_state.is_alerting) {
-      audio_runtime_state.is_alerting = 1;
-      stop_audio();
-      if ((ret =
-               pthread_create(&tone_thread, NULL, &play_alerting_tone, NULL))) {
-        logger(MSG_ERROR, "%s: Error creating dialing tone thread\n", __func__);
+      break;
+    case CALL_STATE_ATTEMPT:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Attempt... \n", __func__);
+      start_audio(mode);
+      break;
+    case CALL_STATE_ORIGINATING:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Originating... \n", __func__);
+      start_audio(mode);
+      break;
+    case CALL_STATE_RINGING:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Ringing \n", __func__);
+      start_audio(mode);
+      break;
+    case CALL_STATE_ESTABLISHED:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Call established, mode %i\n", __func__, mode);
+      start_audio(mode);
+      break;
+    case CALL_STATE_ON_HOLD:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Call is on hold \n", __func__);
+      break;
+    case CALL_STATE_WAITING:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: --> Call waiting \n", __func__);
+      break;
+    case CALL_STATE_ALERTING:
+      logger(MSG_INFO, "%s: --> Alerting state \n", __func__);
+      if (!audio_runtime_state.custom_alert_tone) {
+        start_audio(mode);
+      } else if (audio_runtime_state.custom_alert_tone &&
+                !audio_runtime_state.is_alerting) {
+        audio_runtime_state.is_alerting = 1;
+        stop_audio();
+        if ((ret =
+                pthread_create(&tone_thread, NULL, &play_alerting_tone, NULL))) {
+          logger(MSG_ERROR, "%s: Error creating dialing tone thread\n", __func__);
+        }
+      } else {
+        logger(MSG_INFO,
+              "%s: Call is in alerting state but dont know what to do\n",
+              __func__);
       }
-    } else {
-      logger(MSG_INFO,
-             "%s: Call is in alerting state but dont know what to do\n",
-             __func__);
-    }
-    break;
-  case AUDIO_CALL_DISCONNECTING:
-  case AUDIO_CALL_HANGUP:
-    if (calls_active == 0) {
-      stop_audio();
-    }
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_INFO, "%s: -->  Disconnecting call... \n", __func__);
-    break;
+      break;
+    case CALL_STATE_DISCONNECTING:
+    case CALL_STATE_HANGUP:
+      if (calls_active == 0) {
+        stop_audio();
+      }
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_INFO, "%s: -->  Disconnecting call... \n", __func__);
+      break;
 
-  default:
-    audio_runtime_state.is_alerting = 0;
-    logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
-    break;
-  }
-  logger(MSG_INFO,
-         "%s: This call: Dir: 0x%.2x Sta: 0x%.2x Typ: 0x%.2x, Mode: 0x%.2x \n",
-         __func__, direction, state, type, mode);
-
-  for (i = 0; i < MAX_ACTIVE_CALLS; i++) {
-    if (audio_runtime_state.calls[i].state == AUDIO_CALL_DISCONNECTING ||
-        audio_runtime_state.calls[i].state == AUDIO_CALL_HANGUP) {
-      memset(audio_runtime_state.calls[i].phone_number, 0,
-             MAX_PHONE_NUMBER_LENGTH);
-      audio_runtime_state.calls[i].state = 0;
-      audio_runtime_state.calls[i].call_type = 0;
-      audio_runtime_state.calls[i].direction = 0;
+    default:
+      audio_runtime_state.is_alerting = 0;
+      logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
+      break;
     }
   }
 }

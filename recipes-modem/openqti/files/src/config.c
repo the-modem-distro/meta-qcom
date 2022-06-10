@@ -47,6 +47,7 @@ int set_initial_config() {
   settings->persistent_logging = 0;
   settings->signal_tracking = 0;
   settings->sms_logging = 0;
+  settings->callwait_autohangup = 0;
   settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
@@ -59,10 +60,11 @@ void dump_current_config() {
          "---> Custom alert tone: %i\n"
          "---> Persistent logging: %i\n"
          "---> Signal tracking: %i\n"
+         "---> Autokill call waiting: %i\n"
          "---> User name: %s\n"
          "---> Modem name: %s\n",
          settings->custom_alert_tone, settings->persistent_logging,
-         settings->signal_tracking, settings->user_name, settings->modem_name);
+         settings->signal_tracking, settings->callwait_autohangup, settings->user_name, settings->modem_name);
 }
 int parse_line(char *buf) {
   if (settings == NULL || buf == NULL)
@@ -108,6 +110,11 @@ int parse_line(char *buf) {
     settings->signal_tracking = atoi(value);
     return 1;
   }
+
+  if (strcmp(setting, "callwait_autohangup") == 0) {
+    settings->callwait_autohangup = atoi(value);
+    return 1;
+  }
   if (strcmp(setting, "sms_logging") == 0) {
     settings->sms_logging = atoi(value);
     return 1;
@@ -149,6 +156,7 @@ int write_settings_to_storage() {
   fprintf(fp, "user_name=%s\n", settings->user_name);
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
+  fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
   logger(MSG_INFO, "%s: Close\n", __func__);
   fclose(fp);
@@ -208,6 +216,8 @@ int use_custom_alert_tone() { return settings->custom_alert_tone; }
 int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 int is_sms_logging_enabled() { return settings->sms_logging; }
+
+int callwait_auto_hangup_operation_mode() { return settings->callwait_autohangup; }
 
 int get_modem_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->modem_name);
@@ -276,6 +286,22 @@ void enable_signal_tracking(bool en) {
   } else {
     logger(MSG_WARN, "Disabling Signal tracking\n");
     settings->signal_tracking = 0;
+  }
+  write_settings_to_storage();
+}
+
+
+
+void enable_call_waiting_autohangup(uint8_t en) {
+    if (en == 2) {
+    logger(MSG_WARN, "Enabling Automatic hang up of calls in waiting state\n");
+    settings->callwait_autohangup = 2;
+  } else if (en == 1) {
+    logger(MSG_WARN, "Enabling Automatic ignore of calls in waiting state\n");
+    settings->callwait_autohangup = 1;
+  } else {
+    logger(MSG_WARN, "Disabling Automatic handling of calls in waiting state\n");
+    settings->callwait_autohangup = 0;
   }
   write_settings_to_storage();
 }

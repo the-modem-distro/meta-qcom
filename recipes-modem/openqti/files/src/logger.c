@@ -152,19 +152,18 @@ void dump_pkt_raw(uint8_t *buf, int pktsize) {
   }
 }
 
-int mask_phone_number(char *orig, char *dest) {
-  int orig_size = strlen(orig);
-  if (orig_size < 1) {
+int mask_phone_number(uint8_t *orig, char *dest, uint8_t len) {
+  if (len < 1) {
     snprintf(dest, MAX_PHONE_NUMBER_LENGTH, "[none]");
     return -1;
   }
   snprintf(dest, MAX_PHONE_NUMBER_LENGTH, "%s", orig);
   if (get_log_level() != MSG_DEBUG) {
-    for (int i = 0; i < (orig_size - 3); i++) {
+    for (int i = 0; i < (len - 3); i++) {
       dest[i] = '*';
     }
   }
 
-  logger(MSG_DEBUG, "%s: %s --> %s (%i)\n", __func__, orig, dest, orig_size);
+  logger(MSG_DEBUG, "%s: %s --> %s (%i)\n", __func__, orig, dest, len);
   return 0;
 }

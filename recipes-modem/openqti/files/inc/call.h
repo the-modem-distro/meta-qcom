@@ -35,24 +35,97 @@ enum {
   VO_SVC_CALL_STATUS_CHANGE = 0x0032,
 };
 
+/* TLVs present in calls */
+enum {
+  TLV_CALL_INFO = 0x01,
+  TLV_REMOTE_NUMBER = 0x10,
+  TLV_REMOTE_NAME = 0x11,
+  TLV_ALERT_TYPE = 0x12,
+  TLV_OPTIONAL_SRV = 0x13,
+  TLV_CALL_END_REASON = 0x14,
+  TLV_ALPHA_ID = 0x15,
+  TLV_CONNECTED_PARTY = 0x16,
+  TLV_CALL_DIAG = 0x17,
+  TLV_CALLED_NUMB = 0x18,
+  TLV_REDIRECTED_NUM = 0x19,
+  TLV_ALERT_PATTERN = 0x1a,
+  TLV_PARENT_CALL_INFO = 0x20,
+  TLV_CALL_CAPAB = 0x21,
+  TLV_PEER_CALL_CAPABILITY = 0x22,
+  TLV_MEDIA_ID = 0x27,
+  TLV_ADDITIONAL_CALL_INFO = 0x28,
+};
+
+/* Call presentation types */
+enum { 
+  CALL_PRESENTATION_ALLOWED = 0x00,
+  CALL_PRESENTATION_RESTRICTED = 0x01,
+  CALL_PRESENTATION_UNAVAILABLE  = 0x02,
+  CALL_PRESENTATION_PAYPHONE = 0x03,
+};
+
+/* Available call directions */
+enum call_direction {
+  CALL_DIRECTION_OUTGOING = 0x01,
+  CALL_DIRECTION_INCOMING = 0x02,
+};
+
+/* Call states */
+enum call_status {
+  CALL_STATE_NOT_STARTED_YET = 0x00,
+  CALL_STATE_ORIGINATING = 0x01,
+  CALL_STATE_RINGING = 0x02,
+  CALL_STATE_ESTABLISHED = 0x03,
+  CALL_STATE_ATTEMPT = 0x04,
+  CALL_STATE_ALERTING = 0x05,
+  CALL_STATE_ON_HOLD = 0x06,
+  CALL_STATE_WAITING = 0x07,
+  CALL_STATE_DISCONNECTING = 0x08,
+  CALL_STATE_HANGUP = 0x09,
+  CALL_STATE_PREPARING = 0x0a
+};
+
+/* Call mode */
+enum call_mode {
+  CALL_MODE_NO_NETWORK = 0x00,
+  CALL_MODE_UNKNOWN = 0x01,
+  CALL_MODE_GSM = 0x02,
+  CALL_MODE_UMTS = 0x03,
+  CALL_MODE_VOLTE = 0x04,
+  CALL_MODE_UNKNOWN_ALT = 0x05 // this I don't know what it is
+};
+
 struct call_request_tlv {
   uint8_t tlvid;   // 0x01
   uint16_t length; // 0x09 for spanish number without prefix
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
 } __attribute__((packed));
 
-struct call_status_meta { // dont know what this is
+struct call_status_meta {
   uint8_t tlvid;          // 0x01
   uint16_t length;        // 0x08 0x00
-  uint8_t unk1;
-  uint8_t unk2;
+  uint8_t num_instances; //num instances?
+  uint8_t call_id; // call ID
   uint8_t call_state;
-  uint8_t unk4;
+  uint8_t call_type; // [VOICE, IP, VT, TEST...]
   uint8_t call_direction;
-  uint8_t call_type;
-  uint8_t unk7;
-  uint8_t unk8;
-  // no fucking clue: 0x01 0x01 0x02 0x02 0x02 0x04 0x00 0x00
+  uint8_t call_mode; // CALL_MODE
+  uint8_t is_multiparty; // 0x00 || 0x01 TRUE 
+  uint8_t als;
+} __attribute__((packed));
+
+struct remote_party_data {
+  uint8_t num_instances;
+  uint8_t call_id;
+  uint8_t presentation_mode;
+  uint8_t len;
+  uint8_t phone[0];
+} __attribute__((packed));
+
+struct remote_party {
+  uint8_t tlvid;
+  uint16_t length;
+  struct remote_party_data remote_party_numbers[0];
 } __attribute__((packed));
 
 struct unknown_indication2 {
@@ -124,6 +197,38 @@ struct call_request_indication {
 
 } __attribute__((packed));
 
+struct call_id_tlv {
+  uint8_t id;   // 0x10
+  uint16_t len; // 1
+  uint8_t data;
+} __attribute__((packed));
+
+struct end_cause_tlv {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x01 0x00
+  uint8_t cause;
+} __attribute__((packed));
+
+struct call_hangup_request {
+  /* QMUX header */
+  struct qmux_packet qmuxpkt;
+  /* QMI header */
+  struct qmi_packet qmipkt;
+  /* Call ID we want to hangup */
+  struct call_id_tlv call_id;
+} __attribute__((packed));
+
+/* 
+END cause is optional (end_cause_tlv):
+0x01 -> busy
+0x02 -> user reject
+0x03 -> low battery
+0x04 -> blacklisted call ID
+0x05 -> Dead battery :)
+0x06 -> unwanted call
+*/
+/* END OF CALL HANGUP REQUEST */
+
 struct call_data {
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
   uint8_t direction;
@@ -192,12 +297,6 @@ struct simulated_call_packet {
 
   struct voice_call_info info; // 0x27
   struct remote_party_extension_tlv remote_party_extension;
-} __attribute__((packed));
-
-struct call_id_tlv {
-  uint8_t id;   // 0x10
-  uint16_t len; // 1
-  uint8_t data;
 } __attribute__((packed));
 
 struct media_id_tlv {
