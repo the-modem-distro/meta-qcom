@@ -20,8 +20,7 @@ struct qmux_packet {      // 6 byte
 struct qmi_packet { // 7 byte
   uint8_t ctlid;    // 0x00 | 0x02 | 0x04, subsystem inside message service?
   uint16_t transaction_id; // QMI Transaction ID
-  uint16_t
-      msgid; // 0x0022 when message arrives, 0x0002 when there are new messages
+  uint16_t msgid; // QMI Message ID
   uint16_t length; // QMI Packet size
 } __attribute__((packed));
 

@@ -373,9 +373,8 @@ void *rmnet_proxy(void *node_data) {
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(nodes->node2.fd, &readfds);      // Always add ADSP
-    if (!get_transceiver_suspend_state()) { // Only add USB if active
-      FD_SET(nodes->node1.fd, &readfds);
-    }
+    FD_SET(nodes->node1.fd, &readfds);      // Testing: add usb always too
+
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
     ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
