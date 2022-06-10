@@ -51,34 +51,6 @@ enum {
   VOIP_SESSION_VSID = 0x10004000,
 };
 
-enum call_direction {
-  AUDIO_DIRECTION_OUTGOING = 0x01,
-  AUDIO_DIRECTION_INCOMING = 0x02,
-};
-
-enum call_status {
-  AUDIO_CALL_NOT_STARTED_YET = 0x00,
-  AUDIO_CALL_ORIGINATING = 0x01,
-  AUDIO_CALL_RINGING = 0x02,
-  AUDIO_CALL_ESTABLISHED = 0x03,
-  AUDIO_CALL_ATTEMPT = 0x04,
-  AUDIO_CALL_ALERTING = 0x05,
-  AUDIO_CALL_ON_HOLD = 0x06,
-  AUDIO_CALL_WAITING = 0x07,
-  AUDIO_CALL_DISCONNECTING = 0x08,
-  AUDIO_CALL_HANGUP = 0x09,
-  AUDIO_CALL_PREPARING = 0x0a
-};
-
-enum call_type {
-  CALL_TYPE_NO_NETWORK = 0x00,
-  CALL_TYPE_UNKNOWN = 0x01,
-  CALL_TYPE_GSM = 0x02,
-  CALL_TYPE_UMTS = 0x03,
-  CALL_TYPE_VOLTE = 0x04,
-  CALL_TYPE_UNKNOWN_ALT = 0x05 // this I don't know what it is
-};
-
 /* AUDIO */
 
 enum ctl_type {
@@ -226,8 +198,7 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value);
 int mixer_ctl_set_gain(struct mixer_ctl *ctl, int call_type, int value);
 int stop_audio();
 int start_audio(int type);
-void handle_call_pkt(struct call_status_indication *pkt, int sz,
-                     uint8_t *phone_number);
+void handle_call_pkt(uint8_t *pkt, int sz);
 int set_audio_defaults();
 int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);

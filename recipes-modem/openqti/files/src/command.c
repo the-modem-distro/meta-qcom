@@ -1234,7 +1234,24 @@ uint8_t parse_command(uint8_t *command) {
   case 32:
     set_cb_broadcast(false);
     break;
-    
+  case 33:
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_call_waiting_autohangup(2);
+    break;
+  case 34:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_call_waiting_autohangup(1);
+    break;
+  case 35:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_call_waiting_autohangup(0);
+    break;
   case 100:
     set_custom_modem_name(command);
     break;

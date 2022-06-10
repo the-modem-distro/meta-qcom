@@ -17,5 +17,5 @@ uint8_t get_log_level();
 void set_log_level(uint8_t level);
 void set_log_method(bool ttyout);
 void dump_pkt_raw(uint8_t *buf, int pktsize);
-int mask_phone_number(char *orig, char *dest);
+int mask_phone_number(uint8_t *orig, char *dest, uint8_t len);
 #endif

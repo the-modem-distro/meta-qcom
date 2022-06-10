@@ -53,6 +53,9 @@ static const struct {
     {30, "about", "", "Info about the firmware"},
     {31, "enable cell broadcast", "Enabling Cell broadcasting for index 0-6000...", "Enables Cell broadcasting messages"},
     {32, "disable cell broadcast", "Disabling cell broadcast...", "Disables Cell broadcasting messages"},
+    {33, "callwait auto hangup", "I will automatically terminate all incoming calls while you're talking", "Automatically kills any new incoming call while you're talking"},
+    {34, "callwait auto ignore", "I will just inform you that there's a new call waiting", "Automatically ignores any new incoming call while you're talking"},
+    {35, "callwait mode default", "I will let the host handle multiple calls", "Disables automatic hang up of incoming calls while you're talking"},
 };
 
 static const struct {

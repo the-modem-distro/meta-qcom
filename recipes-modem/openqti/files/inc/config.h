@@ -17,6 +17,7 @@ struct config_prototype {
   char modem_name[MAX_NAME_SZ];
   uint8_t signal_tracking;
   uint8_t sms_logging;
+  uint8_t callwait_autohangup;
   bool first_boot;
 };
 
@@ -53,5 +54,9 @@ void clear_ifrst_boot_flag();
 /* SMS logging */
 int is_sms_logging_enabled();
 void set_sms_logging(bool en);
+
+/* Automatically hang up call waiting */
+int callwait_auto_hangup_operation_mode();
+void enable_call_waiting_autohangup(uint8_t en);
 
 #endif
