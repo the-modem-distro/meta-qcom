@@ -336,6 +336,15 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
     case CALL_STATE_ESTABLISHED:
       audio_runtime_state.is_alerting = 0;
       logger(MSG_INFO, "%s: --> Call established, mode %i\n", __func__, mode);
+      /* Workaround for the Pinephone Pro:
+        Analog codec seems to get shutdown on suspend, and the modem tries to
+        turn it on before power has been restored, ending up in a call with
+        no audio. This force-resets audio setup when the call is established,
+        so we ensure everything is set-up correctly... but we waste 200ms in
+        the process */
+      if (use_external_codec()) {
+        stop_audio();
+      }
       start_audio(mode);
       break;
     case CALL_STATE_ON_HOLD:
@@ -366,7 +375,9 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       break;
     case CALL_STATE_DISCONNECTING:
     case CALL_STATE_HANGUP:
-      if (calls_active == 0) {
+      /* Depending on the call direction/type we might 
+         end up here with 0 or 1 calls active...) */
+      if (calls_active < 2) {
         stop_audio();
       }
       audio_runtime_state.is_alerting = 0;
@@ -378,6 +389,7 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
       break;
     }
+    meta = NULL;
   }
 }
 
