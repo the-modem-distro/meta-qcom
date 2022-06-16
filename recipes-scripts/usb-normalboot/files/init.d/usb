@@ -93,6 +93,7 @@ case "$1" in
         echo 1 > /sys/class/android_usb/android0/f_rndis/wceis
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
+        echo "community_fw" > /sys/class/android_usb/android0/iSerial
         echo 1 > /sys/class/android_usb/android0/enable
         if [ "$adb_setting" = "1" ];
         then 

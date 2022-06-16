@@ -39,23 +39,6 @@ case "$1" in
   start)
         echo -n "Starting adbd: " > /dev/kmsg
         start-stop-daemon -S -b -a /usr/bin/adbd
-        # Check first if the /data/adb_devid already has an id saved from earlier boot up.
-        # If yes use it to retrieve adb devices else use the msm ID and save it to /data/adb_devid for subsequent boot ups.
-
-        if [ -e "/tmp/adb_devid" ]
-        then
-                cat /tmp/adb_devid > /sys/class/android_usb/android0/iSerial
-        else
-                ret_val=`cat /proc/cmdline | grep "androidboot.serialno" |wc -l`
-                if  [ $ret_val -eq 1 ]
-                then
-                    serial_no=`cat /proc/cmdline | awk '{ for ( n=1; n<=NF; n++ ) if($n ~ "androidboot.serial") print $n }' | awk '{split($0,a, "=");print a[2]}'`
-                    echo $serial_no > /sys/class/android_usb/android0/iSerial
-                else
-                    cat /proc/sys/kernel/random/boot_id | cut -d- -f5 > /sys/class/android_usb/android0/iSerial
-                fi
-                    cat /sys/class/android_usb/android0/iSerial > /tmp/adb_devid
-        fi
         echo "done" > /dev/kmsg
         ;;
   stop)
