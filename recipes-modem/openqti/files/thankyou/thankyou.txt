@@ -1,18 +1,3 @@
-xnopasaranx
-Hercules
-vmaurin
-alaraajavamma
-Spaetz
-CalcProgrammer1
-jan379
-Martjin
-lolgzs
-Anonymous
-baarkerlounger
-David
-Carl
-alexmitter
-Mod
 0xymorion
 1e
 1peter10
@@ -20,30 +5,40 @@ adamplumb
 akrosi8
 alaraajavamma
 Alex
+alexmitter
 alt_plex
 anjan
+Anonymous
 anthony1224
+Aren
 arkeo
 Armen
 arne-b
 atheatos
 @b342
+baarkerlounger
 barba32
 Baroque_0bamo
 bel_polaris
 bicep
+bicyKlette
 bigd50384
 biovoid
 bitcompact
 boud
 CalcProgrammer1
-Caleb Fontenot
+Caleb
+Carl
+catworld76
 chris
 citrahops
 DaBao
 DaKnig
+das oe
+David
 DebianTux
 Delirious Error
+dem
 denna
 dflag84
 dibi58
@@ -53,19 +48,23 @@ djselbeck
 dpa
 DrPi
 dschmidt346
-Dylan
-edgar.vincent
-Egor
-elagost
+Dylan 
+edgar
+Egor Vorontsov
+@elagost
+emiltoacs
 enrico_
 error33
 Eskuero
 eugen
 ex-bian
 f-c
+Ferenc
 fervi
 funter
 Fuzzy7k
+gamelaster (gamiee)
+gamiee
 Gergely
 gischpelino
 gizmuth
@@ -76,11 +75,15 @@ grallo666
 grossaffe
 gyoung
 hamblingreen
+hank
 hazardchem
+Hercules
 heuristic_sloth
 horizoninnovations
 idiochromatic
 increscent
+jack
+jan379
 JayVii
 Jeremy
 jgart
@@ -99,6 +102,8 @@ khimaros
 kop316
 Laďa
 letsgo532
+llt
+lolgzs
 loveisfoss
 luigi311
 lulatsch66
@@ -106,8 +111,9 @@ m1n1m4!
 madrox
 manjaroarmpinephone
 marcin
-Marian
+Marian Stramm
 MarkP
+Martijn
 massi
 MatMaul
 MayeulC
@@ -116,27 +122,34 @@ mfor
 michaelskyf
 mick
 milesalan
+milkysway
 minecrell[m]
 mirsal
+Mobot II
+Mod
 moreno
 mpeter
+mpodshivalin
 murks
 n2por
 Nano Red
 narvod
 Neil
+neovalis
 Nico
-nogonosa
 noneucat
+nu99et
 olexorus
 ollieparanoid
 Pataclop
 Peetz0r
 pentamassiv
+Peter Bronsveld
 petersen77
 pho
 Phoenix LandPirate
 piggz
+Pine64
 pisar
 PReDiToR
 QC8086
@@ -151,6 +164,7 @@ rsglobal
 rza.pinephone
 saba
 sensei1304
+Sensei1304
 seph
 shinkamui
 sl4ck
@@ -163,20 +177,25 @@ sunoke
 T. H. Wright
 talpadk
 tencarsb
+tetrakist
 The01player
 The3DmaN
 theidiotyouyellat
 thenh813
 Thomas
+tigershark_1969
 tiggilyboo
 tim
+tinybronca
 ubicuity
 umapo
 Undef
+Undef_
 Uniformbuffer
 username012
 /v3ct0r
 via
+vmaurin
 vmtech
 VVelox
 wart_
