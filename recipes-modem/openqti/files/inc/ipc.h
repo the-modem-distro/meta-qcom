@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include "../inc/qmi.h"
 
 #define IPC_ROUTER 27     // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
@@ -19,6 +20,7 @@
 #define IPC_HEXAGON_ATFWD_PORT 0x1b
 
 #define SMDCTLPORTNAME "DATA40_CNTL"
+#define LOCAL_SMD_CTL_PORT_NAME "DATA5_CNTL"
 
 #define RMNET_CONN_ID 8
 #define IPC_IOCTL_MAGIC 0xc3
@@ -151,35 +153,6 @@ enum peripheral_ep_type {
   DATA_EP_TYPE_BAM_DMUX = 0x5,
 } __attribute__((packed));
 
-struct peripheral_ep_info {
-  enum peripheral_ep_type ep_type;
-  uint32_t peripheral_iface_id;
-} __attribute__((packed));
-
-struct ipa_ep_pair {
-  unsigned long int cons_pipe_num;
-  unsigned long int prod_pipe_num;
-} __attribute__((packed));
-
-struct ep_info {
-  struct peripheral_ep_info ph_ep_info;
-  struct ipa_ep_pair ipa_ep_pair;
-} __attribute__((packed));
-
-struct portmapper_port_map_arr {
-  char port_name[11];
-  struct peripheral_ep_info epinfo;
-};
-
-/* QMI Device handler proto
- *
- *	The idea is to be able to have multiple handlers for
- *  different services subscribed, each with their transaction
- *  IDs to manage or sniff different services.
- *  First one to check is 47 or 0x2F, which is the DPM, to play
- *  with modem init and request DATA40_CNTL properly
- */
-
 struct qmi_device {
   int32_t fd;
   struct sockaddr_msm_ipc socket;
@@ -189,26 +162,46 @@ struct qmi_device {
   uint8_t cid;
 };
 
-struct portmapper_open_request {
-  // QMI Header
-  uint8_t ctlid;
-  uint16_t transaction_id;
-  uint16_t msgid;
-  uint16_t length;
+struct hw_port {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x15
+  uint8_t valid_ctl_list;
+  uint8_t hw_control_name_sz; // strlen(port_name)
+  unsigned char port_name[11]; // DATA40_CNTL || DATA5_CNTL
+  uint32_t ep_type; // 05 00 00 00
+  uint32_t peripheral_id; // 08 00 00 00  || 00 00 00 00 ?? (smdcntl0)
+}__attribute__((packed));
 
-  // Control list
-  uint8_t is_valid_ctl_list;
-  uint32_t ctl_list_length;
-  struct portmapper_port_map_arr hw_port_map[1];
+struct hw_port_sm {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x15
+  uint8_t valid_ctl_list;
+  uint8_t hw_control_name_sz; // strlen(port_name)
+  unsigned char port_name[10]; // DATA40_CNTL || DATA5_CNTL
+  uint32_t ep_type; // 05 00 00 00
+  uint32_t peripheral_id; // 08 00 00 00  || 00 00 00 00 ?? (smdcntl0)
+}__attribute__((packed));
 
-  // HW list
-  uint8_t is_valid_hw_list;
-  uint32_t hw_list_length;
-  struct ep_info hw_epinfo;
+struct sw_port {
+  uint8_t id; // 0x11
+  uint16_t len; // 0x11 0x00
+  uint8_t valid_ctl_list; // 0x01
+  uint32_t ep_type; // 0x05 00 00 00
+  uint32_t peripheral_id; // 0x08 00 00 00 || 0x00 00 00 00 ?? (smdcntl0)
+  uint32_t consumer_pipe_num; // 00 00 00 00
+  uint32_t prod_pipe_num; // 00 00 00 00
+}__attribute__((packed));
 
-  // SW list
-  uint8_t is_valid_sw_list;
-  uint32_t sw_list_length;
+struct portmapper_open_request_new {
+  struct qmi_packet qmi;
+  struct hw_port hw;
+  struct sw_port sw;
+} __attribute__((packed));
+
+struct portmapper_open_request_shared {
+  struct qmi_packet qmi;
+  struct hw_port_sm hw;
+  struct sw_port sw;
 } __attribute__((packed));
 
 // linux uapi

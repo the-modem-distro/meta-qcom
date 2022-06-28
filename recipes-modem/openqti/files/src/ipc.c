@@ -207,18 +207,24 @@ int setup_ipc_security() {
   return ret;
 }
 
+
+
 /* Connect to DPM and request opening SMD Control port 8 */
-int init_port_mapper() {
+int init_port_mapper_internal() {
   int ret, linestate, dpmfd;
   struct timeval tv;
-  struct portmapper_open_request dpmreq;
+  struct portmapper_open_request_shared *dpmreq;
+  dpmreq = calloc(1, sizeof(struct portmapper_open_request_shared));
+
   char buf[MAX_PACKET_SIZE];
+  unsigned char data40name[] = "DATA40_CNTL";
+  unsigned char data5name[] = "DATA5_CNTL";
+
   struct qmi_device *qmidev;
   qmidev = calloc(1, sizeof(struct qmi_device));
   tv.tv_sec = 1;
   tv.tv_usec = 0;
   socklen_t addrlen = sizeof(struct sockaddr_msm_ipc);
-
   ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT, 0x2f,
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
@@ -245,49 +251,138 @@ int init_port_mapper() {
     logger(MSG_ERROR, "Error setting socket options \n");
   }
 
-  /* Create the SMD Open request packet */
-  /* Parts of this are probably _very_ wrong*/
-  /* Recreate the magic packet that request the port mapper to open smdcntl8 */
-  dpmreq.ctlid = 0x00;
-  dpmreq.transaction_id = htole16(1);
-  dpmreq.msgid = htole16(32);
-  dpmreq.length = sizeof(struct portmapper_open_request) -
-                  (3 * sizeof(uint16_t)) -
-                  sizeof(uint8_t); // Size of the packet minux qmi header
-  dpmreq.is_valid_ctl_list = htole16(0x10);
-  dpmreq.ctl_list_length =
-      0x0b010015; // sizeof(SMDCTLPORTNAME); this has to be wrong...
+  dpmreq->qmi.ctlid = 0x00;
+  dpmreq->qmi.transaction_id = htole16(1);
+  dpmreq->qmi.msgid = htole16(32);
+  dpmreq->qmi.length = 0x002b; // hardcoded for now
 
-  strncpy(dpmreq.hw_port_map[0].port_name, SMDCTLPORTNAME,
-          sizeof(SMDCTLPORTNAME));
-  dpmreq.hw_port_map[0].epinfo.ep_type = htole16(DATA_EP_TYPE_BAM_DMUX);
-  dpmreq.hw_port_map[0].epinfo.peripheral_iface_id = 0x08000000;
+  // HW
+  dpmreq->hw.id = 0x10;
+  dpmreq->hw.len = 0x0014;
+  dpmreq->hw.valid_ctl_list = 1;
+  dpmreq->hw.hw_control_name_sz = strlen(LOCAL_SMD_CTL_PORT_NAME);
+  memcpy(dpmreq->hw.port_name, LOCAL_SMD_CTL_PORT_NAME,  dpmreq->hw.hw_control_name_sz);
+  dpmreq->hw.ep_type = htole32(5);
+  dpmreq->hw.peripheral_id = htole32(1);
 
-  dpmreq.is_valid_hw_list = 0x00;
-  dpmreq.hw_list_length = 0x11110000;
-  dpmreq.hw_epinfo.ph_ep_info.ep_type = DATA_EP_TYPE_RESERVED;
-  dpmreq.hw_epinfo.ph_ep_info.peripheral_iface_id = 0x00000501;
-
-  dpmreq.hw_epinfo.ipa_ep_pair.cons_pipe_num =
-      0x00000800; // 6 is what the bam responds but packet seems to say 0
-  dpmreq.hw_epinfo.ipa_ep_pair.prod_pipe_num = htole32(0);
-
-  dpmreq.is_valid_sw_list = false;
-  dpmreq.sw_list_length = 0;
+  // SW
+  dpmreq->sw.id = 0x11;
+  dpmreq->sw.len = 0x0011;
+  dpmreq->sw.valid_ctl_list = 1;
+  dpmreq->sw.ep_type = htole32(5);
+  dpmreq->sw.peripheral_id = htole32(1);
+  dpmreq->sw.consumer_pipe_num = htole32(0);
+  dpmreq->sw.prod_pipe_num = htole32(0);
 
   do {
-    sleep(1);
+    sleep(5);
     logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
-  } while (sendto(qmidev->fd, &dpmreq, sizeof(dpmreq), MSG_DONTWAIT,
+    set_log_level(0);
+    dump_pkt_raw((uint8_t *)dpmreq, sizeof(struct portmapper_open_request_shared));
+    set_log_level(1);
+  } while (sendto(qmidev->fd, dpmreq, sizeof(struct portmapper_open_request_shared), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
   logger(MSG_DEBUG, "%s: DPM Request completed!\n", __func__);
 
   close(dpmfd);      // We won't need DPM anymore
   close(qmidev->fd); // We don't need this socket anymore
   free(qmidev);
+
+  free(dpmreq);
+  dpmreq = NULL;
   // All the rest is moved away from here and into the init
+  return 0;
+}
+
+/* Connect to DPM and request opening SMD Control port 8 */
+int init_port_mapper() {
+  int ret, linestate, dpmfd;
+  struct timeval tv;
+  struct portmapper_open_request_new *dpmreq;
+  dpmreq = calloc(1, sizeof(struct portmapper_open_request_new));
+
+  char buf[MAX_PACKET_SIZE];
+  unsigned char data40name[] = "DATA40_CNTL";
+  unsigned char data5name[] = "DATA5_CNTL";
+
+  struct qmi_device *qmidev;
+  qmidev = calloc(1, sizeof(struct qmi_device));
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+  socklen_t addrlen = sizeof(struct sockaddr_msm_ipc);
+  ret = open_ipc_socket(qmidev, IPC_HEXAGON_NODE, IPC_HEXAGON_DPM_PORT, 0x2f,
+                        0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
+  if (ret < 0) {
+    logger(MSG_ERROR, "%s: Error opening IPC Socket!\n", __func__);
+    return -EINVAL;
+  }
+
+  if (ioctl(qmidev->fd, IOCTL_BIND_TOIPC, 0) < 0) {
+    logger(MSG_ERROR, "IOCTL to the IPC1 socket failed \n");
+  }
+
+  dpmfd = open(DPM_CTL, O_RDWR);
+  if (dpmfd < 0) {
+    logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    return -EINVAL;
+  }
+  // Unknown IOCTL, just before line state to rmnet
+  if (ioctl(dpmfd, _IOC(_IOC_READ, 0x72, 0x2, 0x4), &ret) < 0) {
+    logger(MSG_ERROR, "IOCTL failed: %i\n", ret);
+  }
+
+  ret = setsockopt(qmidev->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  if (ret) {
+    logger(MSG_ERROR, "Error setting socket options \n");
+  }
+
+  dpmreq->qmi.ctlid = 0x00;
+  dpmreq->qmi.transaction_id = htole16(1);
+  dpmreq->qmi.msgid = htole16(32);
+  dpmreq->qmi.length = 0x002c; // hardcoded for now
+
+  // HW
+  dpmreq->hw.id = 0x10;
+  dpmreq->hw.len = 0x0015;
+  dpmreq->hw.valid_ctl_list = 1;
+  dpmreq->hw.hw_control_name_sz = strlen(SMDCTLPORTNAME);
+  memcpy(dpmreq->hw.port_name, SMDCTLPORTNAME,  dpmreq->hw.hw_control_name_sz);
+  dpmreq->hw.ep_type = htole32(5);
+  dpmreq->hw.peripheral_id = htole32(8);
+
+  // SW
+  dpmreq->sw.id = 0x11;
+  dpmreq->sw.len = 0x0011;
+  dpmreq->sw.valid_ctl_list = 1;
+  dpmreq->sw.ep_type = htole32(5);
+  dpmreq->sw.peripheral_id = htole32(8);
+  dpmreq->sw.consumer_pipe_num = htole32(0);
+  dpmreq->sw.prod_pipe_num = htole32(0);
+
+  do {
+    sleep(5);
+    logger(MSG_WARN,
+           "%s: Waiting for the Dynamic port mapper to become ready... \n",
+           __func__);
+    set_log_level(0);
+    dump_pkt_raw((uint8_t *)dpmreq, sizeof(struct portmapper_open_request_new));
+  } while (sendto(qmidev->fd, dpmreq, sizeof(struct portmapper_open_request_new), MSG_DONTWAIT,
+                  (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
+  logger(MSG_DEBUG, "%s: DPM Request completed!\n", __func__);
+
+  close(dpmfd);      // We won't need DPM anymore
+  close(qmidev->fd); // We don't need this socket anymore
+  free(qmidev);
+
+  free(dpmreq);
+  dpmreq = NULL;
+  // All the rest is moved away from here and into the init
+/*  
+  Not yet
+  init_port_mapper_internal(); 
+*/
   return 0;
 }
 
