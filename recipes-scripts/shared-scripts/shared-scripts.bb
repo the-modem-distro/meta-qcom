@@ -13,6 +13,7 @@ INHIBIT_PACKAGE_STRIP = "1"
 SRC_URI="file://adbd \
          file://recoverymount \
          file://log_rename.sh \
+         file://logcat \
          file://rootfsmount "
 
 S = "${WORKDIR}"
@@ -26,6 +27,7 @@ do_install() {
 
       install -m 0755 ${S}/adbd ${D}/etc/init.d/
       install -m 0755  ${S}/recoverymount ${D}/bin
+      install -m 0755  ${S}/logcat ${D}/bin
       install -m 0755  ${S}/rootfsmount ${D}/bin
       install -m 0755  ${S}/log_rename.sh ${D}/etc/init.d/
       ln -sf -r ${D}/etc/init.d/log_rename.sh ${D}/etc/rcS.d/S11log_rename.sh
