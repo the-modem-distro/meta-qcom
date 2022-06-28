@@ -43,6 +43,7 @@ double get_elapsed_time() {
           (current_time.tv_nsec - startup_time.tv_nsec)) /
          1e9; // in seconds
 }
+
 void logger(uint8_t level, char *format, ...) {
   FILE *fd;
   va_list args;
@@ -93,6 +94,56 @@ void logger(uint8_t level, char *format, ...) {
   }
 }
 
+
+void log_thermal_status(uint8_t level, char *format, ...) {
+  FILE *fd;
+  va_list args;
+  double elapsed_time;
+  struct timespec current_time;
+  int persist = use_persistent_logging();
+  clock_gettime(CLOCK_MONOTONIC, &current_time);
+  elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
+                  (current_time.tv_nsec - startup_time.tv_nsec)) /
+                 1e9; // in seconds
+
+  if (level >= log_level) {
+    if (!log_to_file) {
+      fd = stdout;
+    } else {
+      if (persist) {
+        fd = fopen(PERSISTENT_THERMAL_LOGFILE, "a");
+      } else {
+        fd = fopen(VOLATILE_THERMAL_LOGFILE, "a");
+      }
+      if (fd < 0) {
+        fprintf(stderr, "[%s] Error opening logfile \n", __func__);
+        fd = stdout;
+      }
+    }
+
+    switch (level) {
+    case 0:
+      fprintf(fd, "[%.4f] D ", elapsed_time);
+      break;
+    case 1:
+      fprintf(fd, "[%.4f] I ", elapsed_time);
+      break;
+    case 2:
+      fprintf(fd, "[%.4f] W ", elapsed_time);
+      break;
+    default:
+      fprintf(fd, "[%.4f] E ", elapsed_time);
+      break;
+    }
+    va_start(args, format);
+    vfprintf(fd, format, args);
+    va_end(args);
+    fflush(fd);
+    if (fd != stdout) {
+      fclose(fd);
+    }
+  }
+}
 void dump_packet(char *direction, uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
