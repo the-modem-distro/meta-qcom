@@ -1,12 +1,8 @@
+
 SOC_FAMILY = "mdm9607"
+MACHINE = "mdm9607"
 require conf/machine/include/soc-family.inc
 require conf/machine/include/arm/armv7a/tune-cortexa8.inc
-
-PREFERRED_PROVIDER_virtual/kernel ?= "linuxmdm"
-
-MACHINE_EXTRA_RRECOMMENDS += " \
-    fastrpc \
-"
 
 QCOM_BOOTIMG_KERNEL_BASE ?= "0x80000000"
 QCOM_BOOTIMG_PAGE_SIZE ?= "2048"
@@ -18,7 +14,7 @@ QCOM_BOOTIMG_PAGE_SIZE ?= "2048"
 
 # Image Generation
 # Make ubi filesystem and then pack it in a ubi container, as stock
-IMAGE_FSTYPES ?= "ubi multiubi "
+IMAGE_FSTYPES ?= "ubi multiubi cpio cpio.gz"
 
 # Set the volume name inside the ubi image
 UBI_VOLNAME = "rootfs"
