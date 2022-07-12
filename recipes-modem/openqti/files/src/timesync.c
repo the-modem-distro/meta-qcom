@@ -45,6 +45,7 @@ void *time_sync() {
   char *response = malloc(128 * sizeof(char));
   time_t mytime = time(0);
   struct tm *tm_ptr = localtime(&mytime);
+  int retries = 0;
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
   while (!get_network_type()) {
@@ -128,7 +129,15 @@ void *time_sync() {
       sync_completed = false;
       logger(MSG_WARN, "%s: Invalid date, retrying sync...\n", __func__);
     }
-    sleep(10); // Stop for 10 seconds after each attempt
+    sleep(rand() % (9) + 1); // Stop for 1-10 seconds after each attempt
+    retries++;
+    if (retries > 60) {
+      logger(MSG_ERROR, "%s: Cannot sync the time to the network or the local clock after 60 attempts\n", __func__);
+      // Give up
+      free(response);
+      response = NULL;
+      return NULL;
+    }
   }
   if (time_sync_data.timezone_offset != 0) {
     // gmtoff is specified in seconds

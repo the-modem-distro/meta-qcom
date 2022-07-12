@@ -8,6 +8,7 @@
 
 #define PERSIST_CUSTOM_ALERT_TONE "cust_alert_tone"
 #define CONFIG_FILE_PATH "/persist/openqti.conf"
+#define SCHEDULER_DATA_FILE_PATH "/persist/sched.raw"
 #define PERSISTENT_LOGFILE_PATH "/persist/log"
 #define MAX_NAME_SZ 32
 struct config_prototype {
@@ -22,8 +23,9 @@ struct config_prototype {
 };
 
 /* Set mount as readwrite or readonly */
-int set_mount_rw();
-int set_mount_ro();
+int set_persistent_partition_rw();
+int set_persistent_partition_ro();
+void do_sync_fs();
 
 int set_initial_config();
 int read_settings_from_file();

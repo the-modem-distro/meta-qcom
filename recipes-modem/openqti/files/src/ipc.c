@@ -379,10 +379,8 @@ int init_port_mapper() {
   free(dpmreq);
   dpmreq = NULL;
   // All the rest is moved away from here and into the init
-/*  
-  Not yet
   init_port_mapper_internal(); 
-*/
+
   return 0;
 }
 
