@@ -10,6 +10,7 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 
 # Set compatible machines for this kernel
 COMPATIBLE_MACHINE = "mdm9607"
+
 # Dependencies
 DEPENDS += "mkbootimg-native dtbtool-native libgcc dtc-native"
 
@@ -38,7 +39,7 @@ KERNEL_TAGS_ADDR = "0x81E00000"
 # For debugging through serial console:
 # KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 # For Production use (faster)
-KERNEL_CMDLINE = "noinitrd ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
+KERNEL_CMDLINE = "ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 
 # Uncomment this option if you want bitbake to force-rebuild the kernel
 # do_compile[nostamp] = "1"
@@ -93,7 +94,7 @@ priv_make_image() {
               --base ${QCOM_BOOTIMG_KERNEL_BASE} \
               --tags-addr ${KERNEL_TAGS_ADDR} \
               --dt ${B}/arch/arm/boot/dts/qcom/dtb.img \
-              --cmdline "${KERNEL_CMDLINE}"
+              --cmdline "noinitrd ${KERNEL_CMDLINE}"
 }
 
 do_deploy:append() {
@@ -108,4 +109,6 @@ do_deploy:append() {
 
     priv_make_image ${QCOM_BOOTIMG_ROOTFS} ${BOOT_IMAGE_BASE_NAME}
     ln -sf ${BOOT_IMAGE_BASE_NAME}.img ${DEPLOYDIR}/${BOOT_IMAGE_SYMLINK_NAME}.img
+	cp ${STAGING_BINDIR_NATIVE}/mkbootimg ${DEPLOYDIR}/mkbootimg
+	cp ${B}/arch/arm/boot/dts/qcom/dtb.img ${DEPLOYDIR}/dtb.img
 }
