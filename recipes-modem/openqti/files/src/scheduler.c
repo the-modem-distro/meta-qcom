@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+#include "../inc/config.h"
 #include "../inc/scheduler.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
@@ -7,6 +8,7 @@
 #include "../inc/openqti.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
+#include <stdio.h>
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -34,6 +36,61 @@ int find_free_task_slot() {
     }
   }
   return -ENOSPC;
+}
+
+int save_tasks_to_storage() {
+  FILE *fp;
+  char buf[1024];
+  int ret;
+  logger(MSG_INFO, "%s: Start\n", __func__);
+  if (set_persistent_partition_rw() < 0) {
+    logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
+    return -1;
+  }
+  logger(MSG_INFO, "%s: Open file\n", __func__);
+  fp = fopen(SCHEDULER_DATA_FILE_PATH, "w");
+  if (fp == NULL) {
+    logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
+    return -1;
+  }
+  logger(MSG_INFO, "%s: Store\n", __func__);
+  ret = fwrite(sch_runtime.tasks,sizeof(struct task_p),MAX_NUM_TASKS,fp);
+  logger(MSG_INFO, "%s: Close (%i bytes written)\n", __func__, ret);
+  fclose(fp);
+  do_sync_fs();
+  if (!use_persistent_logging()) {
+    if (set_persistent_partition_ro() < 0) {
+      logger(MSG_ERROR, "%s: Can't set persist partition in RO mode\n",
+             __func__);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+int read_tasks_from_storage() {
+  FILE *fp;
+  int ret;
+  struct task_p tasks[MAX_NUM_TASKS];
+  int taskID = 0;
+  logger(MSG_INFO, "%s: Start\n", __func__);
+  logger(MSG_INFO, "%s: Open file\n", __func__);
+  fp = fopen(SCHEDULER_DATA_FILE_PATH, "r");
+  if (fp == NULL) {
+    logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
+    return -1;
+  }
+  logger(MSG_INFO, "%s: Store\n", __func__);
+  ret = fread(tasks,sizeof(struct task_p),MAX_NUM_TASKS,fp);
+  logger(MSG_INFO, "%s: Close (%i bytes read)\n", __func__, ret);
+  if (ret >= sizeof(struct task_p)) {
+    logger(MSG_INFO, "%s: Recovering tasks\n ", __func__);
+    for (int i = 0; i < MAX_NUM_TASKS; i++) {
+      sch_runtime.tasks[i] = tasks[i];
+    }
+  }
+  fclose(fp);
+  return 0;
 }
 
 void delay_task_execution(int taskID, uint8_t seconds) {
@@ -83,6 +140,7 @@ int add_task(struct task_p task) {
       break;
     }
   }
+  save_tasks_to_storage();
   return taskID;
 }
 
@@ -99,6 +157,7 @@ int remove_task(int taskID) {
     sch_runtime.tasks[taskID].time.mm = 0;
     sch_runtime.tasks[taskID].time.mode = 0;
     memset(sch_runtime.tasks[taskID].arguments, 0, ARG_SIZE);
+    save_tasks_to_storage();
   }
   return ret;
 }
@@ -142,6 +201,7 @@ int run_task(int taskID) {
   switch (sch_runtime.tasks[taskID].type) {
   case TASK_TYPE_SMS:
     logger(MSG_INFO, "%s: Send SMS \n", __func__);
+    sch_runtime.tasks[taskID].status = STATUS_DONE;
     break;
   case TASK_TYPE_CALL:
     logger(MSG_INFO, "%s: Call admin\n", __func__);
@@ -152,6 +212,7 @@ int run_task(int taskID) {
       set_looped_message(true);
       add_voice_message_to_queue((uint8_t *)sch_runtime.tasks[taskID].arguments,
                                  strlen(sch_runtime.tasks[taskID].arguments));
+      sch_runtime.tasks[taskID].status = STATUS_DONE;
     }
     break;
   case TASK_TYPE_WAKE_HOST:
@@ -159,12 +220,15 @@ int run_task(int taskID) {
     pulse_ring_in();
     break;
   }
+  cleanup_tasks();
   return 0;
 }
 
 void *start_scheduler_thread() {
   int i, ret;
+  sleep(120); // Wait 60 seconds to give time to modemmanager to connect...
   logger(MSG_INFO, "%s: Starting scheduler thread\n", __func__);
+  read_tasks_from_storage();
   while (1) {
     sch_runtime.cur_time = time(NULL);
     for (i = 0; i < MAX_NUM_TASKS; i++) {

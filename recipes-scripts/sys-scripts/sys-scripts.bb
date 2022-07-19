@@ -10,7 +10,8 @@ PR = "r0"
 INSANE_SKIP_${PN} = "ldflags"
 INHIBIT_PACKAGE_DEBUG_SPLIT = "1"
 INHIBIT_PACKAGE_STRIP = "1"
-SRC_URI="file://find_partitions.sh"
+SRC_URI="file://find_partitions.sh \
+         file://dump_kernel_log.sh"
 S = "${WORKDIR}"
 
 
@@ -30,6 +31,7 @@ do_install() {
       install -d ${D}/data
 
       install -m 0755  ${S}/find_partitions.sh ${D}/etc/init.d/
+      install -m 0755  ${S}/dump_kernel_log.sh ${D}/bin/
       
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S10find_partitions.sh
       ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image

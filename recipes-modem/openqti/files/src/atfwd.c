@@ -411,6 +411,14 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     wipe_message_storage();
     break;
+  case 143: // Fake secure boot status response
+    bytes_in_reply = sprintf(response->reply, "\r\n+QCFG: \"secbootstat\",0\r\n");
+    response->replysz = htole16(bytes_in_reply); // Size of the string to reply
+    pkt_size = sizeof(struct at_command_respnse) -
+               (MAX_REPLY_SZ -
+                bytes_in_reply); // total size - (max string - used string)
+    sckret = send_pkt(qmidev, response, pkt_size);
+    break;
   default:
     // Fallback for dummy commands that arent implemented
     if ((cmd_id > 0 && cmd_id && cmd_id < 111)) {

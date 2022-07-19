@@ -153,6 +153,7 @@ static const struct {
     {140, "+RECON"},
     {141, "+RECOFF"},
     {142, "+WIPESMS"},
+    {143, "+QCFG=\"secbootstat\""}
 };
 
 #define AT_REG_REQ 0x0020
