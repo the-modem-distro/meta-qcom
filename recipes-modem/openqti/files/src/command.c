@@ -1072,7 +1072,7 @@ uint8_t parse_command(uint8_t *command) {
     strsz += snprintf(
         (char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
         "Blocking USB suspend until reboot or until you tell me otherwise!\n");
-    set_suspend_inhibit(false);
+    set_suspend_inhibit(true);
     add_message_to_queue(reply, strsz);
     break;
   case 10:
