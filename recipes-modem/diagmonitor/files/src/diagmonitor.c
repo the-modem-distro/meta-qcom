@@ -165,15 +165,15 @@ int write_config(int diagfd) {
 
 int write_config2(int diagfd) {
   fprintf(stdout, "%s: BURN THE THING DOWN!\n", __func__);
-
-  for (uint16_t i = 0; i < 0x2888; i++) {
-  uint8_t *sendbuf, *command_tmp;
   uint8_t buffer[MAX_BUF_SIZE];
+
+  for (uint16_t i = 0; i < 1000; i++) {
+  memset(buffer, 0, MAX_BUF_SIZE);
+  uint8_t *sendbuf, *command_tmp;
   size_t offset, this_command_len, full_msg_len;
     uint8_t needs_escaping = false;
     struct cmd_ext_message_config *config;
     config = calloc(1, sizeof(struct cmd_ext_message_config));
-    fprintf(stdout, " -> Processing command %i\n", i);
     // We dont want to overwrite userspace data type, and
     // we dont need the ID (otherwise it would be 8)
     offset = use_mdm ? 8 : 4;
@@ -198,17 +198,14 @@ int write_config2(int diagfd) {
             full_msg_len, offset);
     // Copy this blob
 
-    fprintf(stdout, "memcpy\n");
     memcpy(sendbuf + offset, config, this_command_len);
     memcpy(command_tmp, config, this_command_len);
     uint16_t crc;
     if (command_tmp[0] == 0x7D || command_tmp[0] == 0x7E) {
       needs_escaping = true;
-      printf("ESCAPE! %ld --> ", this_command_len);
       command_tmp[1] = (config->sub_cmd ^ 0x20);
       this_command_len--;
       command_tmp++;
-      printf(" %ld \n ", this_command_len);
     }
     crc = crc16(command_tmp, this_command_len);
 
@@ -216,9 +213,6 @@ int write_config2(int diagfd) {
     sendbuf[full_msg_len - 3] = (uint8_t)(crc & 0xFF);
     sendbuf[full_msg_len - 2] = (uint8_t)(crc >> 8);
     sendbuf[full_msg_len - 1] = PACKET_START_STOP;
-
-    for (int k = 0; k < full_msg_len; k++)
-      fprintf(stdout, "%.2x ", sendbuf[k]);
 
     int ret = write(diagfd, sendbuf, full_msg_len); // uint32_t + 4*uint8_t
     if (ret < 0) {
@@ -230,14 +224,9 @@ int write_config2(int diagfd) {
       }
       free(command_tmp);
       return -EINVAL;
-    } else {
-      fprintf(stderr, "Write result was %i\n", ret);
-    }
+    } 
     int rlen = read(diagfd, buffer, MAX_BUF_SIZE);
-    if (rlen >= 0) {
-      fprintf(stdout, "Command %i sent, Response was %i\n", i, rlen);
-      // printpkt(buffer, rlen);
-    } else {
+    if (rlen < 0) {
       fprintf(stderr, "Error reading response to command %i\n", i);
       free(sendbuf);
       free(config);
@@ -344,11 +333,11 @@ void start_diag_thread() {
   if (write_config(diagfd) != 0) {
     fprintf(stderr, "Error writing DIAG configuration params\n");
   }
-/*
+
   if (write_config2(diagfd) != 0) {
     fprintf(stderr, "Error writing DIAG configuration params\n");
   }
-*/
+
   /* Now we loop */
   uint32_t loopcnt = 0;
   struct cmd_log_message *message;
