@@ -72,7 +72,7 @@ void store_adb_setting(bool en) {
   int fd;
   if (en) { // Store the magic string in the second block of the misc partition
     logger(MSG_WARN, "Enabling persistent ADB\n");
-    strncpy(buff, PERSIST_ADB_ON_MAGIC, sizeof(PERSIST_ADB_ON_MAGIC));
+    strncpy(buff, PERSIST_ADB_ON_MAGIC, 32);
   } else {
     logger(MSG_WARN, "Disabling persistent ADB\n");
   }
@@ -98,7 +98,7 @@ int get_audio_mode() {
     return AUDIO_MODE_I2S;
   }
   lseek(fd, 96, SEEK_SET);
-  if (read(fd, buff, sizeof(PERSIST_USB_AUD_MAGIC)) <= 0) {
+  if (read(fd, buff, strlen(PERSIST_USB_AUD_MAGIC)) <= 0) {
     logger(MSG_ERROR, "%s: Error reading USB audio state \n", __func__);
   }
   close(fd);
@@ -118,7 +118,7 @@ void store_audio_output_mode(uint8_t mode) {
   if (mode == AUDIO_MODE_USB) { // Store the magic string in the second block of
                                 // the misc partition
     logger(MSG_WARN, "Enabling USB Audio\n");
-    strncpy(buff, PERSIST_USB_AUD_MAGIC, sizeof(PERSIST_USB_AUD_MAGIC));
+    strncpy(buff, PERSIST_USB_AUD_MAGIC, 32);
   } else {
     logger(MSG_WARN, "Disabling USB audio\n");
   }
@@ -147,7 +147,6 @@ void reset_usb_port() {
 }
 
 void restart_usb_stack() {
-  int ret;
   char functions[64] = "diag,serial,rmnet";
   if (is_adb_enabled()) {
     strcat(functions, ",ffs");
@@ -312,8 +311,6 @@ void *power_key_event() {
   struct timeval prev;
   struct timeval cur;
   int ret = 0;
-  int duration = 0;
-  char *arg1 = NULL;
   memset(&prev, 0, sizeof(struct timeval));
   memset(&cur, 0, sizeof(struct timeval));
 
@@ -349,14 +346,14 @@ void *power_key_event() {
 int read_adsp_version() {
   char *md5_result;
   char *hex_md5_res;
-  int ret, i, j;
+  int i, j;
   int element = 0;
   int offset = 0;
   md5_result = calloc(64, sizeof(char));
   hex_md5_res = calloc(64, sizeof(char));
   bool matched = false;
 
-  ret = md5_file(ADSPFW_GEN_FILE, md5_result);
+  md5_file(ADSPFW_GEN_FILE, md5_result);
   if (strlen(md5_result) < 16) {
     logger(MSG_ERROR, "%s: Error calculating the MD5 for your firmware (%s) \n",
            __func__, md5_result);
@@ -383,7 +380,7 @@ int read_adsp_version() {
 }
 
 int wipe_message_storage() {
-  int fd, sz, ret, i;
+  int fd, sz, i;
   char command[128];
 
   logger(MSG_INFO, "%s: Wiping message storage\n", __func__);
@@ -395,7 +392,8 @@ int wipe_message_storage() {
 
   for (i = 0; i <= 100; i++) {
     sz = snprintf(command, 128, "%s%i\r\n", MSG_DELETE_PARTIAL_CMD, i);
-    ret = write(fd, command, sz);
+    if (write(fd, command, sz) < 0)
+      logger(MSG_ERROR, "%s: Error writing wipe cmd %i\n", __func__, i);
     usleep(100000);
   }
   close(fd);
@@ -418,11 +416,11 @@ void add_message_to_queue(uint8_t *message, size_t len) {
 }
 
 bool at_if_in_use = false;
-int send_at_command(char *at_command, size_t cmdlen, char *response, size_t response_sz) {
+int send_at_command(char *at_command, size_t cmdlen, char *response,
+                    size_t response_sz) {
   int fd, ret;
   fd_set readfds;
   struct timeval tv;
-
 
   if (at_if_in_use) {
     logger(MSG_ERROR, "%s: AT Interface is already in use\n", __func__);
@@ -458,7 +456,8 @@ int send_at_command(char *at_command, size_t cmdlen, char *response, size_t resp
       return -EIO;
     }
   } else {
-    logger(MSG_ERROR, "%s: No response in time from %s\n", __func__, SMD_SEC_AT);
+    logger(MSG_ERROR, "%s: No response in time from %s\n", __func__,
+           SMD_SEC_AT);
   }
   at_if_in_use = false;
   logger(MSG_DEBUG, "%s: Received %s\n", __func__, response);

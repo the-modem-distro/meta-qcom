@@ -60,7 +60,6 @@ void configure_custom_alert_tone(bool en) {
 
 int use_external_codec() {
   int fd;
-  char buff[32];
   fd = open(EXTERNAL_CODEC_DETECT_PATH, O_RDONLY);
   if (fd < 0) {
     logger(MSG_INFO, "%s: RT5616 codec not detected \n", __func__);
@@ -262,16 +261,13 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
 }
 
 void handle_call_pkt(uint8_t *pkt, int sz) {
-  bool needs_setting_up_paths = false;
-  uint8_t direction, state, call_mode, mode, ret, i;
+  uint8_t mode = CALL_STATUS_CS;
+  uint8_t ret;
   uint8_t calls_active = 0;
-  uint8_t call_id = 0;
-  bool call_in_memory = false;
-  // Thread
   pthread_t tone_thread;
   /* REDO */
 
-  int offset = get_tlv_offset_by_id((uint8_t*)pkt, sz, TLV_CALL_INFO);
+  int offset = get_tlv_offset_by_id((uint8_t *)pkt, sz, TLV_CALL_INFO);
   if (offset <= 0) {
     logger(MSG_ERROR, "%s:Couldn't retrieve call metadata \n", __func__);
   } else if (offset > 0) {
@@ -281,19 +277,22 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
     audio_runtime_state.calls[meta->call_id].direction = meta->call_direction;
     audio_runtime_state.calls[meta->call_id].state = meta->call_state;
     audio_runtime_state.calls[meta->call_id].call_type = meta->call_mode;
-  switch (meta->call_direction) {
+    switch (meta->call_direction) {
     case CALL_DIRECTION_OUTGOING:
-      logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,  meta->call_id, calls_active);
+      logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,
+             meta->call_id, calls_active);
       break;
     case CALL_DIRECTION_INCOMING:
-      logger(MSG_WARN, "%s: Call %i of %i: Incoming \n", __func__,  meta->call_id, calls_active);
+      logger(MSG_WARN, "%s: Call %i of %i: Incoming \n", __func__,
+             meta->call_id, calls_active);
       break;
     default:
-      logger(MSG_WARN, "%s: Call %i of %i: Unknown direction \n", __func__,  meta->call_id, calls_active);
+      logger(MSG_WARN, "%s: Call %i of %i: Unknown direction \n", __func__,
+             meta->call_id, calls_active);
       break;
-  }
+    }
 
-  switch (meta->call_mode) {
+    switch (meta->call_mode) {
     case CALL_MODE_NO_NETWORK:
     case CALL_MODE_UNKNOWN:
     case CALL_MODE_GSM:
@@ -311,8 +310,7 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       break;
     }
 
-
-  switch (meta->call_state) { // Call status
+    switch (meta->call_state) { // Call status
     case CALL_STATE_PREPARING:
       audio_runtime_state.is_alerting = 0;
       logger(MSG_INFO, "%s: -->  Preparing call... \n", __func__);
@@ -360,22 +358,23 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       if (!audio_runtime_state.custom_alert_tone) {
         start_audio(mode);
       } else if (audio_runtime_state.custom_alert_tone &&
-                !audio_runtime_state.is_alerting) {
+                 !audio_runtime_state.is_alerting) {
         audio_runtime_state.is_alerting = 1;
         stop_audio();
-        if ((ret =
-                pthread_create(&tone_thread, NULL, &play_alerting_tone, NULL))) {
-          logger(MSG_ERROR, "%s: Error creating dialing tone thread\n", __func__);
+        if ((ret = pthread_create(&tone_thread, NULL, &play_alerting_tone,
+                                  NULL))) {
+          logger(MSG_ERROR, "%s: Error creating dialing tone thread\n",
+                 __func__);
         }
       } else {
         logger(MSG_INFO,
-              "%s: Call is in alerting state but dont know what to do\n",
-              __func__);
+               "%s: Call is in alerting state but dont know what to do\n",
+               __func__);
       }
       break;
     case CALL_STATE_DISCONNECTING:
     case CALL_STATE_HANGUP:
-      /* Depending on the call direction/type we might 
+      /* Depending on the call direction/type we might
          end up here with 0 or 1 calls active...) */
       if (calls_active < 2) {
         stop_audio();
@@ -386,7 +385,8 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
 
     default:
       audio_runtime_state.is_alerting = 0;
-      logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__, state);
+      logger(MSG_ERROR, "%s: Unknown call status %i \n", __func__,
+             meta->call_state);
       break;
     }
     meta = NULL;
@@ -495,7 +495,6 @@ int stop_audio() {
  * will complain with ADSP_FAILED / EADSP_BUSY
  */
 int start_audio(int type) {
-  int i;
   char pcm_device[18];
 
   if (audio_runtime_state.current_call_state != CALL_STATUS_IDLE &&
@@ -542,7 +541,7 @@ int start_audio(int type) {
        */
       set_gain_ctl(mixer, RX_GAIN_LEV, type,
                    100); // Q6Voice session (Vol, session, ramp)
-      strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+      strncpy(pcm_device, PCM_DEV_VOCS, PCM_DEV_SIZE);
       break;
     case 2:
       logger(MSG_DEBUG, "Call in progress: VoLTE\n");
@@ -550,7 +549,7 @@ int start_audio(int type) {
       set_mixer_ctl(mixer, RXCTL_VOLTE, 1); // Capture
       set_gain_ctl(mixer, RX_GAIN_LEV, type,
                    100); // Q6Voice session (Vol, session, ramp)
-      strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
+      strncpy(pcm_device, PCM_DEV_VOLTE, PCM_DEV_SIZE);
       break;
     default:
       logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n",
@@ -565,13 +564,13 @@ int start_audio(int type) {
       logger(MSG_DEBUG, "Call in progress: Circuit Switch\n");
       set_mixer_ctl(mixer, AFETX_VOICE, 1); // Playback
       set_mixer_ctl(mixer, AFERX_VOICE, 1); // Capture
-      strncpy(pcm_device, PCM_DEV_VOCS, sizeof(PCM_DEV_VOCS));
+      strncpy(pcm_device, PCM_DEV_VOCS, PCM_DEV_SIZE);
       break;
     case 2:
       logger(MSG_DEBUG, "Call in progress: VoLTE\n");
       set_mixer_ctl(mixer, AFETX_VOLTE, 1); // Playback
       set_mixer_ctl(mixer, AFERX_VOLTE, 1); // Capture
-      strncpy(pcm_device, PCM_DEV_VOLTE, sizeof(PCM_DEV_VOLTE));
+      strncpy(pcm_device, PCM_DEV_VOLTE, PCM_DEV_SIZE);
       break;
     default:
       logger(MSG_ERROR, "%s: Can't set mixers, unknown call type %i\n",

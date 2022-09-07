@@ -58,8 +58,8 @@ void *thermal_monitoring_thread() {
     }
     if (round % 2 == 0) {
       log_thermal_status(MSG_INFO, "Zones 0-6: %iC %iC %iC %iC %iC %iC %iC \n",
-             sensors[0], sensors[1], sensors[2], sensors[3], sensors[4],
-             sensors[5], sensors[6]);
+                         sensors[0], sensors[1], sensors[2], sensors[3],
+                         sensors[4], sensors[5], sensors[6]);
     }
     for (i = 0; i < NO_OF_SENSORS; i++) {
       if (prev_sensor_reading[i] != 0 && sensors[i] != 0) {

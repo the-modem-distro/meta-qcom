@@ -205,7 +205,6 @@ int decode_phone_number(uint8_t *buffer, int len, char *out) {
  * with a request to get the actual message
  */
 uint8_t generate_message_notification(int fd, uint32_t message_id) {
-  int ret;
   struct wms_message_indication_packet *notif_pkt;
   notif_pkt = calloc(1, sizeof(struct wms_message_indication_packet));
   sms_runtime.curr_transaction_id = 0;
@@ -236,8 +235,11 @@ uint8_t generate_message_notification(int fd, uint32_t message_id) {
   notif_pkt->ims.tlv_sms_on_ims_size = htole16(1);
   notif_pkt->ims.is_sms_sent_over_ims = 0x00; // Nah, we don't
 
-  ret = write(fd, notif_pkt, sizeof(struct wms_message_indication_packet));
-  logger(MSG_DEBUG, "%s: Sent new message notification\n", __func__);
+  if (write(fd, notif_pkt, sizeof(struct wms_message_indication_packet)) < 0) {
+    logger(MSG_ERROR, "%s: Error sending new message notification\n", __func__);
+  } else {
+    logger(MSG_DEBUG, "%s: Sent new message notification\n", __func__);
+  }
   dump_pkt_raw((uint8_t *)notif_pkt,
                sizeof(struct wms_message_indication_packet));
   free(notif_pkt);
@@ -253,7 +255,6 @@ uint8_t generate_message_notification(int fd, uint32_t message_id) {
 uint8_t process_message_deletion(int fd, uint32_t message_id,
                                  uint8_t indication) {
   struct wms_message_delete_packet *ctl_pkt;
-  int ret;
   ctl_pkt = calloc(1, sizeof(struct wms_message_delete_packet));
 
   ctl_pkt->qmuxpkt.version = 0x01;
@@ -277,7 +278,9 @@ uint8_t process_message_deletion(int fd, uint32_t message_id,
     ctl_pkt->indication.response = 0x00;
   }
 
-  ret = write(fd, ctl_pkt, sizeof(struct wms_message_delete_packet));
+  if (write(fd, ctl_pkt, sizeof(struct wms_message_delete_packet)) < 0) {
+    logger(MSG_ERROR, "%s: Error deleting message\n", __func__);
+  }
 
   free(ctl_pkt);
   ctl_pkt = NULL;
@@ -523,7 +526,7 @@ void wipe_queue() {
  *  is where we need to operate
  */
 void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
-  int i, offset;
+  int offset;
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
   sms_runtime.curr_transaction_id = pkt->qmi.transaction_id;
@@ -568,8 +571,8 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
                "%s: Calculated from offset: 0x%.2x, from request: 0x%.2x\n",
                __func__, storage->message_id, request->storage.message_id);
       }
-      logger(MSG_DEBUG, "%s: TLV ID for this query should be 0x%.2x\n", __func__,
-             request->message_tag.id);
+      logger(MSG_DEBUG, "%s: TLV ID for this query should be 0x%.2x\n",
+             __func__, request->message_tag.id);
       if (request->message_tag.id == 0x01) {
         logger(MSG_DEBUG,
                "oFono gives us the message id tlv in a different order...\n ");
@@ -600,9 +603,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
     logger(MSG_DEBUG, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (sms_runtime.queue.msg[sms_runtime.current_message_id].state != 3) {
-      logger(MSG_INFO,
-             "%s: Requested to delete previous message \n",
-             __func__);
+      logger(MSG_INFO, "%s: Requested to delete previous message \n", __func__);
       if (sms_runtime.current_message_id > 0) {
         sms_runtime.current_message_id--;
       }
@@ -767,10 +768,8 @@ uint8_t send_outgoing_msg_ack(uint16_t transaction_id, int usbfd,
 
 /* Intercept and ACK a message */
 uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
-  size_t temp_sz;
   uint8_t *output;
   uint8_t ret;
-  int outsize;
   struct outgoing_sms_packet *pkt;
   struct outgoing_no_validity_period_sms_packet *nodate_pkt;
 
@@ -787,10 +786,18 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
       ret = gsm7_to_ascii(pkt->contents.contents,
                           strlen((char *)pkt->contents.contents),
                           (char *)output, pkt->contents.content_sz);
+      if (ret < 0) {
+        logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+               __LINE__);
+      }
     } else if (pkt->pdu_type == 0x01) {
       ret = gsm7_to_ascii(nodate_pkt->contents.contents,
                           strlen((char *)nodate_pkt->contents.contents),
                           (char *)output, nodate_pkt->contents.content_sz);
+      if (ret < 0) {
+        logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+               __LINE__);
+      }
     } else {
       set_log_level(0);
 
@@ -873,10 +880,8 @@ int pdu_decode(uint8_t *buffer, int buffer_length,
 
 /* Sniff on an sms */
 uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
-  size_t temp_sz;
   uint8_t *output;
   uint8_t ret;
-  int outsize, j = 0;
   char phone_numb[128];
   output = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   if (source == FROM_HOST) {
@@ -896,10 +901,18 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
         ret = gsm7_to_ascii(pkt->contents.contents,
                             strlen((char *)pkt->contents.contents),
                             (char *)output, pkt->contents.content_sz);
+        if (ret < 0) {
+          logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+                 __LINE__);
+        }
       } else if (pkt->pdu_type == 0x01) {
         ret = gsm7_to_ascii(nodate_pkt->contents.contents,
                             strlen((char *)nodate_pkt->contents.contents),
                             (char *)output, nodate_pkt->contents.content_sz);
+        if (ret < 0) {
+          logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+                 __LINE__);
+        }
       } else {
         logger(MSG_ERROR, "%s: Unimplemented PDU type (0x%.2x)\n", __func__,
                pkt->pdu_type);
@@ -935,7 +948,6 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
 }
 int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
                       int usbfd) {
-  size_t temp_sz;
   uint8_t our_phone[] = {0x91, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77};
   int needs_rerouting = 0;
   struct outgoing_sms_packet *pkt;
@@ -958,7 +970,6 @@ int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
 
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd) {
-  size_t temp_sz;
   int needs_pass_through = 0;
   struct wms_message_indication_packet *pkt;
   if (len >= sizeof(struct wms_message_indication_packet)) {
@@ -1001,7 +1012,10 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
       ret = gsm7_to_ascii(pkt->message.pdu.contents,
                           strlen((char *)pkt->message.pdu.contents),
                           (char *)output, pkt->message.len); // 2 ui16, 2 ui8
-
+      if (ret < 0) {
+        logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+               __LINE__);
+      }
       set_log_level(0);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP\n", __func__);
       dump_pkt_raw(bytes, len);
@@ -1034,7 +1048,6 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
 }
 
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd) {
-  size_t temp_sz;
   struct cell_broadcast_message_prototype *pkt;
   if (len >= sizeof(struct cell_broadcast_message_prototype) -
                  (MAX_CB_MESSAGE_SIZE + 2)) {

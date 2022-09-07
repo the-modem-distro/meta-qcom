@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
-#include "../inc/config.h"
 #include "../inc/scheduler.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
+#include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
-#include <stdio.h>
 #include <endian.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -40,7 +40,6 @@ int find_free_task_slot() {
 
 int save_tasks_to_storage() {
   FILE *fp;
-  char buf[1024];
   int ret;
   logger(MSG_INFO, "%s: Start\n", __func__);
   if (set_persistent_partition_rw() < 0) {
@@ -54,7 +53,7 @@ int save_tasks_to_storage() {
     return -1;
   }
   logger(MSG_INFO, "%s: Store\n", __func__);
-  ret = fwrite(sch_runtime.tasks,sizeof(struct task_p),MAX_NUM_TASKS,fp);
+  ret = fwrite(sch_runtime.tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
   logger(MSG_INFO, "%s: Close (%i bytes written)\n", __func__, ret);
   fclose(fp);
   do_sync_fs();
@@ -72,7 +71,6 @@ int read_tasks_from_storage() {
   FILE *fp;
   int ret;
   struct task_p tasks[MAX_NUM_TASKS];
-  int taskID = 0;
   logger(MSG_INFO, "%s: Start\n", __func__);
   logger(MSG_INFO, "%s: Open file\n", __func__);
   fp = fopen(SCHEDULER_DATA_FILE_PATH, "r");
@@ -81,7 +79,7 @@ int read_tasks_from_storage() {
     return -1;
   }
   logger(MSG_INFO, "%s: Store\n", __func__);
-  ret = fread(tasks,sizeof(struct task_p),MAX_NUM_TASKS,fp);
+  ret = fread(tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
   logger(MSG_INFO, "%s: Close (%i bytes read)\n", __func__, ret);
   if (ret >= sizeof(struct task_p)) {
     logger(MSG_INFO, "%s: Recovering tasks\n ", __func__);
@@ -172,13 +170,12 @@ int update_task_status(int taskID, uint8_t status) {
 }
 
 void cleanup_tasks() {
-  int ret;
   for (int i = 0; i < MAX_NUM_TASKS; i++) {
     if (sch_runtime.tasks[i].status == STATUS_DONE ||
         sch_runtime.tasks[i].status == STATUS_FAILED) {
       logger(MSG_INFO, "%s: Removing task %i with status %i\n", __func__, i,
              sch_runtime.tasks[i].status);
-      ret = remove_task(i);
+      remove_task(i);
     }
   }
 }
@@ -225,7 +222,7 @@ int run_task(int taskID) {
 }
 
 void *start_scheduler_thread() {
-  int i, ret;
+  int i;
   sleep(120); // Wait 60 seconds to give time to modemmanager to connect...
   logger(MSG_INFO, "%s: Starting scheduler thread\n", __func__);
   read_tasks_from_storage();
@@ -239,7 +236,7 @@ void *start_scheduler_thread() {
                __func__, i, sch_runtime.tasks[i].type,
                sch_runtime.tasks[i].time.exec_time, sch_runtime.cur_time);
         if (sch_runtime.cur_time >= sch_runtime.tasks[i].time.exec_time) {
-          ret = run_task(i);
+          run_task(i);
         }
       }
     }
