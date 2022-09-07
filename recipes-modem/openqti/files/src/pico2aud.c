@@ -72,9 +72,8 @@ int picoSynthAbort = 0;
 // So we need, wave sample pointer, and pointer to the actual text
 
 int pico2aud(char *phrase, size_t len) {
-  char *lang = "en-US";
   char *wavefile = "/tmp/wave.wav";
-  int langIndex = 0, langIndexTmp = 0;
+  int langIndex = 0;
   int8_t *buffer;
   size_t bufferSize = 256;
 
@@ -299,7 +298,7 @@ terminate:
   }
 
   logger(MSG_DEBUG, "%s: Getting out of pico2aud - %i\n", __func__, ret);
-  
+
   free(buffer);
   free(picoMemArea);
   free(picoTaFileName);

@@ -3,14 +3,14 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
+#include <time.h>
 
+#include "../inc/call.h"
 #include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
-#include "../inc/call.h"
 
 bool log_to_file = true;
 uint8_t log_level = 0;
@@ -32,9 +32,7 @@ void set_log_level(uint8_t level) {
   }
 }
 
-uint8_t get_log_level() {
-  return log_level;
-}
+uint8_t get_log_level() { return log_level; }
 
 double get_elapsed_time() {
   struct timespec current_time;
@@ -93,7 +91,6 @@ void logger(uint8_t level, char *format, ...) {
     }
   }
 }
-
 
 void log_thermal_status(uint8_t level, char *format, ...) {
   FILE *fd;

@@ -286,8 +286,6 @@ void close_internal_call(int usbfd, uint16_t transaction_id) {
 }
 
 void start_simulated_call(int usbfd) {
-  pthread_t kill_timeout_thread;
-  int ret;
   call_rt.transaction_id = 0x01;
   call_rt.simulated_call_state = CALL_STATE_RINGING;
   call_rt.sim_call_direction = CALL_DIRECTION_INCOMING;
@@ -481,6 +479,7 @@ void *simulated_call_tts_handler() {
   free(buffer);
   buffer = NULL;
   pcm_close(pcm0);
+
   stop_multimedia_mixer();
 
   for (i = 0; i < QUEUE_SIZE; i++) {
@@ -565,7 +564,6 @@ void autokill_call(void *bytes, size_t len, uint8_t call_id, int adspfd) {
   logger(MSG_WARN, "%s: Automaticall killing Waiting call with ID %i\n",
          __func__, call_id);
   struct encapsulated_qmi_packet *pkt = (struct encapsulated_qmi_packet *)bytes;
-  int new_transaction_id = pkt->qmi.transaction_id + 1;
   struct call_hangup_request *request;
   request = calloc(1, sizeof(struct call_hangup_request));
   request->qmuxpkt.version = 0x01;
@@ -582,9 +580,11 @@ void autokill_call(void *bytes, size_t len, uint8_t call_id, int adspfd) {
   request->call_id.data = call_id;
 
   logger(MSG_INFO, "%s: Sending the payload to the baseband\n", __func__);
-  int bytes_written =
-      write(adspfd, request, sizeof(struct call_hangup_request));
-  logger(MSG_INFO, "%s: Payload *SENT*\n", __func__);
+  if (write(adspfd, request, sizeof(struct call_hangup_request)) < 0) {
+    logger(MSG_INFO, "%s: Error sending payload\n", __func__);
+  } else {
+    logger(MSG_INFO, "%s: Payload *SENT*\n", __func__);
+  }
 
   free(request);
   request = NULL;
@@ -593,10 +593,9 @@ void autokill_call(void *bytes, size_t len, uint8_t call_id, int adspfd) {
 
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
                              uint16_t msgid, int adspfd, int usbfd) {
-  int needs_rerouting = 0, i, j, offset;
+  int needs_rerouting = 0, i, j = 0, offset;
   struct encapsulated_qmi_packet *pkt;
   struct call_request_indication *req;
-  struct call_status_indication *ind;
 
   pkt = (struct encapsulated_qmi_packet *)bytes;
   uint8_t our_phone[] = {0x32, 0x32, 0x33, 0x33, 0x34, 0x34,
@@ -662,8 +661,6 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
 
   case VO_SVC_CALL_STATUS:
     offset = get_tlv_offset_by_id((uint8_t *)bytes, len, TLV_REMOTE_NUMBER);
-    int info_offset =
-        get_tlv_offset_by_id((uint8_t *)bytes, len, TLV_CALL_INFO);
     if (offset <= 0) {
       logger(MSG_ERROR, "%s:Couldn't retrieve remote number data \n", __func__);
     } else if (offset > 0) {
@@ -685,11 +682,17 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
           if (get_num_instances(bytes, len) > 1 &&
               get_call_state(bytes, len) == CALL_STATE_WAITING) {
             if (callwait_auto_hangup_operation_mode() == 2) {
-              int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Automatically rejecting the call from %s while you're talking\n", phone_number);
+              int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                                   "Automatically rejecting the call from %s "
+                                   "while you're talking\n",
+                                   phone_number);
               add_sms_to_queue(reply, strsz);
               autokill_call(bytes, len, thisnum->call_id, adspfd);
             } else {
-              int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Call from %s while you're talking (ignoring it) \n", phone_number);
+              int strsz =
+                  snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "Call from %s while you're talking (ignoring it) \n",
+                           phone_number);
               add_sms_to_queue(reply, strsz);
             }
           }
@@ -716,9 +719,10 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         needs_rerouting = 1;
       } else {
         if (get_call_simulation_mode()) {
-          logger(MSG_WARN,
-                 "%s: New call while internally talking, ending simulated call\n",
-                 __func__);
+          logger(
+              MSG_WARN,
+              "%s: New call while internally talking, ending simulated call\n",
+              __func__);
           close_internal_call(usbfd, pkt->qmi.transaction_id);
         }
         handle_call_pkt(bytes, len);

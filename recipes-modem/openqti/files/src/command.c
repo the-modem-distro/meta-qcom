@@ -363,11 +363,10 @@ void *delayed_reboot() {
 }
 
 void *schedule_call(void *cmd) {
-  int strsz = 0, ret;
+  int strsz = 0;
   uint8_t *offset;
   uint8_t *command = (uint8_t *)cmd;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
-  pthread_t call_schedule_thread;
   logger(MSG_WARN, "SCH: %s -> %s \n", cmd, command);
 
   int delaysec;
@@ -622,7 +621,7 @@ void schedule_reminder(uint8_t *command) {
   scheduler_task.status = STATUS_PENDING;
   scheduler_task.param = 0;
   scheduler_task.time.mode = scheduler_task.time.mode;
-  strncpy(scheduler_task.arguments, reminder_text, strlen(reminder_text));
+  strncpy(scheduler_task.arguments, reminder_text, MAX_MESSAGE_SIZE);
   if (add_task(scheduler_task) < 0) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      " Can't add reminder, my task queue is full!\n");
@@ -772,8 +771,7 @@ void schedule_wakeup(uint8_t *command) {
         scheduler_task.time.hh = get_int_from_str(current_word, 0);
         scheduler_task.time.mm = get_int_from_str(offset, 1);
 
-        if (offset - ((char *)current_word) > 2 || strlen(offset) > 3)
-        {
+        if (offset - ((char *)current_word) > 2 || strlen(offset) > 3) {
           logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
                  __func__, current_word);
           if (offset - ((char *)current_word) > 2)
@@ -789,8 +787,7 @@ void schedule_wakeup(uint8_t *command) {
           free(reply);
           reply = NULL;
           return;
-        }
-        else if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
+        } else if (scheduler_task.time.mode == SCHED_MODE_TIME_AT) {
           if (scheduler_task.time.hh > 23 && scheduler_task.time.mm > 59) {
             strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                              "Ha ha, very funny. Please give me a time value I "
@@ -809,14 +806,12 @@ void schedule_wakeup(uint8_t *command) {
             free(reply);
             reply = NULL;
             return;
-          }
-          else {
+          } else {
             strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                              "Waiting until %i:%02i to call you back\n",
                              scheduler_task.time.hh, scheduler_task.time.mm);
           }
-        }
-        else {
+        } else {
           strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                            "Waiting for %i hours and %i minutes to call you "
                            "back\n",
@@ -843,8 +838,7 @@ void schedule_wakeup(uint8_t *command) {
             strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                              "Waiting for %i hours to call you back\n",
                              scheduler_task.time.hh);
-          }
-          else {
+          } else {
             if (scheduler_task.time.hh > 24) {
               strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                                "I might not be very smart, but I don't think "
@@ -853,8 +847,7 @@ void schedule_wakeup(uint8_t *command) {
               free(reply);
               reply = NULL;
               return;
-            }
-            else {
+            } else {
               logger(MSG_WARN, "%s: Waiting until %i to call you back\n",
                      __func__, scheduler_task.time.hh);
               strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
@@ -888,18 +881,24 @@ void set_cb_broadcast(bool en) {
   int strsz;
   int cmd_ret;
   if (en) {
-    cmd_ret = send_at_command(CB_ENABLE_AT_CMD, sizeof(CB_ENABLE_AT_CMD), response, 128);
+    cmd_ret = send_at_command(CB_ENABLE_AT_CMD, sizeof(CB_ENABLE_AT_CMD),
+                              response, 128);
     if (cmd_ret < 0 || (strstr(response, "OK") == NULL)) {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Failed to enable cell broadcasting messages\n");
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Failed to enable cell broadcasting messages\n");
     } else {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enabling Cell broadcast messages\n");
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Enabling Cell broadcast messages\n");
     }
   } else {
-    cmd_ret = send_at_command(CB_DISABLE_AT_CMD, sizeof(CB_DISABLE_AT_CMD), response, 128);
+    cmd_ret = send_at_command(CB_DISABLE_AT_CMD, sizeof(CB_DISABLE_AT_CMD),
+                              response, 128);
     if (cmd_ret < 0 || (strstr(response, "OK") == NULL)) {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Failed to disable cell broadcasting messages\n");
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Failed to disable cell broadcasting messages\n");
     } else {
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Disabling Cell broadcast messages\n");
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Disabling Cell broadcast messages\n");
     }
   }
   add_message_to_queue(reply, strsz);
@@ -908,7 +907,7 @@ void set_cb_broadcast(bool en) {
   free(reply);
   response = NULL;
   reply = NULL;
-  }
+}
 
 uint8_t parse_command(uint8_t *command) {
   int ret = 0;
@@ -918,7 +917,6 @@ uint8_t parse_command(uint8_t *command) {
   int strsz = 0;
   struct pkt_stats packet_stats;
   pthread_t disposable_thread;
-  struct network_state netstat;
   char lowercase_cmd[160];
   uint8_t *tmpbuf = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
@@ -1237,8 +1235,10 @@ uint8_t parse_command(uint8_t *command) {
                       "Hi, my name is %s and I'm at version %s\n",
                       cmd_runtime.bot_name, RELEASE_VER);
     add_message_to_queue(reply, strsz);
-    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "    .-.     .-.\n .****. .****.\n.*****.*****. Thank\n  .*********.    You\n    .*******.\n     .*****.\n       .***.\n          *\n");
+    strsz = snprintf(
+        (char *)reply, MAX_MESSAGE_SIZE,
+        "    .-.     .-.\n .****. .****.\n.*****.*****. Thank\n  .*********.   "
+        " You\n    .*******.\n     .*****.\n       .***.\n          *\n");
     add_message_to_queue(reply, strsz);
     strsz = snprintf(
         (char *)reply, MAX_MESSAGE_SIZE,
@@ -1282,19 +1282,19 @@ uint8_t parse_command(uint8_t *command) {
     set_cb_broadcast(false);
     break;
   case 33:
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_call_waiting_autohangup(2);
     break;
   case 34:
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_call_waiting_autohangup(1);
     break;
   case 35:
-      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     enable_call_waiting_autohangup(0);

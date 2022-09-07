@@ -40,7 +40,7 @@ void *time_sync() {
   int cmd_ret;
   char *begin;
   int tmp;
-  long gmtoff;
+  long gmtoff = 0;
   bool sync_completed = false;
   char *response = malloc(128 * sizeof(char));
   time_t mytime = time(0);
@@ -132,7 +132,10 @@ void *time_sync() {
     sleep(rand() % (9) + 1); // Stop for 1-10 seconds after each attempt
     retries++;
     if (retries > 60) {
-      logger(MSG_ERROR, "%s: Cannot sync the time to the network or the local clock after 60 attempts\n", __func__);
+      logger(MSG_ERROR,
+             "%s: Cannot sync the time to the network or the local clock after "
+             "60 attempts\n",
+             __func__);
       // Give up
       free(response);
       response = NULL;

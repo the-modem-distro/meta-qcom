@@ -194,10 +194,8 @@ unsigned get_ctl_index(struct mixer *mixer, char *name) {
 }
 
 int mixer_ctl_set_value(struct mixer_ctl *ctl, unsigned int id, int value) {
-
-  struct snd_ctl_elem_value ev;
-  int ret;
   int i;
+  struct snd_ctl_elem_value ev;
   if (!ctl) {
     logger(MSG_ERROR, "%s: Invalid mixer_ctl\n", __func__);
     return -EINVAL;
@@ -240,8 +238,6 @@ int mixer_ctl_set_value(struct mixer_ctl *ctl, unsigned int id, int value) {
 int mixer_ctl_set_gain(struct mixer_ctl *ctl, int call_type, int value) {
 
   struct snd_ctl_elem_value ev;
-  int ret;
-  int i;
   uint32_t session_id;
   if (!ctl) {
     logger(MSG_ERROR, "%s: Invalid mixer_ctl\n", __func__);

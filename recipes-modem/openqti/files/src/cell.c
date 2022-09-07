@@ -74,13 +74,11 @@ struct cell_report parse_report_data(char *orig_string) {
   struct cell_report report;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
-  int ret;
   strcpy(str, (char *)orig_string);
   int init_size = strlen(str);
   int positions[128];
   char slices[64][MAX_RESPONSE_SZ];
   int cur_word = 1;
-  int cur_word_id = -1;
   int start;
   int end;
   positions[0] = 0;
@@ -108,7 +106,7 @@ struct cell_report parse_report_data(char *orig_string) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999"));
+      strncpy(slices[i], "-999", MAX_RESPONSE_SZ);
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
@@ -123,8 +121,8 @@ struct cell_report parse_report_data(char *orig_string) {
     report.net_type = 0;
     report.mcc = strtol(slices[3], NULL, 10);
     report.mnc = strtol(slices[4], NULL, 10);
-    strncpy(report.gsm.lac, slices[5], strlen(slices[5]));
-    strncpy(report.cell_id, slices[6], strlen(slices[6]));
+    memcpy(report.gsm.lac, slices[5], 4);
+    memcpy(report.cell_id, slices[6], 16);
     report.gsm.bsic = strtol(slices[7], NULL, 10);
     report.gsm.arfcn = strtol(slices[8], NULL, 10);
     report.gsm.band = strtol(slices[9], NULL, 10);
@@ -151,8 +149,8 @@ struct cell_report parse_report_data(char *orig_string) {
     report.net_type = 1;
     report.mcc = strtol(slices[3], NULL, 10);
     report.mnc = strtol(slices[4], NULL, 10);
-    strncpy(report.wcdma.lac, slices[5], strlen(slices[5]));
-    strncpy(report.cell_id, slices[6], strlen(slices[6]));
+    memcpy(report.wcdma.lac, slices[5], 4);
+    memcpy(report.cell_id, slices[6], 16);
     report.wcdma.uarfcn = strtol(slices[7], NULL, 10);
     report.wcdma.psc = strtol(slices[8], NULL, 10);
     report.wcdma.rac = strtol(slices[9], NULL, 10);
@@ -170,7 +168,7 @@ struct cell_report parse_report_data(char *orig_string) {
     report.lte.is_tdd = strtol(slices[3], NULL, 10);
     report.mcc = strtol(slices[4], NULL, 10);
     report.mnc = strtol(slices[5], NULL, 10);
-    strncpy(report.cell_id, slices[6], strlen(slices[6]));
+    memcpy(report.cell_id, slices[6], 16);
     report.lte.pcid = strtol(slices[7], NULL, 10);
     report.lte.earfcn = strtol(slices[8], NULL, 10);
     report.lte.freq_band_ind = strtol(slices[9], NULL, 10);
@@ -192,16 +190,14 @@ struct cell_report parse_report_data(char *orig_string) {
 
 void parse_lte_intra_neighbour_data(char *orig_string, int len) {
   struct lte_neighbour report;
-  int i;
+  uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
-  int ret;
   strncpy(str, (char *)orig_string, len);
   int init_size = strlen(str);
   int positions[128];
   char slices[64][MAX_RESPONSE_SZ];
   int cur_word = 1;
-  int cur_word_id = -1;
   int start;
   int end;
   positions[0] = 0;
@@ -229,7 +225,7 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999"));
+      strncpy(slices[i], "-999", MAX_RESPONSE_SZ);
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
@@ -284,16 +280,14 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
 
 void parse_lte_inter_neighbour_data(char *orig_string, int len) {
   struct lte_neighbour report;
-  int i;
+  uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
-  int ret;
   strncpy(str, (char *)orig_string, len);
   int init_size = strlen(str);
   int positions[128];
   char slices[64][MAX_RESPONSE_SZ];
   int cur_word = 1;
-  int cur_word_id = -1;
   int start;
   int end;
   positions[0] = 0;
@@ -321,7 +315,7 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999"));
+      strncpy(slices[i], "-999", MAX_RESPONSE_SZ);
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
@@ -376,16 +370,14 @@ void parse_lte_inter_neighbour_data(char *orig_string, int len) {
 
 void parse_wcdma_neighbour_data(char *orig_string, int len) {
   struct wcdma_neighbour report;
-  int i;
+  uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
-  int ret;
   strncpy(str, (char *)orig_string, len);
   int init_size = strlen(str);
   int positions[128];
   char slices[64][MAX_RESPONSE_SZ];
   int cur_word = 1;
-  int cur_word_id = -1;
   int start;
   int end;
   positions[0] = 0;
@@ -413,7 +405,7 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999"));
+      strncpy(slices[i], "-999", MAX_RESPONSE_SZ);
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
@@ -453,16 +445,14 @@ void parse_wcdma_neighbour_data(char *orig_string, int len) {
 
 void parse_gsm_neighbour_data(char *orig_string, int len) {
   struct gsm_neighbour report;
-  int i;
+  uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
-  int ret;
   strncpy(str, (char *)orig_string, len);
   int init_size = strlen(str);
   int positions[128];
   char slices[64][MAX_RESPONSE_SZ];
   int cur_word = 1;
-  int cur_word_id = -1;
   int start;
   int end;
   positions[0] = 0;
@@ -490,7 +480,7 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
     memset(slices[i], 0, MAX_RESPONSE_SZ);
     memcpy(slices[i], str + start, (end - start));
     if (strcmp(slices[i], "-") == 0) {
-      strncpy(slices[i], "-999", strlen("-999"));
+      strncpy(slices[i], "-999", MAX_RESPONSE_SZ);
       // If it is empty set it to -999 so we can use that info later
       // Otherwise strtol will convert "-" to 9
     }
@@ -532,8 +522,8 @@ void parse_gsm_neighbour_data(char *orig_string, int len) {
 /* Connect to the AT port, send a command, and get a response */
 int get_data_from_command(char *command, size_t len, char *expected_response,
                           char *response) {
-  int fd, ret;
-  int fnret;
+  int fd;
+  int fnret = 0;
   fd_set readfds;
   struct timeval tv;
   tv.tv_sec = 0;
@@ -543,11 +533,11 @@ int get_data_from_command(char *command, size_t len, char *expected_response,
     logger(MSG_ERROR, "%s: Cannot open SMD10 entry\n", __func__);
     return -EINVAL;
   }
-  ret = write(fd, command, len);
+  fnret = write(fd, command, len);
   FD_SET(fd, &readfds);
-  ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+  fnret = select(MAX_FD, &readfds, NULL, NULL, &tv);
   if (FD_ISSET(fd, &readfds)) {
-    ret = read(fd, response, MAX_RESPONSE_SZ);
+    fnret = read(fd, response, MAX_RESPONSE_SZ);
     if (strstr(response, expected_response) != NULL) {
       fnret = 0;
     }
@@ -644,10 +634,8 @@ void analyze_data() {
 /* Data retrieval functions */
 void read_neighbour_cells() {
   int ret = 0;
-  char *pt;
   char *response;
   char *start, *end;
-  unsigned count = 0;
   response = malloc(MAX_RESPONSE_SZ * sizeof(char));
   int command_length = strlen(GET_NEIGHBOUR_CELL);
 
@@ -695,7 +683,6 @@ void read_neighbour_cells() {
 void read_serving_cell() {
   int ret = 0;
   int i;
-  char *pt;
   char *response;
   response = malloc(MAX_RESPONSE_SZ * sizeof(char));
   int command_length = strlen(GET_SERVING_CELL);

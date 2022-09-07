@@ -80,7 +80,7 @@ int get_transceiver_suspend_state() {
 void *gps_proxy() {
   struct node_pair *nodes;
   nodes = calloc(1, sizeof(struct node_pair));
-  int pret, ret;
+  int ret;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   struct timeval tv;
@@ -116,7 +116,7 @@ void *gps_proxy() {
 
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
-    pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+    select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(nodes->node1.fd, &readfds)) {
       ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
@@ -241,6 +241,11 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
    * which one we're handling right now, so cast both and then check
    */
 
+  if (pkt_size < sizeof(struct encapsulated_qmi_packet) &&
+      pkt_size < sizeof(struct encapsulated_control_packet)) {
+    logger(MSG_ERROR, "%s: Message too small\n", __func__);
+    return PACKET_EMPTY;
+  }
   if (pkt_size >= sizeof(struct encapsulated_qmi_packet) ||
       pkt_size >= sizeof(struct encapsulated_control_packet)) {
     packet = (struct encapsulated_qmi_packet *)pkt;
@@ -359,7 +364,6 @@ void *rmnet_proxy(void *node_data) {
   uint8_t sourcefd, targetfd;
   size_t bytes_read, bytes_written;
   int8_t source;
-  int ret;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   struct timeval tv;
@@ -372,12 +376,12 @@ void *rmnet_proxy(void *node_data) {
     targetfd = -1;
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
-    FD_SET(nodes->node2.fd, &readfds);      // Always add ADSP
-    FD_SET(nodes->node1.fd, &readfds);      // Testing: add usb always too
+    FD_SET(nodes->node2.fd, &readfds); // Always add ADSP
+    FD_SET(nodes->node1.fd, &readfds); // Testing: add usb always too
 
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
-    ret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+    select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(nodes->node2.fd, &readfds)) {
       source = FROM_DSP;
       sourcefd = nodes->node2.fd;

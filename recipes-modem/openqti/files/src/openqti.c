@@ -23,22 +23,44 @@
 #include "../inc/proxy.h"
 #include "../inc/scheduler.h"
 #include "../inc/sms.h"
+#include "../inc/thermal.h"
 #include "../inc/timesync.h"
 #include "../inc/tracking.h"
-#include "../inc/thermal.h"
 
 /*
- * OpenQTI
- *  Opensource reimplementation of Qualcomm's binaries for
- *  Quectel's EG25-G modem, with a few extras
+ *                                                                          88
+ *                                                                   ,d     ""
+ *                                                                   88
+ *  ,adPPYba,   8b,dPPYba,    ,adPPYba,  8b,dPPYba,    ,adPPYb,d8  MM88MMM  88
+ * a8"     "8a  88P'    "8a  a8P_____88  88P'   `"8a  a8"    `Y88    88     88
+ * 8b       d8  88       d8  8PP"""""""  88       88  8b       88    88     88
+ * "8a,   ,a8"  88b,   ,a8"  "8b,   ,aa  88       88  "8a    ,d88    88,    88
+ *  `"YbbdP"'   88`YbbdP"'    `"Ybbd8"'  88       88   `"YbbdP'88    "Y888  88
+ *              88                                             88
+ *              88                                             88
  */
+
+void print_banner() {
+    fprintf(stdout, "                                                                          88  \n");
+    fprintf(stdout, "                                                                   ,d     ""  \n");
+    fprintf(stdout, "                                                                   88         \n");
+    fprintf(stdout, "  ,adPPYba,   8b,dPPYba,    ,adPPYba,  8b,dPPYba,    ,adPPYb,d8  MM88MMM  88  \n");
+    fprintf(stdout, " a8\"     \"8a  88P'    \"8a  a8P_____88  88P'   `\"8a  a8\"    `Y88    88     88  \n");
+    fprintf(stdout, " 8b       d8  88       d8  8PP\"\"\"\"\"\"\"  88       88  8b       88    88     88  \n");
+    fprintf(stdout, " \"8a,   ,a8\"  88b,   ,a8\"  \"8b,   ,aa  88       88  \"8a    ,d88    88,    88  \n");
+    fprintf(stdout, "  `\"YbbdP\"'   88`YbbdP\"'    `\"Ybbd8\"'  88       88   `\"YbbdP'88    \"Y888  88  \n");
+    fprintf(stdout, "              88                                             88               \n");
+    fprintf(stdout, "              88                                             88               \n");
+    fprintf(stdout, "                                                                  OpenQTI %s\n", RELEASE_VER);
+}
+
+
 bool debug_to_stdout;
 int connected_clients = 0;
 
 int main(int argc, char **argv) {
-  int i, ret, lockfile;
+  int ret, lockfile;
   int linestate;
-  struct flock fl = {F_WRLCK, SEEK_SET, 0, 0, 0};
   pthread_t gps_proxy_thread;
   pthread_t rmnet_proxy_thread;
   pthread_t atfwd_thread;
@@ -51,7 +73,6 @@ int main(int argc, char **argv) {
 
   // To track thread exits
   void *retgps, *retrmnet, *retatfwd;
-
   /* Set initial settings before moving to actual initialization */
   set_initial_config();
 
@@ -68,6 +89,7 @@ int main(int argc, char **argv) {
   reset_client_handler();
   reset_dirty_reconnects();
   set_log_level(1); // By default, set log level to info
+  print_banner();
   while ((ret = getopt(argc, argv, "dulv?")) != -1)
     switch (ret) {
     case 'd':
@@ -88,8 +110,6 @@ int main(int argc, char **argv) {
       break;
 
     case '?':
-      fprintf(stdout, "openQTI version %s\n", RELEASE_VER);
-      fprintf(stdout, "---------------------\n");
       fprintf(stdout, "Options:\n");
       fprintf(stdout, " -u: Print available ADSP firmware services\n");
       fprintf(stdout, " -d: Send logs to stdout\n");
@@ -240,7 +260,7 @@ int main(int argc, char **argv) {
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating scheduler thread\n", __func__);
   }
-    logger(MSG_INFO, "%s: Init: Create Thermal monitor thread \n", __func__);
+  logger(MSG_INFO, "%s: Init: Create Thermal monitor thread \n", __func__);
   if ((ret = pthread_create(&thermal_thread, NULL, &thermal_monitoring_thread,
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating thermal monitor thread\n", __func__);

@@ -47,8 +47,6 @@ void set_adb_runtime(bool mode) { atfwd_runtime_state.adb_enabled = mode; }
 
 void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   struct atcmd_reg_request *atcmd;
-  int k, i;
-  ssize_t cmdsize, bufsize;
   atcmd =
       (struct atcmd_reg_request *)calloc(1, sizeof(struct atcmd_reg_request));
   atcmd->ctlid = 0x00;
@@ -57,14 +55,12 @@ void build_atcommand_reg_request(int tid, const char *command, char *buf) {
   atcmd->dummy1 = 0x01;
   atcmd->dummy2 = 0x0100;
   atcmd->dummy3 = 0x00;
-  cmdsize = strlen(command);
   atcmd->packet_size = strlen(command) + 40 +
                        sizeof(struct atcmd_reg_request); // atcmd + command + 36
   atcmd->command_length = strlen(command);
   atcmd->var2 = strlen(command) + 2; // It has to be something like this
   atcmd->var1 = atcmd->var2 + 3;
-  bufsize = sizeof(struct atcmd_reg_request) +
-            ((strlen(command) + 43) * sizeof(char));
+
   memcpy(buf, atcmd, sizeof(struct atcmd_reg_request));
   memcpy(buf + sizeof(struct atcmd_reg_request), command,
          (sizeof(char) * strlen(command)));
@@ -412,7 +408,8 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     wipe_message_storage();
     break;
   case 143: // Fake secure boot status response
-    bytes_in_reply = sprintf(response->reply, "\r\n+QCFG: \"secbootstat\",0\r\n");
+    bytes_in_reply =
+        sprintf(response->reply, "\r\n+QCFG: \"secbootstat\",0\r\n");
     response->replysz = htole16(bytes_in_reply); // Size of the string to reply
     pkt_size = sizeof(struct at_command_respnse) -
                (MAX_REPLY_SZ -
@@ -431,7 +428,9 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     sckret = send_pkt(qmidev, response, pkt_size);
     break;
   }
-
+  if (sckret < 0) {
+    logger(MSG_ERROR, "%s: Send pkt failed!\n", __func__);
+  }
   qmidev->transaction_id++;
   free(response);
   response = NULL;
@@ -469,6 +468,9 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
   pkt_size =
       sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
   sckret = send_pkt(qmidev, response, pkt_size);
+  if (sckret < 0) {
+    logger(MSG_ERROR, "%s: Send pkt failed!\n", __func__);
+  }
   set_pending_notification_source(MSG_EXTERNAL);
   set_notif_pending(true);
 
@@ -480,17 +482,14 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
 
 /* Register AT commands into the DSP */
 int init_atfwd(struct qmi_device *qmidev) {
-  int i, j, ret;
+  int j, ret;
   ssize_t pktsize;
   char *atcmd;
   struct timeval tv;
-  int tmpstate = 0;
   tv.tv_sec = 1;
   tv.tv_usec = 0;
-  bool state = false;
   socklen_t addrlen = sizeof(struct sockaddr_msm_ipc);
   char buf[MAX_PACKET_SIZE];
-  uint32_t node_id, port_id;
   struct msm_ipc_server_info at_port;
 
   at_port = get_node_port(8, 0); // Get node port for AT Service, _any_ instance
@@ -549,7 +548,7 @@ int init_atfwd(struct qmi_device *qmidev) {
 }
 
 void *start_atfwd_thread() {
-  int pret, ret;
+  int ret;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   struct qmi_device *at_qmi_dev;
@@ -569,7 +568,7 @@ void *start_atfwd_thread() {
     FD_SET(at_qmi_dev->fd, &readfds);
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
-    pret = select(MAX_FD, &readfds, NULL, NULL, &tv);
+    select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(at_qmi_dev->fd, &readfds)) {
       ret = read(at_qmi_dev->fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {

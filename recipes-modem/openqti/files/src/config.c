@@ -36,9 +36,8 @@ int set_persistent_partition_ro() {
 }
 
 void do_sync_fs() {
-   if (system("sync") < 0)
+  if (system("sync") < 0)
     logger(MSG_ERROR, "%s: Failed to sync fs\n", __func__);
-
 }
 
 int set_initial_config() {
@@ -64,7 +63,8 @@ void dump_current_config() {
          "---> User name: %s\n"
          "---> Modem name: %s\n",
          settings->custom_alert_tone, settings->persistent_logging,
-         settings->signal_tracking, settings->callwait_autohangup, settings->user_name, settings->modem_name);
+         settings->signal_tracking, settings->callwait_autohangup,
+         settings->user_name, settings->modem_name);
 }
 int parse_line(char *buf) {
   if (settings == NULL || buf == NULL)
@@ -136,7 +136,6 @@ int parse_line(char *buf) {
 
 int write_settings_to_storage() {
   FILE *fp;
-  char buf[1024];
   logger(MSG_INFO, "%s: Start\n", __func__);
   if (set_persistent_partition_rw() < 0) {
     logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
@@ -217,7 +216,9 @@ int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 int is_sms_logging_enabled() { return settings->sms_logging; }
 
-int callwait_auto_hangup_operation_mode() { return settings->callwait_autohangup; }
+int callwait_auto_hangup_operation_mode() {
+  return settings->callwait_autohangup;
+}
 
 int get_modem_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->modem_name);
@@ -290,17 +291,16 @@ void enable_signal_tracking(bool en) {
   write_settings_to_storage();
 }
 
-
-
 void enable_call_waiting_autohangup(uint8_t en) {
-    if (en == 2) {
+  if (en == 2) {
     logger(MSG_WARN, "Enabling Automatic hang up of calls in waiting state\n");
     settings->callwait_autohangup = 2;
   } else if (en == 1) {
     logger(MSG_WARN, "Enabling Automatic ignore of calls in waiting state\n");
     settings->callwait_autohangup = 1;
   } else {
-    logger(MSG_WARN, "Disabling Automatic handling of calls in waiting state\n");
+    logger(MSG_WARN,
+           "Disabling Automatic handling of calls in waiting state\n");
     settings->callwait_autohangup = 0;
   }
   write_settings_to_storage();

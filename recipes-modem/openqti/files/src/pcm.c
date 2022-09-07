@@ -135,10 +135,6 @@ int set_params(struct pcm *pcm, int path) {
   struct snd_pcm_hw_params *params;
   struct snd_pcm_sw_params *sparams;
 
-  unsigned long periodSize, bufferSize, reqBuffSize;
-  unsigned int periodTime, bufferTime;
-  unsigned int requestedRate = pcm->rate;
-
   params =
       (struct snd_pcm_hw_params *)calloc(1, sizeof(struct snd_pcm_hw_params));
   if (!params) {
@@ -225,17 +221,12 @@ struct pcm *pcm_open(unsigned flags, char *device) {
   char dname[19];
   struct pcm *pcm;
   struct snd_pcm_info info;
-  struct snd_pcm_hw_params params;
-  struct snd_pcm_sw_params sparams;
-  unsigned period_sz;
-  unsigned period_cnt;
-  char *tmp;
 
   pcm = calloc(1, sizeof(struct pcm));
   if (!pcm)
     return NULL;
 
-  strncpy(dname, device, sizeof(dname));
+  strncpy(dname, device, 18);
 
   if (flags & PCM_IN) {
     strncat(dname, "c", (sizeof("c") + strlen(dname)));
