@@ -45,6 +45,7 @@ struct message {
   char pkt[MAX_MESSAGE_SIZE]; // JUST TEXT
   int len;                    // TEXT SIZE
   uint32_t message_id;
+  uint8_t tp_dcs;
   uint8_t state; // message sending status
   uint8_t retries;
   struct timespec timestamp; // to know when to give up
@@ -392,7 +393,6 @@ int build_and_send_message(int fd, uint32_t message_id) {
 
   /* CONTENTS */
   memcpy(this_sms->data.contents.contents, msgoutput, ret);
-
   /* SIZES AND LENGTHS */
 
   // Total packet size to send
@@ -425,6 +425,157 @@ int build_and_send_message(int fd, uint32_t message_id) {
 
   this_sms->data.contents.content_sz =
       strlen((char *)sms_runtime.queue.msg[message_id].pkt);
+
+  ret = write(fd, (uint8_t *)this_sms, fullpktsz);
+  dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
+
+  free(this_sms);
+  this_sms = NULL;
+  return ret;
+}
+
+/*
+ * Build and send SMS
+ *  Gets message ID, builds the QMI messages and sends it
+ *  Returns numnber of bytes sent.
+ *  Since oFono tries to read the message an arbitrary number
+ *  of times, or delete it or whatever, we need to keep them
+ *  a little longer on hold...
+ */
+int build_and_send_raw_message(int fd, uint32_t message_id) {
+  struct wms_build_message *this_sms;
+  this_sms = calloc(1, sizeof(struct wms_build_message));
+  int ret, fullpktsz;
+  uint8_t tmpyear;
+
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  /* QMUX */
+  this_sms->qmuxpkt.version = 0x01;
+  this_sms->qmuxpkt.packet_length = 0x00; // SIZE
+  this_sms->qmuxpkt.control = 0x80;
+  this_sms->qmuxpkt.service = 0x05;
+  this_sms->qmuxpkt.instance_id = 0x01;
+  /* QMI */
+  this_sms->qmipkt.ctlid = 0x02;
+  this_sms->qmipkt.transaction_id = sms_runtime.curr_transaction_id;
+  this_sms->qmipkt.msgid = WMS_READ_MESSAGE;
+  this_sms->qmipkt.length = 0x00; // SIZE
+  /* INDICATION */
+  this_sms->indication.result_code_type = TLV_QMI_RESULT;
+  this_sms->indication.generic_result_size = 0x04;
+  this_sms->indication.result = 0x00;
+  this_sms->indication.response = 0x00;
+  /* MESSAGE SETTINGS */
+  this_sms->header.message_tlv = 0x01;
+  this_sms->header.size =
+      0x00; //  this_sms->unknown_data.wms_sms_size = 0x00; // SIZE
+  this_sms->header.tlv_version = 0x01; // 3GPP
+
+  this_sms->data.tlv = 0x06;
+  // SMSC NUMBER SIZE RAW, we leave it hardcoded
+  /* We shouldn't need to worry too much about the SMSC
+   * since we're not actually sending this but...
+   */
+  /* SMSC */
+  this_sms->data.smsc.phone_number_size =
+      0x07; // hardcoded as we use a dummy one
+  this_sms->data.smsc.is_international_number = 0x91; // yes
+  this_sms->data.smsc.number[0] = 0x22;               // 0x51;
+  this_sms->data.smsc.number[1] = 0x33;
+  this_sms->data.smsc.number[2] = 0x44;
+  this_sms->data.smsc.number[3] = 0x55;
+  this_sms->data.smsc.number[4] = 0x66;
+  this_sms->data.smsc.number[5] = 0x77;
+
+  // ENCODING TEST
+  this_sms->data.unknown = 0x04; // This is still unknown
+
+  // We leave all this hardcoded, we will only worry about ourselves
+  /* We need a hardcoded number so when a reply comes we can catch it,
+   * otherwise we would be sending it off to the baseband!
+   * 4 bits for each number, backwards  */
+  /* PHONE NUMBER */
+  this_sms->data.phone.phone_number_size = 0x0c;       // hardcoded
+  this_sms->data.phone.is_international_number = 0x91; // yes
+
+  this_sms->data.phone.number[0] = 0x22; // 0x51;
+  this_sms->data.phone.number[1] = 0x33;
+  this_sms->data.phone.number[2] = 0x44;
+  this_sms->data.phone.number[3] = 0x55;
+  this_sms->data.phone.number[4] = 0x66;
+  this_sms->data.phone.number[5] = 0x77;
+  /* Unsure of these */
+
+  this_sms->data.tp_pid = 0x00;
+  this_sms->data.tp_dcs = 0x00;
+  if (sms_runtime.queue.msg[message_id].tp_dcs != 0x00) {
+    logger(MSG_INFO, "%s: UCS/8Bit %.2x\n", __func__, sms_runtime.queue.msg[message_id].tp_dcs);
+    this_sms->data.tp_dcs = sms_runtime.queue.msg[message_id].tp_dcs;
+    if (sms_runtime.queue.msg[message_id].len < MAX_MESSAGE_SIZE && sms_runtime.queue.msg[message_id].len % 2 != 0) {
+      logger(MSG_WARN, "%s: Uneven message size!\n", __func__);
+      sms_runtime.queue.msg[message_id].len++;
+    } 
+  }
+    /* CONTENTS */
+  memcpy(this_sms->data.contents.contents,
+         sms_runtime.queue.msg[message_id].pkt,
+         sms_runtime.queue.msg[message_id].len);
+
+  /*
+   * tm_year should return number of years from 1900
+   * If time hasn't synced yet it will say we're in
+   * the 70s, so we don't know the correct date yet
+   * In this case, we fall back to 2022, otherwise
+   * the message would be end up being shown as
+   * received in 2070.
+   */
+  if (tm.tm_year > 100) {
+    tmpyear = tm.tm_year - 100;
+  } else {
+    tmpyear = 22;
+  }
+  /* DATE TIME */
+  this_sms->data.date.year = swap_byte(tmpyear);
+  this_sms->data.date.month = swap_byte(tm.tm_mon + 1);
+  this_sms->data.date.day = swap_byte(tm.tm_mday);
+  this_sms->data.date.hour = swap_byte(tm.tm_hour);
+  this_sms->data.date.minute = swap_byte(tm.tm_min);
+  this_sms->data.date.second = swap_byte(tm.tm_sec);
+  this_sms->data.date.timezone = swap_byte(get_timezone() * 4);
+  if (is_timezone_offset_negative()) {
+    this_sms->data.date.timezone |= 1 << 3;
+  }
+
+  /* SIZES AND LENGTHS */
+
+  // Total packet size to send
+  fullpktsz = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
+              sizeof(struct qmi_generic_result_ind) +
+              sizeof(struct wms_raw_message_header) +
+              sizeof(struct wms_user_data) - MAX_MESSAGE_SIZE +
+              sms_runtime.queue.msg[message_id].len; // ret == msgsize
+  // QMUX packet size
+  this_sms->qmuxpkt.packet_length =
+      fullpktsz - sizeof(uint8_t); // ret == msgsize, last uint qmux ctlid
+  // QMI SZ: Full packet - QMUX header
+  this_sms->qmipkt.length = sizeof(struct qmi_generic_result_ind) +
+                            sizeof(struct wms_raw_message_header) +
+                            sizeof(struct wms_user_data) - MAX_MESSAGE_SIZE +
+                            sms_runtime.queue.msg[message_id].len;
+  // Header size: QMI - indication size - uint16_t size element itself - header
+  // tlv
+  this_sms->header.size = this_sms->qmipkt.length -
+                          sizeof(struct qmi_generic_result_ind) -
+                          (3 * sizeof(uint8_t));
+  // User size: QMI - indication - header - uint16_t size element - own tlv
+  this_sms->data.user_data_size =
+      this_sms->qmipkt.length - sizeof(struct qmi_generic_result_ind) -
+      sizeof(struct wms_raw_message_header) - (3 * sizeof(uint8_t));
+
+  /* In this case we leave the size alone, this ain't gsm-7 */
+  this_sms->data.contents.content_sz =
+      sms_runtime.queue.msg[message_id].len;
 
   ret = write(fd, (uint8_t *)this_sms, fullpktsz);
   dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
@@ -473,11 +624,20 @@ int handle_message_state(int fd, uint32_t message_id) {
   case 2: // SEND MESSAGE AND WAIT FOR TID
     logger(MSG_DEBUG, "%s: Send message. Message ID: %i\n", __func__,
            message_id);
-    if (build_and_send_message(fd, message_id) > 0) {
-      sms_runtime.queue.msg[message_id].state = 3;
+    if (sms_runtime.queue.msg[message_id].tp_dcs == 0x00) {
+      if (build_and_send_message(fd, message_id) > 0) {
+        sms_runtime.queue.msg[message_id].state = 3;
+      } else {
+        logger(MSG_WARN, "%s: Failed to send message ID: %i\n", __func__,
+               message_id);
+      }
     } else {
-      logger(MSG_WARN, "%s: Failed to send message ID: %i\n", __func__,
-             message_id);
+      if (build_and_send_raw_message(fd, message_id) > 0) {
+        sms_runtime.queue.msg[message_id].state = 3;
+      } else {
+        logger(MSG_WARN, "%s: Failed to send message ID: %i\n", __func__,
+               message_id);
+      }
     }
     clock_gettime(CLOCK_MONOTONIC,
                   &sms_runtime.queue.msg[message_id].timestamp);
@@ -713,6 +873,28 @@ void add_sms_to_queue(uint8_t *message, size_t len) {
            len);
     sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id =
         sms_runtime.queue.queue_pos;
+    sms_runtime.queue.msg[sms_runtime.queue.queue_pos].tp_dcs = 0x00;
+  } else {
+    logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
+  }
+}
+void add_raw_sms_to_queue(uint8_t *message, size_t len, uint8_t tp_dcs) {
+  if (sms_runtime.queue.queue_pos > QUEUE_SIZE - 2) {
+    logger(MSG_ERROR, "%s: Queue is full!\n", __func__);
+    return;
+  }
+  if (len > 0) {
+    set_notif_pending(true);
+    set_pending_notification_source(MSG_INTERNAL);
+    logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
+           sms_runtime.queue.queue_pos + 1);
+    sms_runtime.queue.queue_pos++;
+    memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message,
+           len);
+    sms_runtime.queue.msg[sms_runtime.queue.queue_pos].message_id = sms_runtime.queue.queue_pos;
+    sms_runtime.queue.msg[sms_runtime.queue.queue_pos].len = len;
+    sms_runtime.queue.msg[sms_runtime.queue.queue_pos].tp_dcs = tp_dcs;
+    logger(MSG_INFO, "RAW MESSAGE: %s -> %s | %i\n", message, sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, sms_runtime.queue.msg[sms_runtime.queue.queue_pos].len);
   } else {
     logger(MSG_ERROR, "%s: Size of message is 0\n", __func__);
   }
@@ -995,7 +1177,6 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
   uint8_t *output;
   uint8_t ret;
   uint8_t strsz = 0;
-  uint8_t offset = 0;
   struct cell_broadcast_message_prototype *pkt;
   uint8_t *reply = calloc(MAX_CB_MESSAGE_SIZE, sizeof(unsigned char));
 
@@ -1008,38 +1189,70 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
     pkt = (struct cell_broadcast_message_prototype *)bytes;
     if (pkt->header.id == TLV_TRANSFER_MT_MESSAGE) {
       logger(MSG_INFO, "%s: TLV ID matches, trying to decode\n", __func__);
+      logger(MSG_WARN,
+             "CB Message dump:\n--\n"
+             " ID: 0x%.2x\n "
+             " LEN: 0x%.4x\n "
+             " - Serial %i\n"
+             " - Message ID %i\n"
+             " - Encoding: 0x%.2x\n"
+             " - Page %.2x\n",
+             pkt->header.id, 
+             pkt->header.len, 
+             pkt->message.pdu.serial_number,
+             pkt->message.pdu.message_id, 
+             pkt->message.pdu.encoding,
+             pkt->message.pdu.page_param);
 
-      ret = gsm7_to_ascii(pkt->message.pdu.contents,
-                          strlen((char *)pkt->message.pdu.contents),
-                          (char *)output, pkt->message.len); // 2 ui16, 2 ui8
-      if (ret < 0) {
-        logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
-               __LINE__);
-      }
       set_log_level(0);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP\n", __func__);
       dump_pkt_raw(bytes, len);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP END\n", __func__);
       set_log_level(1);
-      // Now relay it
+      add_message_to_queue((uint8_t *)"Incoming Cell Broadcast Message", strlen("Incoming Cell Broadcast Message"));
 
-      if (strlen((char *)reply) > MAX_MESSAGE_SIZE) {
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         "A multipart CB Alert has been received\n");
-        add_message_to_queue(reply, strsz);
-        strsz = 0;
-        offset = 0;
-        while (offset < strlen((char *)output)) {
-          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
-                           output + offset);
-          add_message_to_queue(reply, strsz);
-          offset += strsz;
-        }
+      // If binary for encoding is 01xx xxxx, then we have encoding data
+      // Otherwise we assume it's something else and encoding is GSM7
+      if (!(pkt->message.pdu.encoding & (1 << 7))  && (pkt->message.pdu.encoding & (1 << 6))) { // 01xx
+            logger(MSG_WARN, "%s:Message encoding is not GSM-7\n", __func__);
+            // cell_broadcast_header - 10 == remaining size of the pkt from content start... always
+            int sz = pkt->header.len;
+            if (sz > MAX_MESSAGE_SIZE)
+             memcpy(output, pkt->message.pdu.contents, MAX_MESSAGE_SIZE);
+            else 
+             memcpy(output, pkt->message.pdu.contents, sz);
 
-      } else {
-        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output);
-        add_message_to_queue(reply, strsz);
-      }
+            int sms_dcs = pkt->message.pdu.encoding;
+            /* We need to make sure certain bits of the data coding scheme are set to 0 to
+             * avoid confusing ModemManager...
+               https://www.etsi.org/deliver/etsi_ts/123000_123099/123038/10.00.00_60/ts_123038v100000p.pdf
+              We leave alone bit #5 (Compression), and #3 and #2, which define the encoding type (GSM7 || 8bit || UCS2)
+              We clear the rest
+             */
+            sms_dcs &= ~(1UL << 7); // We already know encoding is set to 01xx (CB, section 5, page 12), SMS needs
+            sms_dcs &= ~(1UL << 6); // this to be to 00xx (SMS, Section 4, page 8) to match data coding scheme
+//            sms_dcs &= ~(1UL << 5); // We leave this bit as is, *compression*
+            sms_dcs &= ~(1UL << 4); // We clear the message class bit, we don't need this
+//            sms_dcs &= ~(1UL << 3); // We keep these, as they set the encoding type
+//            sms_dcs &= ~(1UL << 2); // GSM7 / UCS2 / TE Specific
+            sms_dcs &= ~(1UL << 1); // We clear these, as they are related to bit 4
+            sms_dcs &= ~(1UL << 0); // we just cleared before.
+            logger(MSG_WARN, "%s: Setting DCS from %.2x to %.2x\n",__func__, pkt->message.pdu.encoding, sms_dcs);
+            add_raw_sms_to_queue(output, sz, sms_dcs);
+
+          } else {
+            ret = gsm7_to_ascii(pkt->message.pdu.contents,
+                                  strlen((char *)pkt->message.pdu.contents),
+                                  (char *)output, pkt->message.len); // 2 ui16, 2 ui8
+              if (ret < 0) {
+                logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
+                      __LINE__);
+              } else {
+                strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n", output);
+                add_message_to_queue(reply, strsz);
+              }
+          }
+     
     }
   }
   pkt = NULL;
