@@ -12,11 +12,11 @@
 #define CB_DISABLE_AT_CMD "AT+CSCB=1,\"0-6000\",\"0-15\"\r"
 
 struct cell_broadcast_header {
-  uint8_t id; // 0x11
-  uint16_t len;
-  uint8_t tp_pid;            // Just a guess here, 0x00
-  uint8_t tp_dcs;            // 0xFF
-  uint8_t unknown_params[3]; //  0xff 0xff 0xff -> Validity period? lang?
+  uint8_t id; // 0x11 // 3GPP Config
+  uint16_t len; // Size
+  uint16_t service_category;
+  uint16_t language;
+  uint8_t is_category_selected;
 } __attribute__((packed));
 
 struct cell_broadcast_message_pdu {

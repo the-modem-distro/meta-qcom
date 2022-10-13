@@ -25,7 +25,7 @@ do_install() {
       # Since we cant expect the partition to be in place while building,
       # Just recreate the directory and link it
       install -d ${D}/firmware/image
-      install -d ${D}/lib/firmware
+      install -d ${D}/lib
 
       # We might as well make the data directory
       install -d ${D}/data
@@ -34,7 +34,7 @@ do_install() {
       install -m 0755  ${S}/dump_kernel_log.sh ${D}/bin/
       
       ln -sf -r ${D}/etc/init.d/find_partitions.sh ${D}/etc/rcS.d/S10find_partitions.sh
-      ln -sf -r ${D}/firmware/image ${D}/lib/firmware/image
+      ln -sf -r ${D}/firmware/image/ ${D}/lib/firmware
       touch ${D}/etc/default/find_partitions.sh
 
 }

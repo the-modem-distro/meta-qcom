@@ -30,6 +30,8 @@
 mount -t ubifs -o ro /dev/ubi1_0 /firmware
 # Tell the Hexagon it can boot once the firmware is in place
 echo 1 > /sys/kernel/boot_adsp/boot
+# For Mainline: Tell remoteproc0 to boot once the partition has been mounted
+# echo start > /sys/class/remoteproc/remoteproc0/state
 
 # We have 10 seconds of spare time between adsp boot signal to actually
 # ready, so after telling it to boot we mount persistent storage
