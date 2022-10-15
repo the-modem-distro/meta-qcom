@@ -1299,6 +1299,22 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     enable_call_waiting_autohangup(0);
     break;
+  case 36:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_custom_alert_tone(true); // enable in runtime
+    break;
+  case 37:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_custom_alert_tone(false); // enable in runtime
+    break;
+
+
+        //    
+
   case 100:
     set_custom_modem_name(command);
     break;

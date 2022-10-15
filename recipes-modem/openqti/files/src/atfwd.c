@@ -212,12 +212,10 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
   case 124: // Custom alert tone ON
     sckret = send_pkt(qmidev, response, pkt_size);
     set_custom_alert_tone(true);       // save to flash
-    configure_custom_alert_tone(true); // enable in runtime
     break;
   case 125: // Custom alert tone off
     sckret = send_pkt(qmidev, response, pkt_size);
     set_custom_alert_tone(false);       // save to flash
-    configure_custom_alert_tone(false); // runtime
     break;
   case 129: // QGMR
   case 126: // GETSWREV

@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "../inc/config.h"
 #include "../inc/audio.h"
 #include "../inc/call.h"
 #include "../inc/devices.h"
@@ -22,7 +23,6 @@ struct pcm *pcm_rx;
  */
 
 struct {
-  uint8_t custom_alert_tone;
   uint8_t current_call_state;
   uint8_t sampling_rate;
   uint8_t output_device;
@@ -33,7 +33,6 @@ struct {
 } audio_runtime_state;
 
 void set_audio_runtime_default() {
-  audio_runtime_state.custom_alert_tone = 0;
   audio_runtime_state.current_call_state = CALL_STATUS_IDLE;
   audio_runtime_state.sampling_rate = 0;
   audio_runtime_state.output_device = AUDIO_MODE_I2S;
@@ -47,14 +46,6 @@ void set_record(bool en) {
     audio_runtime_state.is_recording = 1;
   } else {
     audio_runtime_state.is_recording = 0;
-  }
-}
-
-void configure_custom_alert_tone(bool en) {
-  if (en) {
-    audio_runtime_state.custom_alert_tone = 1;
-  } else {
-    audio_runtime_state.custom_alert_tone = 0;
   }
 }
 
@@ -355,9 +346,9 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       break;
     case CALL_STATE_ALERTING:
       logger(MSG_INFO, "%s: --> Alerting state \n", __func__);
-      if (!audio_runtime_state.custom_alert_tone) {
+      if (use_custom_alert_tone()) {
         start_audio(mode);
-      } else if (audio_runtime_state.custom_alert_tone &&
+      } else if (use_custom_alert_tone() &&
                  !audio_runtime_state.is_alerting) {
         audio_runtime_state.is_alerting = 1;
         stop_audio();

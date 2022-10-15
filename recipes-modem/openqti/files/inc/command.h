@@ -56,6 +56,8 @@ static const struct {
     {33, "callwait auto hangup", "I will automatically terminate all incoming calls while you're talking", "Automatically kills any new incoming call while you're talking"},
     {34, "callwait auto ignore", "I will just inform you that there's a new call waiting", "Automatically ignores any new incoming call while you're talking"},
     {35, "callwait mode default", "I will let the host handle multiple calls", "Disables automatic hang up of incoming calls while you're talking"},
+    {36, "enable custom alert tone", "Enabling custom alert tone", "Enables custom alerting tone"},
+    {37, "disable custom alert tone", "Using alerting tone from the carrier", "Uses the default alerting tone from the carrier if it provides one"},
 };
 
 static const struct {

@@ -217,13 +217,6 @@ int main(int argc, char **argv) {
    */
   set_output_device(get_audio_mode());
 
-  /* Read custom alert tone status flag
-   * and configure it in runtime
-   */
-  if (use_custom_alert_tone()) {
-    configure_custom_alert_tone(true);
-  }
-
   /* Set runtime defaults for everything */
   set_atfwd_runtime_default();
   reset_sms_runtime();

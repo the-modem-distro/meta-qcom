@@ -204,7 +204,6 @@ void handle_call_pkt(uint8_t *pkt, int sz);
 int set_audio_defaults();
 int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);
-void configure_custom_alert_tone(bool en);
 int pcm_write(struct pcm *pcm, void *data, unsigned count);
 unsigned int pcm_get_buffer_size(const struct pcm *pcm);
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
