@@ -58,6 +58,11 @@ static const struct {
     {35, "callwait mode default", "I will let the host handle multiple calls", "Disables automatic hang up of incoming calls while you're talking"},
     {36, "enable custom alert tone", "Enabling custom alert tone", "Enables custom alerting tone"},
     {37, "disable custom alert tone", "Using alerting tone from the carrier", "Uses the default alerting tone from the carrier if it provides one"},
+    {38, "record all calls", "I will record all calls from now on", "Enables call recording to persistent storage for all calls" },
+    {39, "stop recording calls", "I won't record any call unless you tell me to", "Disables automatic call recording"},
+    {40, "record this call", "You got it boss", "Records current established call"},
+    {41, "record next call", "I will record the new call you make or receive", "Automatically records the next established call"},
+    {42, "abort next call", "I won't record the new call you make or receive", "Cancel automatic recording of next call"},
 };
 
 static const struct {

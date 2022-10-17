@@ -5,9 +5,9 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
 #include "../inc/audio.h"
 #include "../inc/call.h"
+#include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
@@ -29,7 +29,9 @@ struct {
   uint8_t is_muted;
   uint8_t is_alerting;
   struct call_data calls[MAX_ACTIVE_CALLS];
+  uint8_t current_active_call_id;
   uint8_t is_recording;
+  uint8_t record_next_call;
 } audio_runtime_state;
 
 void set_audio_runtime_default() {
@@ -39,14 +41,8 @@ void set_audio_runtime_default() {
   audio_runtime_state.is_muted = 0;
   audio_runtime_state.is_alerting = 0;
   audio_runtime_state.is_recording = 0;
-}
-
-void set_record(bool en) {
-  if (en) {
-    audio_runtime_state.is_recording = 1;
-  } else {
-    audio_runtime_state.is_recording = 0;
-  }
+  audio_runtime_state.record_next_call = 0;
+  audio_runtime_state.current_active_call_id = 0;
 }
 
 int use_external_codec() {
@@ -234,6 +230,188 @@ void *play_alerting_tone() {
   return NULL;
 }
 
+void *incall_recording_tread() {
+  char *buffer;
+  uint32_t bufsize;
+  int num_read;
+  FILE *file_rx;
+  struct pcm *incall_pcm_rx;
+  char filename[256];
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  /*
+   * We need to make sure persistent storage is enabled
+   * Otherwise we'll fail to create the file
+   */
+
+  if (audio_runtime_state.is_recording) {
+    logger(MSG_ERROR, "%s: Can't start recording thread, already recording!\n",
+           __func__);
+    return NULL;
+  }
+
+  /* Sanity check */
+  if (audio_runtime_state.current_call_state == CALL_STATUS_IDLE) {
+    logger(MSG_ERROR, "%s: Can't record a call that doesn't exist!\n",
+           __func__);
+  }
+  // Set the flag so we don't have multiple threads running
+  audio_runtime_state.is_recording = 1;
+  /* Prepare Multimedia1  */
+  set_mixer_ctl(mixer, MULTIMEDIA_MIXER_TO_AUX_PCM, 1);
+
+  /* We enable the mixers first */
+  set_mixer_ctl(mixer, REC_DL, 1);
+  set_mixer_ctl(mixer, REC_UL, 1);
+
+  incall_pcm_rx = pcm_open((PCM_IN | PCM_MONO | PCM_MMAP), PCM_DEV_HIFI);
+  if (incall_pcm_rx == NULL) {
+    logger(MSG_INFO, "%s: Error opening %s (rx), bailing out\n", __func__,
+           PCM_DEV_HIFI);
+    return NULL;
+  }
+  incall_pcm_rx->channels = 1;
+  incall_pcm_rx->flags = PCM_IN | PCM_MONO;
+  incall_pcm_rx->format = PCM_FORMAT_S16_LE;
+  incall_pcm_rx->rate = 8000;
+
+  if (set_params(incall_pcm_rx, PCM_IN)) {
+    logger(MSG_ERROR, "Error setting RX Params\n");
+    pcm_close(incall_pcm_rx);
+    return NULL;
+  }
+  int fnsize = 0;
+  if (!use_persistent_logging()) {
+    fnsize = snprintf(filename, 256 - fnsize, "/tmp/");
+  } else {
+    fnsize = snprintf(filename, 256 - fnsize, "/persist/");
+  }
+  if (audio_runtime_state.record_next_call) {
+    fnsize += snprintf(filename + fnsize, 256 - fnsize, "MANUAL-");
+  } else {
+    fnsize += snprintf(filename + fnsize, 256 - fnsize, "AUTO-");
+  }
+
+  fnsize += snprintf(
+      filename + fnsize, 256 - fnsize, "%d-%02d-%02d_%02d-%02d-%02d_%s.wav",
+      tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min,
+      tm.tm_sec,
+      audio_runtime_state.calls[audio_runtime_state.current_active_call_id]
+          .phone_number);
+  if (audio_runtime_state.record_next_call) {
+    audio_runtime_state.record_next_call = 0;
+  }
+  logger(MSG_INFO, "%s: File name: %s\n", __func__, filename);
+  file_rx = fopen(filename, "w");
+  struct wav_header *file_header;
+  file_header = malloc(sizeof(struct wav_header));
+
+  // Main header
+  memcpy(file_header->riff_header, "RIFF", 4);
+  file_header->wav_size = 0; // To be filled later
+  memcpy(file_header->wave_header, "WAVE", 4);
+  // Format header
+  memcpy(file_header->fmt_header, "fmt ", 4);
+  file_header->fmt_chunk_size = 16;               // 16bit signed
+  file_header->audio_format = 1;                  // PCM
+  file_header->num_channels = 1;                  // Number of channels
+  file_header->sample_rate = incall_pcm_rx->rate; // 8000 Hz
+  file_header->bits_per_sample = 16;
+  file_header->byte_rate = (incall_pcm_rx->rate * file_header->num_channels *
+                            file_header->bits_per_sample) /
+                           8;
+  file_header->block_align =
+      (file_header->num_channels * file_header->bits_per_sample) / 8;
+
+  memcpy(file_header->data_header, "data", 4);
+  file_header->data_bytes = 0;
+
+  /*
+   * Ensure we loop the file while alerting
+   */
+  while (audio_runtime_state.current_call_state != CALL_STATUS_IDLE) {
+
+    logger(MSG_INFO, "%s: [RECLOOP]\n", __func__);
+    if (file_rx == NULL) {
+      pcm_close(incall_pcm_rx);
+      logger(MSG_ERROR, "%s: Error opening files for writing\n", __func__);
+      audio_runtime_state.is_recording = 0;
+      return NULL;
+    }
+
+    fseek(file_rx, 44, SEEK_SET); // Skip header block so everything is aligned
+    logger(MSG_INFO,
+           "%s: Buffer size: %i b\n"
+           "Period size: %i b\n"
+           "Period count: %i\n",
+           __func__, pcm_get_buffer_size(incall_pcm_rx),
+           incall_pcm_rx->period_size, incall_pcm_rx->period_cnt);
+    /* Frame size */
+    bufsize = pcm_get_buffer_size(incall_pcm_rx);
+    buffer = malloc(bufsize);
+
+    if (!buffer) {
+      logger(MSG_ERROR, "Unable to allocate %d bytes\n", bufsize);
+      fclose(file_rx);
+      pcm_close(incall_pcm_rx);
+      free(buffer);
+      return NULL;
+    }
+
+    do {
+      if (pcm_read(incall_pcm_rx, buffer,
+                   pcm_bytes_to_frames(incall_pcm_rx,
+                                       pcm_get_buffer_size(incall_pcm_rx))) ==
+          0) {
+        fwrite(buffer, bufsize, 1, file_rx);
+        file_header->data_bytes += bufsize;
+      } else {
+        logger(MSG_ERROR, "%s: Error reading RX\n", __func__);
+      }
+
+    } while (audio_runtime_state.current_call_state != CALL_STATUS_IDLE);
+    if (buffer != NULL) {
+      free(buffer);
+    }
+    logger(MSG_ERROR, "%s: Cleaning up\n", __func__);
+    file_header->wav_size = file_header->data_bytes - 8;
+    fseek(file_rx, 0, SEEK_SET); // Save the header
+    fwrite(file_header, sizeof(struct wav_header), 1, file_rx);
+    free(file_header);
+    fclose(file_rx);
+    pcm_close(incall_pcm_rx);
+    /* We disable the mixers last */
+    set_mixer_ctl(mixer, REC_DL, 0);
+    set_mixer_ctl(mixer, REC_UL, 0);
+    /* We disable the mixers last */
+    set_mixer_ctl(mixer, MULTIMEDIA_MIXER_TO_AUX_PCM, 0);
+  }
+  audio_runtime_state.is_recording = 0; // Clear recording flag
+  return NULL;
+}
+
+void record_next_call(bool en) {
+  if (en)
+    audio_runtime_state.record_next_call = 1;
+  else
+    audio_runtime_state.record_next_call = 0;
+}
+
+int record_current_call() {
+  int ret;
+  pthread_t call_thread;
+  logger(MSG_INFO, "%s: \n", __func__);
+  if (audio_runtime_state.current_call_state == CALL_STATUS_IDLE) {
+    return -EINVAL;
+  }
+  audio_runtime_state.record_next_call = 1;
+  if ((ret =
+           pthread_create(&call_thread, NULL, &incall_recording_tread, NULL))) {
+    logger(MSG_ERROR, "%s: Error creating call recording thread\n", __func__);
+  }
+
+  return 0;
+}
 void set_output_device(int device) {
   logger(MSG_DEBUG, "%s: Setting audio output to %i \n", __func__, device);
   audio_runtime_state.output_device = device;
@@ -251,7 +429,9 @@ void set_auxpcm_sampling_rate(uint8_t mode) {
   }
 }
 
-void handle_call_pkt(uint8_t *pkt, int sz) {
+void handle_call_pkt(uint8_t *pkt, int sz,
+                     uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH],
+                     size_t phone_num_len) {
   uint8_t mode = CALL_STATUS_CS;
   uint8_t ret;
   uint8_t calls_active = 0;
@@ -268,6 +448,10 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
     audio_runtime_state.calls[meta->call_id].direction = meta->call_direction;
     audio_runtime_state.calls[meta->call_id].state = meta->call_state;
     audio_runtime_state.calls[meta->call_id].call_type = meta->call_mode;
+    memcpy(audio_runtime_state.calls[meta->call_id].phone_number, phone_number,
+           phone_num_len);
+    logger(MSG_INFO, "Call ID set: ID %i, number: %s\n", meta->call_id,
+           audio_runtime_state.calls[meta->call_id].phone_number);
     switch (meta->call_direction) {
     case CALL_DIRECTION_OUTGOING:
       logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,
@@ -334,7 +518,19 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       if (use_external_codec()) {
         stop_audio();
       }
+      audio_runtime_state.current_active_call_id = meta->call_id;
       start_audio(mode);
+      /* REC PATCH IN*/
+      if (audio_runtime_state.record_next_call ||
+          is_automatic_call_recording_enabled()) {
+        if ((ret = pthread_create(&tone_thread, NULL, &incall_recording_tread,
+                                  NULL))) {
+          logger(MSG_ERROR, "%s: Error creating call recording thread\n",
+                 __func__);
+        }
+        audio_runtime_state.record_next_call = 0; // Clear the flag
+      }
+
       break;
     case CALL_STATE_ON_HOLD:
       audio_runtime_state.is_alerting = 0;
@@ -348,8 +544,7 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
       logger(MSG_INFO, "%s: --> Alerting state \n", __func__);
       if (use_custom_alert_tone()) {
         start_audio(mode);
-      } else if (use_custom_alert_tone() &&
-                 !audio_runtime_state.is_alerting) {
+      } else if (use_custom_alert_tone() && !audio_runtime_state.is_alerting) {
         audio_runtime_state.is_alerting = 1;
         stop_audio();
         if ((ret = pthread_create(&tone_thread, NULL, &play_alerting_tone,
@@ -388,6 +583,7 @@ void handle_call_pkt(uint8_t *pkt, int sz) {
 int set_mixer_ctl(struct mixer *mixer, char *name, int value) {
   struct mixer_ctl *ctl;
   ctl = get_ctl(mixer, name);
+  logger(MSG_INFO, "%s: Set %s to %i\n", __func__, name, value);
   int r;
   if (!ctl) {
     logger(MSG_ERROR, "%s: Setting %s to value %i failed, cant find control \n",
@@ -424,6 +620,8 @@ int set_gain_ctl(struct mixer *mixer, char *name, int type, int value) {
 
 /* Stop mixers and pcm for previously active audio */
 int stop_audio() {
+
+  audio_runtime_state.current_active_call_id = 0;
   if (audio_runtime_state.current_call_state == CALL_STATUS_IDLE) {
     logger(MSG_ERROR, "%s: No call in progress \n", __func__);
     return 1;
@@ -432,16 +630,11 @@ int stop_audio() {
     logger(MSG_ERROR, "%s: Invalid PCM, did it fail to open?\n", __func__);
     return 1;
   }
-  if (audio_runtime_state.is_recording) {
-    logger(MSG_ERROR, "%s:Not stopping audio, it was not open\n", __func__);
-  }
-  if (!audio_runtime_state.is_recording) {
+  if (pcm_tx->fd >= 0)
+    pcm_close(pcm_tx);
+  if (pcm_rx->fd >= 0)
+    pcm_close(pcm_rx);
 
-    if (pcm_tx->fd >= 0)
-      pcm_close(pcm_tx);
-    if (pcm_rx->fd >= 0)
-      pcm_close(pcm_rx);
-  }
   if (!mixer) {
     logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno), __LINE__);
     mixer = mixer_open(SND_CTL);
@@ -629,12 +822,7 @@ int start_audio(int type) {
     logger(MSG_ERROR, "PCM ioctl start failed for RX\n");
     pcm_close(pcm_rx);
   }
-  if (audio_runtime_state.is_recording) {
-    logger(MSG_WARN, "Closing PCM to be able to record\n");
 
-    pcm_close(pcm_rx);
-    pcm_close(pcm_tx);
-  }
   if (type == CALL_STATUS_CS || type == CALL_STATUS_VOLTE) {
     audio_runtime_state.current_call_state = type;
   }

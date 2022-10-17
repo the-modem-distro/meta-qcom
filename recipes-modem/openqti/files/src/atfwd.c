@@ -395,11 +395,11 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 140:
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_record(true);
+    set_automatic_call_recording(true);
     break;
   case 141:
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_record(false);
+    set_automatic_call_recording(false);
     break;
   case 142: // Wipe message storage
     sckret = send_pkt(qmidev, response, pkt_size);

@@ -19,6 +19,7 @@ struct config_prototype {
   uint8_t signal_tracking;
   uint8_t sms_logging;
   uint8_t callwait_autohangup;
+  uint8_t automatic_call_recording;
   bool first_boot;
 };
 
@@ -60,5 +61,9 @@ void set_sms_logging(bool en);
 /* Automatically hang up call waiting */
 int callwait_auto_hangup_operation_mode();
 void enable_call_waiting_autohangup(uint8_t en);
+
+/* Automatic call recording */
+int is_automatic_call_recording_enabled();
+void set_automatic_call_recording(bool en);
 
 #endif

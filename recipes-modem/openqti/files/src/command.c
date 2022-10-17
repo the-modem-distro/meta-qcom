@@ -2,6 +2,7 @@
 
 #include "../inc/command.h"
 #include "../inc/adspfw.h"
+#include "../inc/audio.h"
 #include "../inc/call.h"
 #include "../inc/cell.h"
 #include "../inc/cell_broadcast.h"
@@ -1311,9 +1312,47 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     set_custom_alert_tone(false); // enable in runtime
     break;
-
-
-        //    
+  case 38:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+      if (!use_persistent_logging()) {
+        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recordings will be lost on reboot. Enable persistent logging to avoid it.\n");
+      }
+    add_message_to_queue(reply, strsz);
+    set_automatic_call_recording(true); 
+    break;
+  case 39:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_automatic_call_recording(false);
+    break;
+  case 40:
+    if (record_current_call() == 0) {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text); 
+      if (!use_persistent_logging()) {
+        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recordings will be lost on reboot. Enable persistent logging to avoid it.\n");
+      }
+    } else
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "There is no call in progress!\n");
+    add_message_to_queue(reply, strsz);
+    break;
+  case 41:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+      if (!use_persistent_logging()) {
+        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recording will be lost on reboot. Enable persistent logging to avoid it.\n");
+      }                     
+    add_message_to_queue(reply, strsz);
+    record_next_call(true); 
+    break;
+  case 42:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    record_next_call(false); 
+    break;
 
   case 100:
     set_custom_modem_name(command);

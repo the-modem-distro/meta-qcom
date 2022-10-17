@@ -19,6 +19,12 @@
 #define RXCTL_VOLTE "SEC_AUX_PCM_RX_Voice Mixer VoLTE"
 #define TXCTL_VOLTE "VoLTE_Tx Mixer SEC_AUX_PCM_TX_VoLTE"
 
+//#define REC_TX  "MultiMedia1 Mixer SEC_AUX_PCM_UL_TX"
+/* InCall recording */
+#define REC_DL "MultiMedia1 Mixer VOC_REC_DL"
+#define REC_UL "MultiMedia1 Mixer VOC_REC_UL"
+#define MULTIMEDIA_MIXER_TO_AUX_PCM "MultiMedia1 Mixer SEC_AUX_PCM_UL_TX"
+
 /* Mixers used in Circuit Switch type voice calls (2G/3G) */
 #define RXCTL_VOICE "SEC_AUX_PCM_RX_Voice Mixer CSVoice"
 #define TXCTL_VOICE "Voice_Tx Mixer SEC_AUX_PCM_TX_Voice"
@@ -174,7 +180,29 @@ enum pcm_format {
   PCM_FORMAT_S32_LE,
   PCM_FORMAT_MAX,
 };
-void set_record(bool en);
+
+/* Wave file header */
+struct wav_header {
+    // RIFF header
+    uint8_t riff_header[4];
+    uint32_t wav_size; 
+    uint8_t wave_header[4];
+    // FORMAT header
+    uint8_t fmt_header[4]; // Contains "fmt " (includes trailing space)
+    uint32_t fmt_chunk_size; // Should be 16 for PCM
+    uint16_t audio_format; // Should be 1 for PCM. 3 for IEEE Float
+    uint16_t num_channels;
+    uint32_t sample_rate;
+    uint32_t byte_rate; // Number of bytes per second. sample_rate * num_channels * Bytes Per Sample
+    uint16_t block_align; // num_channels * Bytes Per Sample
+    uint16_t bits_per_sample; // Number of bits per sample
+    
+    // DATA header
+    uint8_t data_header[4]; // Contains "data"
+    uint32_t data_bytes; // Number of bytes in data. Number of samples * num_channels * sample byte size
+    // uint8_t bytes[]; // Remainder of wave file is bytes
+} __attribute__((packed));
+
 void set_audio_runtime_default();
 int use_external_codec();
 void set_output_device(int device);
@@ -200,17 +228,22 @@ int set_mixer_ctl(struct mixer *mixer, char *name, int value);
 int mixer_ctl_set_gain(struct mixer_ctl *ctl, int call_type, int value);
 int stop_audio();
 int start_audio(int type);
-void handle_call_pkt(uint8_t *pkt, int sz);
+void handle_call_pkt(uint8_t *pkt, int sz, uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH], size_t phone_num_len);
 int set_audio_defaults();
 int set_external_codec_defaults();
 void set_auxpcm_sampling_rate(uint8_t mode);
 int pcm_write(struct pcm *pcm, void *data, unsigned count);
 unsigned int pcm_get_buffer_size(const struct pcm *pcm);
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames);
+int pcm_read(struct pcm *pcm, void *data, uint32_t count);
 void setup_codec();
 
 int pico2aud(char *text, size_t len);
 void set_multimedia_mixer();
 void stop_multimedia_mixer();
+/* Recording */
+void record_next_call(bool en);
+int record_current_call();
+unsigned int pcm_bytes_to_frames(const struct pcm *pcm, unsigned int bytes);
 
 #endif

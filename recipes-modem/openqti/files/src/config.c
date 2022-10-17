@@ -47,6 +47,7 @@ int set_initial_config() {
   settings->signal_tracking = 0;
   settings->sms_logging = 0;
   settings->callwait_autohangup = 0;
+  settings->automatic_call_recording = 0;
   settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
@@ -115,15 +116,23 @@ int parse_line(char *buf) {
     settings->callwait_autohangup = atoi(value);
     return 1;
   }
+
   if (strcmp(setting, "sms_logging") == 0) {
     settings->sms_logging = atoi(value);
     return 1;
   }
+  
+  if (strcmp(setting, "automatic_call_recording") == 0) {
+    settings->automatic_call_recording = atoi(value);
+    return 1;
+  }
+  
   if (strcmp(setting, "user_name") == 0) {
     strncpy(settings->user_name, value, sizeof(settings->user_name));
     settings->user_name[(sizeof(settings->user_name) - 1)] = 0;
     return 1;
   }
+  
   if (strcmp(setting, "modem_name") == 0) {
     strncpy(settings->modem_name, value, sizeof(settings->modem_name));
     settings->modem_name[(sizeof(settings->modem_name) - 1)] = 0;
@@ -156,6 +165,7 @@ int write_settings_to_storage() {
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
   fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
+  fprintf(fp, "automatic_call_recording=%i\n", settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
   logger(MSG_INFO, "%s: Close\n", __func__);
   fclose(fp);
@@ -215,6 +225,7 @@ int use_custom_alert_tone() { return settings->custom_alert_tone; }
 int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 int is_sms_logging_enabled() { return settings->sms_logging; }
+int is_automatic_call_recording_enabled() { return settings->automatic_call_recording; }
 
 int callwait_auto_hangup_operation_mode() {
   return settings->callwait_autohangup;
@@ -237,6 +248,17 @@ void set_custom_alert_tone(bool en) {
   } else {
     logger(MSG_WARN, "Disabling custom alert tone\n");
     settings->custom_alert_tone = 0;
+  }
+  write_settings_to_storage();
+}
+
+void set_automatic_call_recording(bool en) {
+  if (en) {
+    logger(MSG_WARN, "Enabling Automatic Call Recording\n");
+    settings->automatic_call_recording = 1;
+  } else {
+    logger(MSG_WARN, "Disabling Automatic Call Recording\n");
+    settings->automatic_call_recording = 0;
   }
   write_settings_to_storage();
 }
