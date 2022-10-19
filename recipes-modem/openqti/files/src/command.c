@@ -1316,38 +1316,49 @@ uint8_t parse_command(uint8_t *command) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
       if (!use_persistent_logging()) {
-        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recordings will be lost on reboot. Enable persistent logging to avoid it.\n");
+        strsz+= snprintf((char *)reply+strsz, MAX_MESSAGE_SIZE - strsz, "WARNING: Saving to ram, will be lost on reboot.\n");
       }
     add_message_to_queue(reply, strsz);
-    set_automatic_call_recording(true); 
+    
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "NOTICE: Call recording can be forbidden in some jurisdictions. Please check https://en.wikipedia.org/wiki/Telephone_call_recording_laws for more details\n");
+    add_message_to_queue(reply, strsz);
+    set_automatic_call_recording(2); 
     break;
-  case 39:
+    case 39:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                    bot_commands[cmd_id].cmd_text);
+    if (!use_persistent_logging()) {
+        strsz+= snprintf((char *)reply+strsz, MAX_MESSAGE_SIZE - strsz, "WARNING: Saving to ram, will be lost on reboot.\n");
+    }
+  add_message_to_queue(reply, strsz);
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "NOTICE: Call recording can be forbidden in some jurisdictions. Please check https://en.wikipedia.org/wiki/Telephone_call_recording_laws for more details\n");
+  add_message_to_queue(reply, strsz);
+  set_automatic_call_recording(1); 
+  break;
+  case 40:
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
-    set_automatic_call_recording(false);
+    set_automatic_call_recording(0);
     break;
-  case 40:
+  case 41:
     if (record_current_call() == 0) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text); 
       if (!use_persistent_logging()) {
-        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recordings will be lost on reboot. Enable persistent logging to avoid it.\n");
+        strsz+= snprintf((char *)reply+strsz, MAX_MESSAGE_SIZE - strsz, "WARNING: Saving to ram, will be lost on reboot.\n");
       }
     } else
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "There is no call in progress!\n");
     add_message_to_queue(reply, strsz);
     break;
-  case 41:
+  case 42:
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
-                     bot_commands[cmd_id].cmd_text);
-      if (!use_persistent_logging()) {
-        strsz+= snprintf((char *)reply, MAX_MESSAGE_SIZE, "WARNING: Recording will be lost on reboot. Enable persistent logging to avoid it.\n");
-      }                     
+                     bot_commands[cmd_id].cmd_text);                 
     add_message_to_queue(reply, strsz);
     record_next_call(true); 
     break;
-  case 42:
+  case 43:
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
