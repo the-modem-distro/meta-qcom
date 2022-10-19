@@ -435,7 +435,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
 }
 
 /*
- * Build and send SMS
+ * Build and send SMS without touching the contents (for UCS2/8B encoded messages)
  *  Gets message ID, builds the QMI messages and sends it
  *  Returns numnber of bytes sent.
  *  Since oFono tries to read the message an arbitrary number
