@@ -64,6 +64,6 @@ void enable_call_waiting_autohangup(uint8_t en);
 
 /* Automatic call recording */
 int is_automatic_call_recording_enabled();
-void set_automatic_call_recording(bool en);
+void set_automatic_call_recording(uint8_t mode);
 
 #endif

@@ -252,8 +252,11 @@ void set_custom_alert_tone(bool en) {
   write_settings_to_storage();
 }
 
-void set_automatic_call_recording(bool en) {
-  if (en) {
+void set_automatic_call_recording(uint8_t mode) {
+  if (mode == 2) {
+    logger(MSG_WARN, "Enabling Automatic Call Recording (record and recycle)\n");
+    settings->automatic_call_recording = 2;
+  } else if (mode == 1) {
     logger(MSG_WARN, "Enabling Automatic Call Recording\n");
     settings->automatic_call_recording = 1;
   } else {
