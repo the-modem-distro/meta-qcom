@@ -18,7 +18,6 @@ if [ -f "/persist/openqti.log" ]; then
     fi
     logNum=$((logNum - 1))
     logFiles[$logNum]="$logFile"
-    echo "Saved ${logFiles[${logNum}]} with index ${logNum}"
   done
   for ((i=${#logFiles[@]}; i>0; i--)); do
     [ $i -gt 20 ] && continue
@@ -53,7 +52,6 @@ if [ -f "/persist/thermal.log" ]; then
     fi
     logNum=$((logNum - 1))
     logFiles[$logNum]="$logFile"
-    echo "Saved ${logFiles[${logNum}]} with index ${logNum}"
   done
   for ((i=${#logFiles[@]}; i>0; i--)); do
     [ $i -gt 20 ] && continue
