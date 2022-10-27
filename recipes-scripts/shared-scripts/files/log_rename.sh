@@ -1,41 +1,71 @@
-#/bin/bash
-# Shamelessly copied from https://unix.stackexchange.com/questions/603309/how-to-rename-a-batch-of-log-files-incrementally-without-overwrite-using-bash
+#!/bin/bash
 
 if [ -f "/persist/openqti.log" ]; then
-    log_names=$(for logfile in $(find /persist -type f -name 'openqti.log*'); do echo ${logfile%.[0-9]*}; done | sort -u)
-    for name in $log_names; do
-        echo "Processing $name"
-        i=20
-        until [[ "$i" -eq 0 ]]; do
-            if [[ -f "$name.$i" ]]; then
-                next_num=$((i+1))
-                mv -v "$name.$i" "$name.$next_num"
-            fi
-            i=$((i-1))
-        done
-        if [[ -f "$name" ]]; then
-            mv -v "$name" "$name.1"
-        fi
-        touch "$name"
-    done
+  # Really a shame that readarray is not supported in this bash shell
+  # Doing this the manual, hard way
+  # readarray -t logFiles < <(find /persist -type f -name 'openqti.log*' -o -type f -name 'openqti-*.log')
+  declare -a logFiles
+  for logFile in /persist/openqti.log* /persist/openqti-*.log; do
+    [ ! -f "$logFile" ] && continue
+    unset logNum
+    if [[ "${logFile}" =~ openqti-[1-9][0-9]*.log ]]; then
+      logNum=$(basename "${logFile}" | awk -F'[-.]' '{print $2}')
+    elif [[ "${logFile}" =~ openqti.log.[1-9][0-9]* ]]; then
+      logNum=$(basename "${logFile}" | awk -F. '{print $NF}')
+    else
+      # Skip unrecognized filename
+      continue
+    fi
+    logNum=$((logNum - 1))
+    logFiles[$logNum]="$logFile"
+    echo "Saved ${logFiles[${logNum}]} with index ${logNum}"
+  done
+  for ((i=${#logFiles[@]}; i>0; i--)); do
+    [ $i -gt 20 ] && continue
+    index=$((i - 1))
+    fileNum=$((i +1))
+    echo "Processing ${logFiles[$index]}"
+    fileDir=$(dirname "${logFiles[$index]}")
+    echo "moving ${logFiles[${index}]} -> ${fileDir}/openqti-${fileNum}.log"
+    mv ${logFiles[${index}]} ${fileDir}/openqti-${fileNum}.log
+  done
+  echo "moving /persist/openqti.log -> /persist/openqti-1.log"
+  mv /persist/openqti.log /persist/openqti-1.log
+  touch /persist/openqti.log
+  unset logFiles
 fi
 
-
 if [ -f "/persist/thermal.log" ]; then
-    log_names=$(for logfile in $(find /persist -type f -name 'thermal.log*'); do echo ${logfile%.[0-9]*}; done | sort -u)
-    for name in $log_names; do
-        echo "Processing $name"
-        i=20
-        until [[ "$i" -eq 0 ]]; do
-            if [[ -f "$name.$i" ]]; then
-                next_num=$((i+1))
-                mv -v "$name.$i" "$name.$next_num"
-            fi
-            i=$((i-1))
-        done
-        if [[ -f "$name" ]]; then
-            mv -v "$name" "$name.1"
-        fi
-        touch "$name"
-    done
+  # Really a shame that readarray is not supported in this bash shell
+  # Doing this the manual, hard way
+  # readarray -t logFiles < <(find /persist -type f -name 'thermal.log*' -o -type f -name 'thermal-*.log')
+  declare -a logFiles
+  for logFile in /persist/thermal.log* /persist/thermal-*.log; do
+    [ ! -f "$logFile" ] && continue
+    unset logNum
+    if [[ "${logFile}" =~ thermal-[1-9][0-9]*.log ]]; then
+      logNum=$(basename "${logFile}" | awk -F'[-.]' '{print $2}')
+    elif [[ "${logFile}" =~ thermal.log.[1-9][0-9]* ]]; then
+      logNum=$(basename "${logFile}" | awk -F. '{print $NF}')
+    else
+      # Skip unrecognized filename
+      continue
+    fi
+    logNum=$((logNum - 1))
+    logFiles[$logNum]="$logFile"
+    echo "Saved ${logFiles[${logNum}]} with index ${logNum}"
+  done
+  for ((i=${#logFiles[@]}; i>0; i--)); do
+    [ $i -gt 20 ] && continue
+    index=$((i - 1))
+    fileNum=$((i +1))
+    echo "Processing ${logFiles[$index]}"
+    fileDir=$(dirname "${logFiles[$index]}")
+    echo "moving ${logFiles[${index}]} -> ${fileDir}/thermal-${fileNum}.log"
+    mv ${logFiles[${index}]} ${fileDir}/thermal-${fileNum}.log
+  done
+  echo "moving /persist/thermal.log -> /persist/thermal-1.log"
+  mv /persist/thermal.log /persist/thermal-1.log
+  touch /persist/thermal.log
+  unset logFiles
 fi
