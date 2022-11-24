@@ -3,55 +3,67 @@
 1peter10
 adamplumb
 agentcasey
+aki
 akrosi8
 alaraajavamma
 Alex
+alexandre.b
+alexmitter
 Alexmitter
+ali
+aljmvo
 alt_plex
-Andrey
+Andrejs
+Andrey Skvortsov
 Angus
-anjan
-Anonymous
+anjan (he/him)
 anthony1224
+archmaster
 Aren
 arkeo
 Armen
 arne-b
+Asara
 atheatos
+az4521
 @b342
-baarkerlounger
+baarkerlounger 
 barba32
 Baroque_0bamo
-bel_polaris
 bicep
 bicyKlette
+Bifrost Bot
 bigd50384
+biktorgj
+billfleming
 biovoid
 bitcompact
 boud
+Braiden
 bujiraso
+calbasi
 CalcProgrammer1
-Caleb
-Carl
+Caleb Fontenot
+Carl Schwan
 catworld76
 Chance Johnson
 chris
 citrahops
 codephase
-comrandroxaos
 Craig
 DaBao
 dabud
 DaKnig
+Darren Ng
 das oe
-David
+DavidDrapeau
+dcc
 DebianTux
 dekedro
 Delirious Error
-dem
 Demokrit
-denna
 devrtz
+devuno
 dflag84
 dibi58
 Didrole
@@ -59,12 +71,12 @@ djhg2000
 djselbeck
 dpa
 DrPi
+DrRac27
 dschmidt346
-Dylan
-edgar
+Dylan Van Assche
+edgar.vincent
 edorigatti
 Egor Vorontsov
-@elagost
 emiltoacs
 enrico_
 error33
@@ -72,69 +84,84 @@ Eskuero
 eugen
 ex-bian
 f-c
-Ferenc
+Ferenc Géczi
 fervi
+fon
 funter
 Fuzzy7k
-gamelaster (gamiee)
+gamelaster
+Gavin R
 Gergely
 gischpelino
 gizmuth
 gled
 glrsn
 gopro2718
+gorbehnare
 grallo666
 grossaffe
 gyoung
 hamblingreen
 hank
 hazardchem
+heidnixneis
 Hercules
 heuristic_sloth
+hhttseee
 horizoninnovations
 idiochromatic
 increscent
+insidetrip101
+ivanrancic
 jack_kekzoz
 jan379
 JayVii
+Jean
+Jethro
 jgart
 jhasler
 Jk Jk
+jmarion.dev
 Joe Joew
 joergsch
 joesroom
 jones3echo
 joshua
-JulianGro
+JulianGro 
 jwillikers
 kailueke
 karl
 katastrophe
 kescher
-Kevin
+Kevin Keijzer
 khimaros
 kmsgli
+knoppix
+kodas
 kop316
+Kurt Morgan
 laalsaas
 Laďa
+laurent_c_31
 letsgo532
-llt
+llt🐞
+lnxusr
 lolgzs
 loveisfoss
 luigi311
 lulatsch66
-m1n1m4!
 madrox
 manjaroarmpinephone
 marcin
 Marco Mattiolo
 Marian Stramm
 MarkP
-Martijn
+Martijn Braam
 maryjane
 massi
 MatMaul
 MayeulC
+mdsmds
 Merlin
 mfor
 michaelskyf
@@ -143,65 +170,80 @@ milesalan
 milkysway
 minecrell[m]
 mirsal
-Mod
+Mobot II
+mogolobogo
+momi
 moreno
 mpeter
 mpodshivalin
 mrbone
+mr.soup
 murks
 n2por
 Nano Red
 narvod
 Neil Jerram
+nenad.gajic
 neovalis
 Nico Rikken
 nightstudent
 nivea
 nobodyinperson
-noneucat
+noneucat@noneucat:lolc.at
+noneucat@noneucat:matrix.org
+NotKamui
 nu99et
 nug
+olaf
 olexorus
 ollieparanoid
+osteoblast22
 Pataclop
 Peetz0r
+Pine64
 pentamassiv
 Peter Bronsveld
 petersen77
 pho
 Phoenix LandPirate
 piggz
-Pine64
+pinecone76
 pisar
 PReDiToR
+PublicLewdness
 QC8086
-qwertzuio
+Quinn Stambaugh
 rAge
 ragreenburg
 raklan148
+randomcomputers
 RapidRotator
-Richard
+Richard Nicholl
 robfreedev
 rockScrambler
 rolodondo34
 rsglobal
 Runiq
+ryanam
 rza.pinephone
 saba
+sandals
+scorpion2185
 scotabroad
+sdr3
 Sebastian
+sensei1304
 Sensei1304
 seph
 shinkamui
 sl4ck
-sleep
 snm
 somefoo
-spaetz
 spaetz
 ssinger
 stanislaw
 sunoke
+sunzu
 Syd Garlathy
 T. H. Wright
 talpadk
@@ -211,17 +253,19 @@ tetrakist
 The01player
 The3DmaN
 theidiotyouyellat
+thejollyrodger69
 thenh813
 Thomas
 tigershark_1969
 tiggilyboo
 tim
 TimSmall
-tinybronca
 ubicuity
 umapo
+undeadleech
 Undef
 Undef_
+underpantsgnome
 Uniformbuffer
 username012
 v3ct0r
@@ -230,10 +274,13 @@ vmaurin
 vmtech
 VVelox
 wart_
+Watchman Gee
 weclaw
 wfk
+WhiskeyTangoFoxtrot
 wmohanlon
 woo2
+WTF
 x3b881z4
 xad6
 xavi92
@@ -242,3 +289,4 @@ xnopasaranx
 zapeth_
 ZenWalker
 zero_one
+zuccon
