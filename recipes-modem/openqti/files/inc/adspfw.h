@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define ADSPFW_GEN_FILE "/lib/firmware/image/modem.b12"
+#define ADSPFW_GEN_FILE "/lib/firmware/modem.b12"
 
 static const struct {
   unsigned int id;

@@ -10,6 +10,9 @@
 #define IPC_ROUTER 27     // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address
 
+/* When we get to mainline we'll stop using MSM IPC...*/
+#define AF_QRTR 42
+
 // As specified in the kernel
 #define IPC_ROUTER_DPM_ADDRTYPE 1
 // From the decoded packets, this should be 2, not 1 like for DPM

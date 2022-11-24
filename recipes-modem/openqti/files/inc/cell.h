@@ -13,6 +13,13 @@
 #define GET_COMMON_IND_RESPONSE_PROTO "+CIND:"
 #define GET_IMSI "AT+CIMI\r\n"
 
+/* 
+ * Note to self: all this has to go.
+ * This is only compatible with Quectel's firmware, and is fighting for access to the AT port against
+ * ModemManager and EG25-Manager. And it's losing. And it fucks up sometimes with AGPS data.
+ * ... and it's a shitty unfinished implementation anyway.
+ *
+ */
 struct gsm_neighbour {
   int arfcn;
   int cell_resel_priority;

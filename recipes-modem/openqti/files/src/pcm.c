@@ -138,7 +138,7 @@ int set_params(struct pcm *pcm, int path) {
   params =
       (struct snd_pcm_hw_params *)calloc(1, sizeof(struct snd_pcm_hw_params));
   if (!params) {
-    fprintf(stderr, "failed to allocate ALSA hardware parameters!");
+    logger(MSG_ERROR, "%s: failed to allocate ALSA hardware parameters!", __func__);
     return -ENOMEM;
   }
 
@@ -158,7 +158,7 @@ int set_params(struct pcm *pcm, int path) {
 
   param_set_hw_refine(pcm, params);
   if (param_set_hw_params(pcm, params)) {
-    fprintf(stderr, "cannot set hw params");
+    logger(MSG_ERROR, "%s: cannot set hw params\n", __func__);
     return -1;
   }
 
@@ -168,7 +168,7 @@ int set_params(struct pcm *pcm, int path) {
   sparams =
       (struct snd_pcm_sw_params *)calloc(1, sizeof(struct snd_pcm_sw_params));
   if (!sparams) {
-    fprintf(stderr, "failed to allocate ALSA software parameters!\n");
+    logger(MSG_ERROR, "%s: failed to allocate ALSA software parameters!\n", __func__);
     return -ENOMEM;
   }
   sparams->tstamp_mode = SNDRV_PCM_TSTAMP_NONE;
@@ -192,7 +192,7 @@ int set_params(struct pcm *pcm, int path) {
   sparams->silence_threshold = 0;
 
   if (param_set_sw_params(pcm, sparams)) {
-    fprintf(stderr, "cannot set sw params");
+    logger(MSG_ERROR, "%s: cannot set sw params", __func__);
     return -1;
   }
   return 0;
@@ -338,4 +338,48 @@ static unsigned int pcm_format_to_bits(enum pcm_format format) {
 }
 unsigned int pcm_frames_to_bytes(struct pcm *pcm, unsigned int frames) {
   return frames * pcm->channels * (pcm_format_to_bits(pcm->format) >> 3);
+}
+
+/** Determines how many frames of a PCM can fit into a number of bytes.
+ * @param pcm A PCM handle.
+ * @param bytes The number of bytes.
+ * @return The number of frames that may fit into @p bytes
+ * @ingroup libtinyalsa-pcm
+ */
+unsigned int pcm_bytes_to_frames(const struct pcm *pcm, unsigned int bytes)
+{
+    return bytes / (pcm->channels *
+        (pcm_format_to_bits(pcm->format) >> 3));
+}
+
+int pcm_read(struct pcm *pcm, void *data, uint32_t frames)
+{
+    struct snd_xferi x;
+    if (!(pcm->flags & PCM_IN))
+        return -EINVAL;
+    x.buf = data;
+    x.frames = frames;
+    for (;;) {
+        if (!pcm->running) {
+            if (pcm_prepare(pcm))
+                return -errno;
+            if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_START)) {
+                logger(MSG_ERROR, "%s: SNDRV_PCM_IOCTL_START failed\n", __func__);
+                return -errno;
+            }
+            pcm->running = 1;
+        }
+        if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_READI_FRAMES, &x)) {
+            if (errno == EPIPE) {
+                /* we failed to make our window -- try to restart */
+                logger(MSG_ERROR, "%s: Overrun Error\n", __func__);
+                pcm->underruns++;
+                pcm->running = 0;
+                continue;
+            }
+            logger(MSG_ERROR, "%s: Error %d\n", __func__, errno);
+            return -errno;
+        }
+        return 0;
+    }
 }

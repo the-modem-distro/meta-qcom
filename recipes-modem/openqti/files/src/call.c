@@ -725,7 +725,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
               __func__);
           close_internal_call(usbfd, pkt->qmi.transaction_id);
         }
-        handle_call_pkt(bytes, len);
+        handle_call_pkt(bytes, len, phone_number, strlen((char*)phone_number));
       }
     } else {
       /* Caller ID is *NOT* set */
@@ -735,7 +735,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
         logger(MSG_WARN, "%s: Unknown number %s\n", __func__, log_phone_number);
         memcpy((uint8_t *)phone_number, (uint8_t *)"Unknown",
                strlen("Unknown"));
-        handle_call_pkt(bytes, len);
+        handle_call_pkt(bytes, len, phone_number, strlen((char*)phone_number));
       }
     }
     break;
