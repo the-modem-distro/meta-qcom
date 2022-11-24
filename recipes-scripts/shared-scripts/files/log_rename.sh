@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ -f "/persist/openqti.log" ]; then
   # Really a shame that readarray is not supported in this bash shell
