@@ -1209,7 +1209,8 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
       dump_pkt_raw(bytes, len);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP END\n", __func__);
       set_log_level(1);
-      add_message_to_queue((uint8_t *)"Incoming Cell Broadcast Message", strlen("Incoming Cell Broadcast Message"));
+      if ((pkt->message.pdu.page_param >> 4) == 0x01)
+        add_message_to_queue((uint8_t *)"WARNING: Incoming Cell Broadcast Message from the network", strlen("WARNING: Incoming Cell Broadcast Message from the network"));
 
       // If binary for encoding is 01xx xxxx, then we have encoding data
       // Otherwise we assume it's something else and encoding is GSM7
@@ -1242,7 +1243,7 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
 
           } else {
             ret = gsm7_to_ascii(pkt->message.pdu.contents,
-                                  strlen((char *)pkt->message.pdu.contents),
+                                  (pkt->message.len - 6), // == sizeof(cell_broadcast_message_pdu -6 byte from the serial, message id, encoding and page)
                                   (char *)output, pkt->message.len); // 2 ui16, 2 ui8
               if (ret < 0) {
                 logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
