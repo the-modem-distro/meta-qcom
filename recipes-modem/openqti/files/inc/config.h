@@ -49,6 +49,7 @@ void set_user_name(char *name);
 /* Persistent logging */
 int use_persistent_logging();
 void set_persistent_logging(bool en);
+char *get_openqti_logfile();
 
 /* Is first boot? */
 bool is_first_boot();

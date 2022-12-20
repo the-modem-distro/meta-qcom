@@ -47,7 +47,6 @@ void logger(uint8_t level, char *format, ...) {
   va_list args;
   double elapsed_time;
   struct timespec current_time;
-  int persist = use_persistent_logging();
   clock_gettime(CLOCK_MONOTONIC, &current_time);
   elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
                   (current_time.tv_nsec - startup_time.tv_nsec)) /
@@ -57,15 +56,11 @@ void logger(uint8_t level, char *format, ...) {
     if (!log_to_file) {
       fd = stdout;
     } else {
-      if (persist) {
-        fd = fopen(PERSISTENT_LOGPATH, "a");
-      } else {
-        fd = fopen(VOLATILE_LOGPATH, "a");
-      }
-      if (fd < 0) {
-        fprintf(stderr, "[%s] Error opening logfile \n", __func__);
-        fd = stdout;
-      }
+        fd = fopen(get_openqti_logfile(), "a");
+        if (fd < 0) {
+          fprintf(stderr, "[%s] Error opening logfile \n", __func__);
+          fd = stdout;
+        }
     }
 
     switch (level) {
@@ -144,16 +139,11 @@ void log_thermal_status(uint8_t level, char *format, ...) {
 void dump_packet(char *direction, uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
-  int persist = use_persistent_logging();
   if (log_level == 0) {
     if (!log_to_file) {
       fd = stdout;
     } else {
-      if (persist) {
-        fd = fopen(PERSISTENT_LOGPATH, "a");
-      } else {
-        fd = fopen(VOLATILE_LOGPATH, "a");
-      }
+      fd = fopen(get_openqti_logfile(), "a");
       if (fd < 0) {
         fprintf(stderr, "[%s] Error opening logfile \n", __func__);
         fd = stdout;
@@ -173,27 +163,22 @@ void dump_packet(char *direction, uint8_t *buf, int pktsize) {
 void dump_pkt_raw(uint8_t *buf, int pktsize) {
   int i;
   FILE *fd;
-  int persist = use_persistent_logging();
   if (log_level == 0) {
 
     if (!log_to_file) {
       fd = stdout;
     } else {
-      if (persist) {
-        fd = fopen(PERSISTENT_LOGPATH, "a");
-      } else {
-        fd = fopen(VOLATILE_LOGPATH, "a");
-      }
+      fd = fopen(get_openqti_logfile(), "a");
       if (fd < 0) {
         fprintf(stderr, "[%s] Error opening logfile \n", __func__);
         fd = stdout;
       }
     }
-    fprintf(fd, "RAW :");
+    fprintf(fd, "raw_pkt[] = {");
     for (i = 0; i < pktsize; i++) {
-      fprintf(fd, "0x%02x ", buf[i]);
+      fprintf(fd, "0x%02x, ", buf[i]);
     }
-    fprintf(fd, "\n");
+    fprintf(fd, " }; \n");
     if (fd != stdout) {
       fclose(fd);
     }
