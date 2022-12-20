@@ -55,10 +55,9 @@ struct tlv_header {
 } __attribute__((packed));
 
 struct signal_quality_tlv {
-  uint8_t id;           // 0x10
-  uint16_t len;         // 0x02
-  uint8_t signal_level; // dBm
-  uint8_t network_type; // check cell.c
+  uint8_t id;           // 0x10 = CDMA, 0x11 HDR, 0x12 GSM, 0x13 WCDMA, 0x14 LTE
+  uint16_t len;         // We only care about the RSSI, but there's more stuff in here
+  uint8_t signal_level; // RSSI
 } __attribute__((packed));
 
 struct nas_signal_lev {
@@ -66,6 +65,8 @@ struct nas_signal_lev {
   struct qmux_packet qmuxpkt;
   /* QMI header */
   struct qmi_packet qmipkt;
+  /* Operation result */
+  struct qmi_generic_result_ind result;
   /* Signal level data */
   struct signal_quality_tlv signal;
 
