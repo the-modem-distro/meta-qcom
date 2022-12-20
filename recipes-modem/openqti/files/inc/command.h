@@ -64,6 +64,8 @@ static const struct {
     {41, "record this call", "I got this", "Records current established call"},
     {42, "record next call", "I will record the new call you make or receive", "Automatically records the next established call"},
     {43, "cancel record next call", "I won't record the new call you make or receive", "Cancel automatic recording of next call"},
+    {44, "dbg", "Sending sample CB messages...", "Send demo cell broadcast message"},
+    {45, "dbgucs", "Sending sample CB UCS-2 messages...", "Send demo cell broadcast message"}
 };
 
 static const struct {
