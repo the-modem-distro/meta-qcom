@@ -153,7 +153,10 @@ static const struct {
     {140, "+RECON"},
     {141, "+RECOFF"},
     {142, "+WIPESMS"},
-    {143, "+QCFG=\"secbootstat\""}
+    {143, "+QCFG=\"secbootstat\""},
+    {144, "+SEND_SAMPLE_CB"},
+    {145, "+SEND_RANDOM_CB"},
+    {146, "+SEND_MULTIPART_CB"},
 };
 
 #define AT_REG_REQ 0x0020
@@ -211,5 +214,12 @@ int set_audio_profile(uint8_t io, uint8_t mode, uint8_t fsync, uint8_t clock,
 
 void *start_atfwd_thread();
 char *get_adsp_version();
+
+/* DEBUG CB */
+bool at_debug_cb_message_requested();
+bool at_debug_random_cb_message_requested();
+bool at_debug_stream_cb_message_requested();
+
+void send_cb_message_to_modemmanager(int usbfd, int message_id);
 #define GET_ADSP_VER_CMD "AT+QGMR"
 #endif
