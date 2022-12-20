@@ -76,6 +76,20 @@ int get_transceiver_suspend_state() {
  *  When phone wakes up again (assuming something was
  *  using it), GPS is still active and won't need resyncing
  */
+void find_and_set_current_sms_memory_index(uint8_t *buf, int len) {
+  char* pos;
+  uint8_t val;
+  if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
+    logger(MSG_WARN, "%s CMTI Report: %s\n", __func__, buf);
+    pos = strstr((char*)buf, ",");
+    if (pos != NULL) {
+      val = atoi(pos);
+      logger(MSG_WARN, "%s: Memory index: %u\n", __func__, val);
+      set_pending_messages_in_adsp(val);
+    }
+  }
+  pos = NULL;
+}
 
 void *gps_proxy() {
   struct node_pair *nodes;
@@ -121,6 +135,11 @@ void *gps_proxy() {
       ret = read(nodes->node1.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
         dump_packet("GPS_SMD-->USB", buf, ret);
+        // CMTI Initial check:
+        if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
+          logger(MSG_WARN, "CMTI Report: %s", buf);
+          find_and_set_current_sms_memory_index(buf, ret);
+        }
         if (!get_transceiver_suspend_state() && nodes->node2.fd >= 0) {
           gps_packet_stats.allowed++;
           ret = write(nodes->node2.fd, buf, ret);
@@ -188,6 +207,18 @@ uint8_t process_simulated_packet(uint8_t source, int adspfd, int usbfd) {
   if (get_call_simulation_mode()) {
     notify_simulated_call(usbfd);
   }
+
+  if (at_debug_cb_message_requested()) {
+    send_cb_message_to_modemmanager(usbfd, 0);
+  }
+
+  if (at_debug_random_cb_message_requested()) {
+    send_cb_message_to_modemmanager(usbfd, -1);
+  }
+  if (at_debug_stream_cb_message_requested()) {
+    send_cb_message_to_modemmanager(usbfd, -2);
+  }
+  
   return 0;
 }
 
@@ -260,68 +291,68 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
    * need to do too much
    */
   switch (ctl_packet->qmux.service) {
-  case 0: // Control packet with no service
-    logger(MSG_DEBUG, "%s Control packet \n",
-           __func__); // reroute to the tracker for further inspection
-    if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
-      track_client_count(pkt, source, pkt_size, adspfd, usbfd);
-    }
-    break;
-
-  case 3:
-    logger(MSG_DEBUG, "%s: Network Access service\n", __func__);
-    struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
-    if (level->qmipkt.msgid == 0x0002 && level->signal.id == 0x10) {
-      update_network_data(level->signal.network_type,
-                          level->signal.signal_level);
-      if (is_first_boot()) {
-        send_hello_world();
+    case 0: // Control packet with no service
+      logger(MSG_DEBUG, "%s Control packet \n",
+            __func__); // reroute to the tracker for further inspection
+      if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
+        track_client_count(pkt, source, pkt_size, adspfd, usbfd);
       }
-      if (get_call_simulation_mode()) {
-        logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
-               __func__);
-        action = PACKET_BYPASS;
+      break;
+
+    case 3:
+      logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
+      if (packet->qmi.msgid == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
+        struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
+        update_network_data(level->signal.id,
+                            level->signal.signal_level);
+        if (is_first_boot()) {
+          send_hello_world();
+        }
+        if (get_call_simulation_mode()) {
+          logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
+                __func__);
+          action = PACKET_BYPASS;
+        }
+        level = NULL;
       }
-    }
-    level = NULL;
-    break;
-  /* Here we'll trap messages to the Modem */
-  /* FIXME->FIXED: HERE ONLY MESSAGES TO OUR CUSTOM TARGET! */
-  /* FIXME: Track message notifications too */
-  case 5: // Message for the WMS service
-    action = PACKET_FORCED_PT;
-    logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
-    if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
-      action = PACKET_BYPASS; // We bypass response
-    } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
+      break;
+    /* Here we'll trap messages to the Modem */
+    case 5: // Message for the WMS service
       action = PACKET_FORCED_PT;
-    } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
+      logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
+      if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_BYPASS; // We bypass response
+      } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_FORCED_PT;
+      } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_FORCED_PT;
+      } else if (check_wms_list_all_messages(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_FORCED_PT;
+      } else if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_BYPASS; // We bypass response
+      }
+
+      break;
+
+    /* Here we'll handle in call audio and simulated voicecalls */
+    /* REMEMBER: 0x002e -> Call indication
+                0x0024 -> All Call information */
+    case 9: // Voice service
       action = PACKET_FORCED_PT;
-    } else if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
-      action = PACKET_BYPASS; // We bypass response
-    }
+      if (call_service_handler(source, pkt, pkt_size, packet->qmi.msgid, adspfd,
+                              usbfd)) {
+        action = PACKET_BYPASS; // in case user is calling us specifically
+      }
+      break;
 
-    break;
+    case 16: // Location service
+      logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
+            packet->qmi.msgid);
+      gps_packet_stats.other++;
+      break;
 
-  /* Here we'll handle in call audio and simulated voicecalls */
-  /* REMEMBER: 0x002e -> Call indication
-               0x0024 -> All Call information */
-  case 9: // Voice service
-    action = PACKET_FORCED_PT;
-    if (call_service_handler(source, pkt, pkt_size, packet->qmi.msgid, adspfd,
-                             usbfd)) {
-      action = PACKET_BYPASS; // in case user is calling us specifically
-    }
-    break;
-
-  case 16: // Location service
-    logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
-           packet->qmi.msgid);
-    gps_packet_stats.other++;
-    break;
-
-  default:
-    break;
+    default:
+      break;
   }
   packet = NULL;
   ctl_packet = NULL;
@@ -348,7 +379,12 @@ uint8_t is_inject_needed() {
   } else if (get_call_simulation_mode()) {
     logger(MSG_DEBUG, "%s: In simulated call\n", __func__);
     return 1;
-  }
+  } else if (at_debug_cb_message_requested() || 
+            at_debug_random_cb_message_requested() ||
+            at_debug_stream_cb_message_requested()) {
+        logger(MSG_INFO, "We're going to fake some Cell Broadcast messages now");
+    return 1;
+  } 
 
   return 0;
 }
