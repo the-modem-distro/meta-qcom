@@ -71,18 +71,16 @@ int read_tasks_from_storage() {
   FILE *fp;
   int ret;
   struct task_p tasks[MAX_NUM_TASKS];
-  logger(MSG_INFO, "%s: Start\n", __func__);
-  logger(MSG_INFO, "%s: Open file\n", __func__);
+  logger(MSG_DEBUG, "%s: Start, open file\n", __func__);
   fp = fopen(SCHEDULER_DATA_FILE_PATH, "r");
   if (fp == NULL) {
-    logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
+    logger(MSG_DEBUG, "%s: Can't open config file for reading\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Store\n", __func__);
   ret = fread(tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
-  logger(MSG_INFO, "%s: Close (%i bytes read)\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Close (%i bytes read)\n", __func__, ret);
   if (ret >= sizeof(struct task_p)) {
-    logger(MSG_INFO, "%s: Recovering tasks\n ", __func__);
+    logger(MSG_DEBUG, "%s: Recovering tasks\n ", __func__);
     for (int i = 0; i < MAX_NUM_TASKS; i++) {
       sch_runtime.tasks[i] = tasks[i];
     }
