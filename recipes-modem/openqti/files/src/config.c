@@ -220,6 +220,12 @@ void clear_ifrst_boot_flag() { settings->first_boot = false; }
 
 int use_persistent_logging() { return settings->persistent_logging; }
 
+char *get_openqti_logfile() {
+  if (settings->persistent_logging)
+    return PERSISTENT_LOGPATH;
+
+  return VOLATILE_LOGPATH;
+}
 int use_custom_alert_tone() { return settings->custom_alert_tone; }
 
 int is_signal_tracking_enabled() { return settings->signal_tracking; }
