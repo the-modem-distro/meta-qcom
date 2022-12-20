@@ -89,9 +89,15 @@ int remove_client(uint8_t service, uint8_t instance) {
 }
 
 int set_current_host_app(uint8_t app) {
+  if (app == HOST_USES_MODEMMANAGER) {
+    logger(MSG_INFO, "%s: Hello ModemManager!\n", __func__);
+  } else if (app == HOST_USES_OFONO) {
+    logger(MSG_INFO, "%s: Hello oFono!\n", __func__);
+  }
+
   if (app == HOST_USES_MODEMMANAGER || app == HOST_USES_OFONO) {
     client_tracking.host_side_managing_app = app;
-    logger(MSG_INFO, "%s: Host app is 0x%2x \n", __func__, app);
+    logger(MSG_INFO, "%s: Host app internal id: 0x%2x \n", __func__, app);
     return 0;
   }
   logger(MSG_ERROR, "%s: Host app is unknown: 0x.%2x \n", __func__, app);
