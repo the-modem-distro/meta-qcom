@@ -31,6 +31,7 @@ enum {
   WMS_READ_MESSAGE = 0x0022,
   WMS_DELETE = 0x0024,
   WMS_GET_MSG_PROTOCOL = 0x0030,
+  WMS_LIST_ALL_MESSAGES = 0x0031,
 };
 
 /* For GSM7 message decoding */
@@ -547,11 +548,48 @@ struct outgoing_no_validity_period_sms_packet {
   struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
+/* List all messages */
+struct sms_list_all_message_data {
+  uint32_t message_id;
+  uint8_t message_type;
+} __attribute__((packed));
+
+struct sms_list_all_message_info {
+  uint8_t type; // 0x01
+  uint16_t len;
+  uint32_t number_of_messages_listed; // number of what's to come
+} __attribute__((packed));
+
+struct sms_list_all_resp {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+  struct sms_list_all_message_info info;
+  struct sms_list_all_message_data data[0];
+} __attribute__((packed));
+
+struct raw_sms {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+
+  uint8_t type_id; // 0x01
+  uint16_t len;
+  uint8_t data[0];
+} __attribute__((packed));
+
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);
 void set_pending_notification_source(uint8_t source);
+
+
+
 uint8_t get_notification_source();
+void set_pending_messages_in_adsp(uint32_t index);
+uint32_t get_pending_messages_in_adsp();
+uint32_t get_internal_pending_messages();
+
 bool is_message_pending();
 uint8_t generate_message_notification(int fd, uint32_t message_id);
 uint8_t ack_message_notification(int fd, uint8_t pending_message_num);
@@ -565,6 +603,8 @@ void add_sms_to_queue(uint8_t *message, size_t len);
 void notify_wms_event(uint8_t *bytes, size_t len, int fd);
 int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
                       int usbfd);
+int check_wms_list_all_messages(void *bytes, size_t len, int adspfd,
+                                 int usbfd);
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd);
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);
