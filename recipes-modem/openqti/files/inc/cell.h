@@ -13,6 +13,14 @@
 #define GET_COMMON_IND_RESPONSE_PROTO "+CIND:"
 #define GET_IMSI "AT+CIMI\r\n"
 
+enum {
+  NAS_SIGNAL_REPORT_TYPE_CDMA = 0x10,
+  NAS_SIGNAL_REPORT_TYPE_CDMA_HDR = 0x11,
+  NAS_SIGNAL_REPORT_TYPE_GSM = 0x12,
+  NAS_SIGNAL_REPORT_TYPE_WCDMA = 0x13,
+  NAS_SIGNAL_REPORT_TYPE_LTE = 0x14,
+};
+
 /* 
  * Note to self: all this has to go.
  * This is only compatible with Quectel's firmware, and is fighting for access to the AT port against
@@ -137,11 +145,6 @@ struct cell_report {
 struct network_state {
   uint8_t network_type; // LTE / WCDMA / GSM / ??
   uint8_t signal_level; // in dB
-  int signal_bars;      // 0 - 5
-  int in_service;       // 0 || 1
-  int in_call;          // 0 || 1
-  int is_roaming;       // 0 || 1
-  int ps_domain;        // 0 || 1
 };
 
 static const char *network_types[] = {
