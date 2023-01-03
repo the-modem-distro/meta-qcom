@@ -66,7 +66,7 @@ void *time_sync() {
     if (cmd_ret == 0 && strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
       if (get_int_from_str(begin, 1) == 20 &&
-          get_int_from_str(begin, 3) >= 22) {
+          get_int_from_str(begin, 3) >= 23) {
         time_sync_data.year = get_int_from_str(begin, 3);
         time_sync_data.month = get_int_from_str(begin, 6);
         time_sync_data.day = get_int_from_str(begin, 9);
