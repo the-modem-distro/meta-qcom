@@ -449,6 +449,9 @@ void *schedule_call(void *cmd) {
 void render_gsm_signal_data() {
   int strsz = 0;
   struct network_state netstat;
+  char *network_types[] = {
+    "Unknown", "CDMA", "EVDO", "AMPS", "GSM", "UMTS", "Error", "Error", "LTE"};
+
   netstat = get_network_status();
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
@@ -1427,8 +1430,10 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 105: /* Delete task %i */
     delete_task(command);
-
     break;
+  case 106: /* Leave me alone [not implemented yet] */
+//    suspend_call_notifications(command);
+//    break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Invalid command id %i\n", cmd_id);

@@ -147,8 +147,6 @@ struct network_state {
   uint8_t signal_level; // in dB
 };
 
-static const char *network_types[] = {
-    "Unknown", "CDMA", "EVDO", "AMPS", "GSM", "UMTS", "Error", "Error", "LTE"};
 
 uint8_t get_network_type();
 uint8_t get_signal_strength();

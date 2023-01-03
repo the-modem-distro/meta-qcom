@@ -82,7 +82,9 @@ static const struct {
     {104, "wake me up ", "Will wake you up ",
      "Wake you up [at/in] hh[:xx min]"},
     {105, "delete task ", "Removing task ",
-     "delete task X: Removes task X from the scheduler"}};
+     "delete task X: Removes task X from the scheduler"},
+    {106, "leave me alone for ", "Silencing calls for  ",
+     "leave me alone for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "}};
 static const struct {
   unsigned int id;
   const char *answer;
