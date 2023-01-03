@@ -594,7 +594,7 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
   pkt_size =
       sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
 
-  bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",%i\r\n", get_internal_pending_messages() + get_pending_messages_in_adsp());
+  bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",%i\r\n", get_internal_pending_messages());
   response->replysz = htole16(bytes_in_reply);
   pkt_size =
       sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
