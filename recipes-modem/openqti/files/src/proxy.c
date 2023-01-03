@@ -136,10 +136,10 @@ void *gps_proxy() {
       if (ret > 0) {
         dump_packet("GPS_SMD-->USB", buf, ret);
         // CMTI Initial check:
-        if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
+ /*       if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
           logger(MSG_WARN, "CMTI Report: %s", buf);
           find_and_set_current_sms_memory_index(buf, ret);
-        }
+        }*/
         if (!get_transceiver_suspend_state() && nodes->node2.fd >= 0) {
           gps_packet_stats.allowed++;
           ret = write(nodes->node2.fd, buf, ret);
@@ -193,6 +193,10 @@ uint8_t process_simulated_packet(uint8_t source, int adspfd, int usbfd) {
     do_inject_notification(usbfd);
     set_pending_notification_source(MSG_NONE);
     set_notif_pending(false);
+    return 0;
+  }
+  if (is_stuck_message_retrieve_pending()) {
+    retrieve_and_delete(adspfd, usbfd);
     return 0;
   }
 
@@ -326,9 +330,9 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
         action = PACKET_FORCED_PT;
       } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
         action = PACKET_FORCED_PT;
-      } else if (check_wms_list_all_messages(pkt, pkt_size, adspfd, usbfd)) {
-        action = PACKET_FORCED_PT;
-      } else if (process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
+      } else if (check_wms_list_all_messages(source, pkt, pkt_size, adspfd, usbfd)) {
+        action = PACKET_BYPASS;
+      } else if (source == FROM_HOST && process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
         action = PACKET_BYPASS; // We bypass response
       }
 
@@ -384,7 +388,10 @@ uint8_t is_inject_needed() {
             at_debug_stream_cb_message_requested()) {
         logger(MSG_INFO, "We're going to fake some Cell Broadcast messages now");
     return 1;
-  } 
+  } else if (is_stuck_message_retrieve_pending()) {
+    logger(MSG_INFO, "%s: We have pending messages to get\n", __func__);
+    return 1;
+  }
 
   return 0;
 }
@@ -428,7 +435,7 @@ void *rmnet_proxy(void *node_data) {
       targetfd = nodes->node2.fd;
     } else if (is_inject_needed()) {
       source = FROM_OPENQTI;
-      logger(MSG_DEBUG, "%s: OpenQTI needs to inject data into USB \n",
+      logger(MSG_DEBUG, "%s: OpenQTI needs to take over communication between the host and the baseband \n",
              __func__);
       process_simulated_packet(source, nodes->node2.fd, nodes->node1.fd);
     }
