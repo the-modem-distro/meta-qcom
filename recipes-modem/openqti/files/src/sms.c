@@ -1536,17 +1536,25 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
      *  0x01 -> Skips the 0x21 and jumps to content
      */
     if (pkt->pdu_type >= 0x11) {
+      uint8_t tp_user_data_size_elements = pkt->contents.content_sz;
+      uint8_t tp_user_data_size_bytes = (7 * (tp_user_data_size_elements + 1)) / 8;
       ret = gsm7_to_ascii(pkt->contents.contents,
-                          strlen((char *)pkt->contents.contents),
-                          (char *)output, pkt->contents.content_sz, 0);
+                          tp_user_data_size_elements,
+                          (char *)output, 
+                          tp_user_data_size_bytes, 
+                          0);
       if (ret < 0) {
         logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
                __LINE__);
       }
     } else if (pkt->pdu_type == 0x01) {
+      uint8_t tp_user_data_size_elements = nodate_pkt->contents.content_sz;
+      uint8_t tp_user_data_size_bytes = (7 * (tp_user_data_size_elements + 1)) / 8;
       ret = gsm7_to_ascii(nodate_pkt->contents.contents,
-                          strlen((char *)nodate_pkt->contents.contents),
-                          (char *)output, nodate_pkt->contents.content_sz, 0);
+                          tp_user_data_size_elements,
+                          (char *)output, 
+                          tp_user_data_size_bytes, 
+                          0);
       if (ret < 0) {
         logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
                __LINE__);
