@@ -255,7 +255,7 @@ void send_hello_world() {
 uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
                        int adspfd, int usbfd) {
   struct encapsulated_qmi_packet *packet;
-  struct encapsulated_control_packet *ctl_packet;
+  struct qmux_packet *qmux_header;
 
   // By default everything should just go to its place
   int action = PACKET_PASS_TRHU;
@@ -272,37 +272,45 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     return PACKET_EMPTY; // Abort processing
   }
 
-  /* There are two different types of QMI packets, and we don't know
+  /* 
+   * There are two different types of QMI packets, and we don't know
    * which one we're handling right now, so cast both and then check
    */
 
-  if (pkt_size < sizeof(struct encapsulated_qmi_packet) &&
-      pkt_size < sizeof(struct encapsulated_control_packet)) {
+  /* 
+   * Message needs to have a QMUX header and at least a 6 byte QMI header (control)
+   * Or QMUX header + 7 Byte QMI header (service). If it's less than that we stop here
+   */
+
+  if (pkt_size < (sizeof(struct qmux_packet) + sizeof(struct ctl_qmi_packet))) {
     logger(MSG_ERROR, "%s: Message too small\n", __func__);
     return PACKET_EMPTY;
   }
-  if (pkt_size >= sizeof(struct encapsulated_qmi_packet) ||
-      pkt_size >= sizeof(struct encapsulated_control_packet)) {
+
+  qmux_header = (struct qmux_packet *) pkt;
+  /* If we have enough for a "service" QMI message we will inspect things
+   * further down
+   */
+  if (pkt_size >= sizeof(struct encapsulated_qmi_packet)) {
     packet = (struct encapsulated_qmi_packet *)pkt;
-    ctl_packet = (struct encapsulated_control_packet *)pkt;
   }
-  logger(MSG_DEBUG, "%s: Pkt: %i bytes, message: %i bytes -> %s\n", __func__,
-         pkt_size, packet->qmux.packet_length,
-         get_service_name(packet->qmux.service));
+  
+  logger(MSG_DEBUG, "[New QMI message] Service: %s (%i bytes)\n",
+         get_service_name(qmux_header->service), pkt_size);
 
   /* In the future we can use this as a router inside the application.
    * For now we only do some simple tasks depending on service, so no
    * need to do too much
    */
-  switch (ctl_packet->qmux.service) {
+  switch (get_qmux_service_id(pkt, pkt_size)) {
     case 0: // Control packet with no service
-      logger(MSG_DEBUG, "%s Control packet \n",
-            __func__); // reroute to the tracker for further inspection
-      if (ctl_packet->qmi.msgid == 0x0022 || ctl_packet->qmi.msgid == 0x0023) {
+      logger(MSG_INFO, "%s Control message, Command: %s\n",
+            __func__, get_ctl_command(get_control_message_id(pkt, pkt_size))); // reroute to the tracker for further inspection
+      if (get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_REGISTER_REQ || 
+          get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_RELEASE_REQ) {
         track_client_count(pkt, source, pkt_size, adspfd, usbfd);
       }
       break;
-
     case 3:
       logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
       if (packet->qmi.msgid == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
@@ -359,7 +367,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       break;
   }
   packet = NULL;
-  ctl_packet = NULL;
   return action; // 1 == Pass through
 }
 
