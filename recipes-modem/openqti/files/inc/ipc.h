@@ -237,6 +237,7 @@ bool is_server_active(uint32_t node, uint32_t port);
 struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance);
 int find_services();
 int init_port_mapper();
+int init_port_mapper_internal();
 int setup_ipc_security();
 const char *get_service_name(uint8_t service_id);
 #endif
