@@ -158,6 +158,14 @@ int remove_task(int taskID) {
   return ret;
 }
 
+int remove_all_tasks_by_type(uint8_t task_type) {
+  for (int i = 0; i < MAX_NUM_TASKS; i++) {
+    if (sch_runtime.tasks[i].type == task_type) {
+      remove_task(i);
+    }
+  }
+  return 0;
+}
 int update_task_status(int taskID, uint8_t status) {
   if (taskID < MAX_NUM_TASKS) {
     sch_runtime.tasks[taskID].status = status;
@@ -214,6 +222,10 @@ int run_task(int taskID) {
     logger(MSG_INFO, "%s: Try to wake up the host\n", __func__);
     pulse_ring_in();
     break;
+  case TASK_TYPE_DND_CLEAR:
+    logger(MSG_INFO, "%s: Clear do not disturb mode\n", __func__);
+    set_do_not_disturb(false);
+    break;
   }
   cleanup_tasks();
   return 0;
@@ -228,7 +240,7 @@ void *start_scheduler_thread() {
     sch_runtime.cur_time = time(NULL);
     for (i = 0; i < MAX_NUM_TASKS; i++) {
       if (sch_runtime.tasks[i].status == STATUS_PENDING) {
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: Checking time for task %i of type %i\n Exec time %ld, "
                "current %ld\n",
                __func__, i, sch_runtime.tasks[i].type,

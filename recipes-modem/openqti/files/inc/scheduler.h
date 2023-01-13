@@ -21,6 +21,7 @@ enum {
   TASK_TYPE_SMS = 0,
   TASK_TYPE_CALL,
   TASK_TYPE_WAKE_HOST,
+  TASK_TYPE_DND_CLEAR,
   /* ....*/
 };
 
@@ -53,4 +54,5 @@ void *start_scheduler_thread();
 int add_task(struct task_p task);
 void dump_pending_tasks();
 int remove_task(int taskID);
+int remove_all_tasks_by_type(uint8_t task_type);
 #endif
