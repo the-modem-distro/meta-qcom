@@ -66,6 +66,7 @@ enum {
 
 /* Available call directions */
 enum call_direction {
+  CALL_DIRECTION_UNKNOWN  = 0x00,
   CALL_DIRECTION_OUTGOING = 0x01,
   CALL_DIRECTION_INCOMING = 0x02,
 };
@@ -367,6 +368,7 @@ struct call_accept_ack {
 void reset_call_state();
 void set_pending_call_flag(bool en);
 void set_looped_message(bool en);
+void set_do_not_disturb(bool en);
 uint8_t get_call_pending();
 void set_call_simulation_mode(bool en);
 uint8_t get_call_simulation_mode();
@@ -378,7 +380,7 @@ uint8_t send_voice_call_status_event(int usbfd, uint16_t transaction_id,
                                      uint8_t call_state);
 void send_dummy_call_established(int usbfd, uint16_t transaction_id);
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
-                             uint16_t msgid, int adspfd, int usbfd);
+                             int adspfd, int usbfd);
 void notify_simulated_call(int usbfd);
 void add_voice_message_to_queue(uint8_t *message, size_t len);
 #endif

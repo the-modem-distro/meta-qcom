@@ -350,11 +350,9 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     /* REMEMBER: 0x002e -> Call indication
                 0x0024 -> All Call information */
     case 9: // Voice service
-      action = PACKET_FORCED_PT;
-      if (call_service_handler(source, pkt, pkt_size, packet->qmi.msgid, adspfd,
-                              usbfd)) {
-        action = PACKET_BYPASS; // in case user is calling us specifically
-      }
+      action = call_service_handler(source, pkt, pkt_size, adspfd,
+                              usbfd);
+      logger(MSG_INFO, "Call service handler returned %u\n", action);
       break;
 
     case 16: // Location service
@@ -486,7 +484,7 @@ void *rmnet_proxy(void *node_data) {
         break;
       case PACKET_BYPASS:
         rmnet_packet_stats.bypassed++;
-        logger(MSG_DEBUG, "%s Packet bypassed\n", __func__);
+        logger(MSG_INFO, "%s Packet bypassed\n", __func__);
         break;
 
       default:
