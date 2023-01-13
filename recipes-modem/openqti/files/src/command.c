@@ -12,6 +12,7 @@
 #include "../inc/scheduler.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
+#include "../inc/wds.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -918,6 +919,164 @@ void schedule_wakeup(uint8_t *command) {
   reply = NULL;
 }
 
+void suspend_call_notifications(uint8_t *command) {
+  uint8_t *offset_command;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  int strsz = 0;
+  char temp_str[160];
+  char current_word[160] = {0};
+  int markers[128] = {0};
+  int phrase_size = 1;
+  int start = 0;
+  int end = 0;
+  char sep[] = " ";
+  struct task_p scheduler_task;
+  scheduler_task.time.mode = SCHED_MODE_TIME_COUNTDOWN; // 0 at, 1 in
+  /* Initial command check */
+  offset_command = (uint8_t *)strstr((char *)command, partial_commands[6].cmd);
+  if (offset_command == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Command mismatch!\n");
+    add_message_to_queue(reply, strsz);
+    free(reply);
+    reply = NULL;
+    return;
+  }
+
+  strcpy(temp_str, (char *)command);
+  int init_size = strlen(temp_str);
+  char *ptr = strtok(temp_str, sep);
+  while (ptr != NULL) {
+    logger(MSG_INFO, "%s: '%s'\n", __func__, ptr);
+    ptr = strtok(NULL, sep);
+  }
+
+  for (int i = 0; i < init_size; i++) {
+    if (temp_str[i] == 0) {
+      markers[phrase_size] = i;
+      phrase_size++;
+    }
+  }
+
+  logger(MSG_INFO, "%s: Total words in command: %i\n", __func__, phrase_size);
+  for (int i = 0; i < phrase_size; i++) {
+    start = markers[i];
+    if (i + 1 >= phrase_size) {
+      end = init_size;
+    } else {
+      end = markers[i + 1];
+    }
+    // So we don't pick the null byte separating the word
+    if (i > 0) {
+      start++;
+    }
+    // Copy this token
+    memset(current_word, 0, 160);
+    memcpy(current_word, temp_str + start, (end - start));
+    // current_word[strlen(current_word)] = '\0';
+
+    /*
+     * leave me alone for 00[:00]
+     *  ^    ^  ^      ^  ^^  ^^
+     *  0    1  2      3   4  5OPT
+     */
+
+    logger(MSG_INFO, "Current word: %s\n", current_word);
+    switch (i) {
+    case 0: /* Fall through */
+    case 1:
+    case 2:
+      logger(MSG_INFO, "Current word in pos %i: %s\n", i, current_word);
+      break;
+    case 3:
+      if (strchr(current_word, ':') != NULL) {
+        logger(MSG_INFO, "%s: Time has minutes", __func__);
+        char *offset = strchr((char *)current_word, ':');
+        scheduler_task.time.hh = get_int_from_str(current_word, 0);
+        scheduler_task.time.mm = get_int_from_str(offset, 1);
+
+        if (offset - ((char *)current_word) > 2 || strlen(offset) > 3) {
+          logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
+                 __func__, current_word);
+          if (offset - ((char *)current_word) > 2)
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "I can't wait for a task that long... %s\n",
+                             current_word);
+          if (strlen(offset) > 3)
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Add another hour rather than putting 100 or more "
+                             "minutes... %s\n",
+                             current_word);
+          add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
+        } else {
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "Blocking incoming calls for %i hours and %i minutes\n",
+                           scheduler_task.time.hh, scheduler_task.time.mm);
+        }
+      } else {
+        logger(MSG_INFO, "%s:  Only hours have been specified\n", __func__);
+        if (strlen(current_word) > 2) {
+          logger(MSG_WARN, "%s: How long do you want me to wait? %s\n",
+                 __func__, current_word);
+          strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                           "I can't keep DND on _that_ long... %s\n",
+                           current_word);
+          add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
+        } else {
+          scheduler_task.time.hh = atoi(current_word);
+          scheduler_task.time.mm = 0;
+          if (scheduler_task.time.mode) {
+            logger(MSG_WARN, "%s: Waiting for %i hours\n", __func__,
+                   scheduler_task.time.hh);
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Waiting for %i hours to re-enable incoming calls\n",
+                             scheduler_task.time.hh);
+          } else {
+            if (scheduler_task.time.hh > 24) {
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "I might not be very smart, but I don't think "
+                               "there's enough hours in a day \n");
+              add_message_to_queue(reply, strsz);
+              free(reply);
+              reply = NULL;
+              return;
+            } else {
+              logger(MSG_WARN, "%s: Waiting until %i to enable incoming calls again\n",
+                     __func__, scheduler_task.time.hh);
+              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "Waiting until %i to enable incoming calls\n",
+                               scheduler_task.time.hh);
+            }
+          }
+        }
+      }
+      break;
+    }
+  }
+  set_do_not_disturb(true);
+  scheduler_task.type = TASK_TYPE_DND_CLEAR;
+  scheduler_task.status = STATUS_PENDING;
+  scheduler_task.param = 0;
+  scheduler_task.time.mode = scheduler_task.time.mode;
+  snprintf(scheduler_task.arguments, MAX_MESSAGE_SIZE,
+           "Do not disturb timer cleared, %s", cmd_runtime.user_name);
+  remove_all_tasks_by_type(TASK_TYPE_DND_CLEAR); // We clear all previous timers set
+  if (add_task(scheduler_task) < 0) {
+    set_do_not_disturb(false);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     " Can't schedule DND disable, so keeping it off! (too many tasks)\n");
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
+
 void set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
   uint8_t *reply = calloc(160, sizeof(unsigned char));
@@ -1412,6 +1571,26 @@ uint8_t parse_command(uint8_t *command) {
   case 45:
     debug_ucs2_cb_message(command);
     break;
+  case 46: // enable smdcntl0
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_internal_connectivity(true);
+    init_internal_networking();
+    break;
+  case 47: // disable smdcntl0
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_internal_connectivity(false);
+    break;
+  case 48:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_do_not_disturb(false);
+    remove_all_tasks_by_type(TASK_TYPE_DND_CLEAR); 
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
@@ -1432,8 +1611,8 @@ uint8_t parse_command(uint8_t *command) {
     delete_task(command);
     break;
   case 106: /* Leave me alone [not implemented yet] */
-//    suspend_call_notifications(command);
-//    break;
+    suspend_call_notifications(command);
+    break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "Invalid command id %i\n", cmd_id);

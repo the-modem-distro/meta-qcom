@@ -65,7 +65,10 @@ static const struct {
     {42, "record next call", "I will record the new call you make or receive", "Automatically records the next established call"},
     {43, "cancel record next call", "I won't record the new call you make or receive", "Cancel automatic recording of next call"},
     {44, "dbg", "Sending sample CB messages...", "Send demo cell broadcast message"},
-    {45, "dbgucs", "Sending sample CB UCS-2 messages...", "Send demo cell broadcast message"}
+    {45, "dbgucs", "Sending sample CB UCS-2 messages...", "Send demo cell broadcast message"},
+    {46, "enable internal net", "Warning: this doesn't work yet", "Attempts to init modem's internal RMNET port"},
+    {47, "disable internal net", "Warning: this doesn't work yet", "Attempts to init modem's internal RMNET port"},
+    {48, "disable dnd", "Disabling Do Not Disturb", "Disables Do Not Disturb feature"},
 };
 
 static const struct {
@@ -83,8 +86,10 @@ static const struct {
      "Wake you up [at/in] hh[:xx min]"},
     {105, "delete task ", "Removing task ",
      "delete task X: Removes task X from the scheduler"},
-    {106, "leave me alone for ", "Silencing calls for  ",
-     "leave me alone for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "}};
+    {106, "enable dnd for ", "Silencing calls for  ",
+     "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "}
+};
+
 static const struct {
   unsigned int id;
   const char *answer;
