@@ -20,6 +20,7 @@ struct config_prototype {
   uint8_t sms_logging;
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
+  uint8_t allow_internal_modem_connectivity;
   bool first_boot;
 };
 
@@ -66,5 +67,10 @@ void enable_call_waiting_autohangup(uint8_t en);
 /* Automatic call recording */
 int is_automatic_call_recording_enabled();
 void set_automatic_call_recording(uint8_t mode);
+
+/* SMS logging */
+int is_internal_connect_enabled();
+void set_internal_connectivity(bool en);
+
 
 #endif
