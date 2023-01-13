@@ -36,9 +36,17 @@ uint16_t get_control_message_id(void *bytes, size_t len) {
 }
 
 /* Get Message ID for a QMI message (from a service) */
-uint16_t get_message_id(void *bytes, size_t len) {
-  struct encapsulated_qmi_packet *pkt = (struct encapsulated_qmi_packet *)bytes;
-  return pkt->qmi.msgid;
+uint16_t get_qmi_message_id(void *bytes, size_t len) {
+  struct qmi_packet *pkt = (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
+  logger(MSG_INFO, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
+  return pkt->msgid;
+}
+
+/* Get Message ID for a QMI message (from a service) */
+uint16_t get_qmi_transaction_id(void *bytes, size_t len) {
+  struct qmi_packet *pkt = (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
+  logger(MSG_INFO, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
+  return pkt->transaction_id;
 }
 
 /* Get Transaction ID for a QMI message */
