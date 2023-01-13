@@ -49,8 +49,7 @@ void *time_sync() {
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
   while (!get_network_type()) {
-    logger(MSG_INFO, "%s: Waiting for network to be ready... %i\n", __func__,
-           is_network_in_service());
+    logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
     sleep(30);
   }
 
