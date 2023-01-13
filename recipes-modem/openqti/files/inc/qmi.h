@@ -261,17 +261,26 @@ static const struct {
 
 struct qmux_packet {      // 6 byte
   uint8_t version;        // 0x01 ?? it's always 0x01, no idea what it is
-  uint16_t packet_length; // 0x44 0x00 -> Full size of the packet being received
+  uint16_t packet_length; // Size of the entire message - sizeof (uint8_t) <-- version
   uint8_t control;        // 0x80 | 0x00
-  uint8_t service;        // WMS is 0x05
-  uint8_t instance_id; // Instance is usually 1 except for the control service
+  uint8_t service;        // Service (WDS, IMS, Voice, ...)
+  uint8_t instance_id; // Client ID
 } __attribute__((packed));
 
+/* "Normal QMI message, QMUX header indicates the service this message is for "*/
 struct qmi_packet { // 7 byte
   uint8_t ctlid;    // 0x00 | 0x02 | 0x04, subsystem inside message service?
   uint16_t transaction_id; // QMI Transaction ID
   uint16_t msgid;          // QMI Message ID
   uint16_t length;         // QMI Packet size
+} __attribute__((packed));
+
+/* QMUX header with no service, to control the QMI service itself*/
+struct ctl_qmi_packet { // 6 Byte
+  uint8_t ctlid;
+  uint8_t transaction_id;
+  uint16_t msgid;
+  uint16_t length;
 } __attribute__((packed));
 
 struct qmi_generic_result_ind {
@@ -281,22 +290,9 @@ struct qmi_generic_result_ind {
   uint16_t response;
 } __attribute__((packed));
 
-struct ctl_qmi_packet {
-  uint8_t ctlid; // 0x00 | 0x02 | 0x04, subsystem inside message service?
-  uint8_t transaction_id; // QMI Transaction ID
-  uint16_t
-      msgid; // 0x0022 when message arrives, 0x0002 when there are new messages
-  uint16_t length; // QMI Packet size
-} __attribute__((packed));
-
 struct encapsulated_qmi_packet {
   struct qmux_packet qmux;
   struct qmi_packet qmi;
-} __attribute__((packed));
-
-struct encapsulated_control_packet {
-  struct qmux_packet qmux;
-  struct ctl_qmi_packet qmi;
 } __attribute__((packed));
 
 struct tlv_header {
@@ -382,6 +378,7 @@ struct client_alloc_response {
 } __attribute__((packed));
 
 uint8_t get_qmux_service_id(void *bytes, size_t len);
+uint16_t get_control_message_id(void *bytes, size_t len);
 uint16_t get_message_id(void *bytes, size_t len);
 uint16_t get_transaction_id(void *bytes, size_t len);
 uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid);

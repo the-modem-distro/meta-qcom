@@ -236,3 +236,13 @@ void force_close_qmi(int fd) {
 
   usleep(100);
 }
+
+const char *get_ctl_command(uint16_t msgid) {
+    for (uint16_t i = 0; i < (sizeof(control_service_commands) / sizeof(control_service_commands[0])); i++) {
+        if (control_service_commands[i].id == msgid) {
+            return control_service_commands[i].cmd;
+        }
+    }
+
+    return "Control service: Unknown command\n";
+}
