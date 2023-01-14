@@ -863,10 +863,6 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
       indication->generic_result_size = 0x04;
       indication->result = 0x00;
       indication->response = 0x00;
-      set_log_level(0);
-      dump_pkt_raw(bytes, len);
-      dump_pkt_raw(fake_response, response_len);
-      set_log_level(1);
       if (write(usbfd, fake_response, response_len) != response_len) {
         logger(MSG_ERROR, "%s: Error writing simulated response\n", __func__);
       }
