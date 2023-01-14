@@ -859,7 +859,7 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
       struct qmi_generic_result_ind* indication = (struct qmi_generic_result_ind*) (fake_response + response_len - sizeof(struct qmi_generic_result_ind));
-      indication->result_code_type = 0x02;
+      indication->result_code_type = TLV_QMI_RESULT;
       indication->generic_result_size = 0x04;
       indication->result = 0x00;
       indication->response = 0x00;
@@ -926,7 +926,7 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     break;
 
   default:
-    logger(MSG_INFO, "%s: Unhandled packet: 0x%.4x\n", __func__,
+    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x (let it pass...)\n", __func__,
            qmi_message_id);
     break;
   }
