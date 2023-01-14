@@ -31,6 +31,7 @@ enum {
   WMS_READ_MESSAGE = 0x0022,
   WMS_DELETE = 0x0024,
   WMS_GET_MSG_PROTOCOL = 0x0030,
+  WMS_LIST_ALL_MESSAGES = 0x0031,
 };
 
 /* For GSM7 message decoding */
@@ -547,11 +548,170 @@ struct outgoing_no_validity_period_sms_packet {
   struct sms_content contents; // 7bit gsm encoded data
 } __attribute__((packed));
 
+/* List all messages */
+struct sms_list_all_message_data {
+  uint32_t message_id;
+  uint8_t message_type;
+} __attribute__((packed));
+
+struct sms_list_all_message_info {
+  uint8_t type; // 0x01
+  uint16_t len;
+  uint32_t number_of_messages_listed; // number of what's to come
+} __attribute__((packed));
+
+/* Request goes with an empty info */
+struct list_all_msg_request {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+  struct sms_list_all_message_info info;
+} __attribute__((packed));
+
+/* An empty response shouldn't have any message data attached*/
+struct sms_list_all_resp_empty {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+  struct sms_list_all_message_info info;
+} __attribute__((packed));
+
+/* To be able to actually parse what's coming form the ADSP*/
+struct sms_list_all_resp {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+  struct sms_list_all_message_info info;
+  struct sms_list_all_message_data data[0];
+} __attribute__((packed));
+
+/* READ MSG req*/
+struct sms_message_index {
+  uint8_t id; // 0x01
+  uint16_t len; // 0x05
+  uint8_t type; // 0x01
+  uint32_t message_id; // 0x01...
+} __attribute__((packed));
+
+struct sms_message_storage_type {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x01
+  uint8_t type; // 0x01...
+} __attribute__((packed));
+
+struct sms_get_message_by_id {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct sms_message_storage_type mode; // 0x10, 0x00 || 0x01
+  struct sms_message_index index;
+} __attribute__((packed));
+
+struct raw_sms {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct qmi_generic_result_ind indication;
+
+  uint8_t type_id; // 0x01
+  uint16_t len;
+  uint8_t data[0];
+} __attribute__((packed));
+
+/* Delete request */
+struct wms_sms_over_ims {
+  uint8_t id; // 0x12
+  uint16_t len; // 0x01
+  uint8_t type; // 0x01 Y || 0x00 N
+} __attribute__((packed));
+
+/* Qualcomm why do you do this? 
+ * Sometimes you need the type, sometimes you don't
+ * I don't get it.
+ */
+struct wms_del_req_msg_index {
+  uint8_t id; // 0x10
+  uint16_t len; // 0x04
+  uint32_t message_id; // 0x01...
+} __attribute__((packed));
+
+struct sms_delete_request {
+  struct qmux_packet qmuxpkt;
+  struct qmi_packet qmipkt;
+  struct wms_sms_over_ims sms_mode; // 0x12
+  struct wms_del_req_msg_index index;
+  struct sms_message_storage_type sms_type; // 0x01
+} __attribute__((packed));
+
+/* 2022-12-20 PDU DECODE */
+
+typedef enum {
+    MM_SMS_ENCODING_UNKNOWN = 0x0,
+    MM_SMS_ENCODING_GSM7,
+    MM_SMS_ENCODING_8BIT,
+    MM_SMS_ENCODING_UCS2,
+} MMSmsEncoding;
+
+
+#define SMS_TP_MTI_MASK               0x03
+#define  SMS_TP_MTI_SMS_DELIVER       0x00
+#define  SMS_TP_MTI_SMS_SUBMIT        0x01
+#define  SMS_TP_MTI_SMS_STATUS_REPORT 0x02
+
+#define SMS_NUMBER_TYPE_MASK          0x70
+#define SMS_NUMBER_TYPE_UNKNOWN       0x00
+#define SMS_NUMBER_TYPE_INTL          0x10
+#define SMS_NUMBER_TYPE_ALPHA         0x50
+
+#define SMS_NUMBER_PLAN_MASK          0x0f
+#define SMS_NUMBER_PLAN_TELEPHONE     0x01
+
+#define SMS_DCS_CLASS_MASK            0x03
+#define SMS_DCS_CLASS_VALID           0x10
+enum {
+    MESSAGE_TYPE_CDMA = 0x00,
+    MESSAGE_TYPE_GW_PP = 0x06,
+    MESSAGE_TYPE_MWI = 0x08,
+};
+
+struct raw_message {
+    uint8_t type; // 0x01
+    uint16_t len; 
+    uint8_t storage_type; // 0x00 || 0x01 
+    uint8_t message_format; // 0x00 CDMA || 0x06 GW
+    uint16_t raw_message_len;
+    uint8_t data[0];
+} __attribute__((packed));
+
+struct incoming_message {
+  struct qmux_packet qmux;
+  struct qmi_packet qmi;
+  struct qmi_generic_result_ind result;
+  struct raw_message msg;
+} __attribute__((packed));
+
+struct message_data {
+  char smsc[64];
+  char phone_number[64];
+  uint8_t dcs;
+  bool raw_message;
+  char message[160];
+};
+
+/* END OF PDU_DECODE */
+
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);
 void set_pending_notification_source(uint8_t source);
+
+
+
 uint8_t get_notification_source();
+void set_pending_messages_in_adsp(uint32_t index);
+uint32_t get_pending_messages_in_adsp();
+bool is_stuck_message_retrieve_pending();
+
+uint32_t get_internal_pending_messages();
+
 bool is_message_pending();
 uint8_t generate_message_notification(int fd, uint32_t message_id);
 uint8_t ack_message_notification(int fd, uint8_t pending_message_num);
@@ -565,7 +725,11 @@ void add_sms_to_queue(uint8_t *message, size_t len);
 void notify_wms_event(uint8_t *bytes, size_t len, int fd);
 int check_wms_message(uint8_t source, void *bytes, size_t len, int adspfd,
                       int usbfd);
+int check_wms_list_all_messages(uint8_t source, void *bytes, size_t len, int adspfd,
+                                 int usbfd);
 int check_wms_indication_message(void *bytes, size_t len, int adspfd,
                                  int usbfd);
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);
+
+int retrieve_and_delete(int adspfd, int usbfd);
 #endif

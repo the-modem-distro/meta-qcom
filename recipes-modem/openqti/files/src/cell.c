@@ -54,13 +54,9 @@ uint8_t get_network_type() { return net_status.network_type; }
 
 /* Returns last reported signal in %, based on signal bars */
 uint8_t get_signal_strength() {
-  if (net_status.signal_bars > 0) {
-    return net_status.signal_bars * 5 / 100;
-  }
-
-  return 0;
+  return net_status.signal_level;
 }
-int is_network_in_service() { return net_status.in_service; }
+int is_network_in_service() { return net_status.network_type; }
 
 struct network_state get_network_status() {
   return net_status;
@@ -714,40 +710,32 @@ void read_serving_cell() {
   analyze_data();
 }
 
-void read_at_cind() {
-  char *response;
-  response = malloc(MAX_RESPONSE_SZ * sizeof(char));
-  int command_length = strlen(GET_COMMON_IND);
-  int ret = 0;
-  logger(MSG_DEBUG, "%s: Read CIND start\n", __func__);
-
-  ret = get_data_from_command(GET_COMMON_IND, command_length,
-                              GET_COMMON_IND_RESPONSE_PROTO, response);
-
-  if (ret != 0) {
-    logger(MSG_ERROR, "%s: Command %s failed. Response: %s\n", __func__,
-           GET_COMMON_IND, response);
-  } else {
-    logger(MSG_DEBUG, "%s: Command %s succeeded! Response: %s\n", __func__,
-           GET_COMMON_IND, response);
-    if (strlen(response) > 18) {
-      net_status.signal_bars = get_int_from_str(response, 11);
-      net_status.in_service = get_int_from_str(response, 13);
-      net_status.in_call = get_int_from_str(response, 15);
-      net_status.is_roaming = get_int_from_str(response, 17);
-      net_status.ps_domain = get_int_from_str(response, 21);
-    }
-  }
-  free(response);
-  response = NULL;
-}
 
 void update_network_data(uint8_t network_type, uint8_t signal_level) {
   logger(MSG_DEBUG, "%s: update network data\n", __func__);
-  net_status.network_type = network_type;
-  net_status.signal_level = signal_level;
-  logger(MSG_DEBUG, "%s: Request AT+CIND\n", __func__);
-  read_at_cind();
+  net_status.signal_level = 0;
+  switch (network_type) {
+    case NAS_SIGNAL_REPORT_TYPE_CDMA: // CDMA
+    case NAS_SIGNAL_REPORT_TYPE_CDMA_HDR: // QCOM HDR CDMA
+      net_status.network_type = 1;
+      break;
+    case NAS_SIGNAL_REPORT_TYPE_GSM: // GSM
+      net_status.network_type = 4;
+      break;
+    case NAS_SIGNAL_REPORT_TYPE_WCDMA: // WCDMA
+      net_status.network_type = 5;
+      break;
+    case NAS_SIGNAL_REPORT_TYPE_LTE: // LTE
+      net_status.network_type = 8;
+      break;
+    default:
+      logger(MSG_DEBUG, "Unknown signal report: %u\n", network_type);
+      net_status.network_type = 0;
+      break;
+  }
+
+  if (signal_level > 0)
+    net_status.signal_level = signal_level / 2;
   if (is_signal_tracking_enabled()) {
     logger(MSG_DEBUG, "%s: Read serving and neighbour cell data\n", __func__);
     read_serving_cell();

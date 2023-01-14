@@ -62,6 +62,7 @@ struct {
   uint8_t timeout_counter;
   bool stick_to_looped_message;
   struct message msg[QUEUE_SIZE];
+  uint8_t do_not_disturb;
 } call_rt;
 
 void set_call_simulation_mode(bool en) {
@@ -79,6 +80,13 @@ void set_looped_message(bool en) {
   }
 }
 
+void set_do_not_disturb(bool en) {
+  if (en) {
+    call_rt.do_not_disturb = 1;
+  } else {
+    call_rt.do_not_disturb = 0;
+  }
+}
 uint8_t get_call_simulation_mode() { return call_rt.call_simulation_mode; }
 
 void reset_call_state() {
@@ -88,6 +96,7 @@ void reset_call_state() {
   call_rt.timeout_counter = 0;
   call_rt.stick_to_looped_message = false;
   call_rt.sim_call_direction = 0; // NONE
+  call_rt.do_not_disturb = 0;
   for (int i = 0; i < QUEUE_SIZE; i++) {
     call_rt.msg[i].state = 0;
     call_rt.msg[i].len = 0;
@@ -545,10 +554,14 @@ uint8_t get_num_instances(void *bytes, size_t len) {
   return instances;
 }
 
-uint8_t get_call_state(void *bytes, size_t len) {
+/*
+  Returns the current call state from a
+  VO_SVC_CALL_STATUS QMI Indication message (preparing/alerting/ringing...)
+*/
+uint8_t get_call_state(void *bytes, size_t len, uint8_t tlv) {
   uint8_t state = 0;
   struct call_status_meta *meta;
-  int offset = get_tlv_offset_by_id((uint8_t *)bytes, len, TLV_CALL_INFO);
+  int offset = get_tlv_offset_by_id((uint8_t *)bytes, len, tlv);
   if (offset <= 0) {
     logger(MSG_ERROR, "%s:Couldn't retrieve call metadata \n", __func__);
   } else if (offset > 0) {
@@ -591,185 +604,331 @@ void autokill_call(void *bytes, size_t len, uint8_t call_id, int adspfd) {
   pkt = NULL;
 }
 
-uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
-                             uint16_t msgid, int adspfd, int usbfd) {
-  int needs_rerouting = 0, i, j = 0, offset;
-  struct encapsulated_qmi_packet *pkt;
-  struct call_request_indication *req;
+/*
+  Returns CALL_DIRECTION_OUTGOING or CALL_DIRECTION_INCOMING
+  from a given VO_SVC_CALL_STATUS QMI Indication message
+*/
+uint8_t get_call_direction(uint8_t *pkt, int sz, uint8_t tlv) {
+  uint8_t call_direction = 0;
+  int offset = get_tlv_offset_by_id((uint8_t *)pkt, sz, tlv);
+  if (offset <= 0) {
+    logger(MSG_ERROR, "%s:Couldn't retrieve call metadata \n", __func__);
+  } else if (offset > 0) {
+    struct call_status_meta *meta;
+    meta = (struct call_status_meta *)(pkt + offset);
+    call_direction = meta->call_direction;
+    meta = NULL;
+  }
+  return call_direction;
+}
 
-  pkt = (struct encapsulated_qmi_packet *)bytes;
-  uint8_t our_phone[] = {0x32, 0x32, 0x33, 0x33, 0x34, 0x34,
-                         0x35, 0x35, 0x36, 0x36, 0x37, 0x37};
+uint8_t handle_voice_service_call_request(uint8_t source, void *bytes,
+                                          size_t len, int adspfd, int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  uint8_t phone_num_size = 0;
+  uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char log_phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char our_phone[] = "223344556677";
+  struct call_request_indication *req = (struct call_request_indication *)bytes;
 
-  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
-
-  // We need the original number to keep track of its state
-  uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH];
-  memset(phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
-  // But we also dont need to log it to disk unless requested
-  char log_phone_number[MAX_PHONE_NUMBER_LENGTH];
-  memset(log_phone_number, 0, MAX_PHONE_NUMBER_LENGTH);
-
-  switch (msgid) {
-
-  case VO_SVC_CALL_REQUEST:
-    j = 0;
-    req = (struct call_request_indication *)bytes;
-    for (i = 0; i < req->number.phone_num_length; i++) {
-      if (req->number.phone_number[i] >= 0x30 &&
-          req->number.phone_number[i] <= 0x39) {
-        phone_number[j] = req->number.phone_number[i];
-        j++;
-      }
+  for (int i = 0; i < req->number.phone_num_length; i++) {
+    if (req->number.phone_number[i] >= 0x30 &&
+        req->number.phone_number[i] <= 0x39) {
+      phone_number[phone_num_size] = req->number.phone_number[i];
+      phone_num_size++;
     }
-    mask_phone_number(phone_number, log_phone_number, j);
-    if (j > 0 && memcmp(phone_number, our_phone, 12) == 0) {
-      logger(MSG_INFO, "%s: This call is for me: %s\n", __func__,
-             log_phone_number);
-      if (!get_call_simulation_mode()) {
-        set_call_simulation_mode(true);
-        send_dummy_call_established(usbfd, req->qmipkt.transaction_id);
-        call_rt.sim_call_direction = CALL_DIRECTION_OUTGOING;
-      } else {
-        logger(MSG_ERROR, "%s: We're already talking!\n", __func__);
-      }
-      needs_rerouting = 1;
+  }
+  mask_phone_number(phone_number, log_phone_number, phone_num_size);
+
+  if (phone_num_size > 0 && memcmp(phone_number, our_phone, 12) == 0) {
+    logger(MSG_INFO, "%s: This call is for me: %s\n", __func__,
+           log_phone_number);
+    if (!get_call_simulation_mode()) {
+      set_call_simulation_mode(true);
+      send_dummy_call_established(usbfd, req->qmipkt.transaction_id);
+      call_rt.sim_call_direction = CALL_DIRECTION_OUTGOING;
     } else {
-      logger(MSG_INFO, "%s: Outgoing call to %s\n", __func__, log_phone_number);
-      if (get_call_simulation_mode()) {
-        logger(MSG_WARN, "%s: Ending internal call first\n", __func__);
-        close_internal_call(usbfd, pkt->qmi.transaction_id);
-      }
+      logger(MSG_ERROR, "%s: We're already talking!\n", __func__);
     }
-    req = NULL;
-    break;
-
-  case VO_SVC_CALL_ANSWER_REQ:
+    proxy_action = PACKET_BYPASS;
+  } else {
+    logger(MSG_INFO, "%s: Outgoing call to %s\n", __func__, log_phone_number);
     if (get_call_simulation_mode()) {
-      logger(MSG_INFO, "%s: Admin wants to talk!\n", __func__);
-      process_incoming_call_accept(usbfd, pkt->qmi.transaction_id);
-      needs_rerouting = 1;
+      logger(MSG_WARN, "%s: Ending internal call first\n", __func__);
+      close_internal_call(usbfd, get_qmi_transaction_id(bytes, len));
     }
+  }
+  req = NULL;
+  return proxy_action;
+}
+
+uint8_t handle_voice_service_answer_request(uint8_t source, void *bytes,
+                                            size_t len, int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  if (get_call_simulation_mode()) {
+    logger(MSG_INFO, "%s: Admin wants to talk!\n", __func__);
+    process_incoming_call_accept(usbfd, get_qmi_transaction_id(bytes, len));
+    proxy_action = PACKET_BYPASS;
+  }
+
+  return proxy_action;
+}
+
+uint8_t handle_voice_service_disconnect_request(uint8_t source, void *bytes,
+                                                size_t len, int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  logger(MSG_INFO, "%s: Request to terminate the call\n", __func__);
+  if (get_call_simulation_mode()) {
+    logger(MSG_DEBUG, "%s: Sending disconnect ACK\n", __func__);
+    send_voice_cal_disconnect_ack(usbfd, get_qmi_transaction_id(bytes, len));
+    usleep(100000);
+    logger(MSG_DEBUG, "%s: [DISCONNECTING]\n", __func__);
+    close_internal_call(usbfd, get_qmi_transaction_id(bytes, len));
+    proxy_action = PACKET_BYPASS;
+  }
+
+  return proxy_action;
+}
+
+uint8_t handle_voice_service_call_info(uint8_t source, void *bytes, size_t len,
+                                       int adspfd, int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  uint8_t phone_num_size = 0;
+  uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char log_phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char our_phone[] = "223344556677";
+
+  switch (source) {
+  case FROM_DSP:
+    logger(MSG_INFO, "%s DSP is sending a call info response\n", __func__);
     break;
-
-  case VO_SVC_CALL_INFO: /* FIXME: IMPLEMENT THIS */
-    logger(MSG_INFO, "%s: VO_SVC_CALL_INFO: Unimplemented!\n", __func__);
-    set_log_level(0);
-    dump_pkt_raw(bytes, len);
-    set_log_level(1);
+  case FROM_HOST:
+    logger(MSG_INFO, "%s HOST requests call information\n", __func__);
     break;
+  }
+  /* NOT IMPLEMENTED */
+  logger(MSG_INFO, "%s: VO_SVC_CALL_INFO: Unimplemented!\n", __func__);
+  set_log_level(0);
+  dump_pkt_raw(bytes, len);
+  set_log_level(1);
+  if (source == FROM_DSP && call_rt.do_not_disturb &&
+      get_call_direction(bytes, len, TLV_REMOTE_NUMBER) ==
+          CALL_DIRECTION_INCOMING) {
+    proxy_action = PACKET_BYPASS;
+    logger(MSG_INFO, "CALL RING BYPASS FROM ALL_CALL_INFO!\n");
+  }
+  return proxy_action;
+}
 
-  case VO_SVC_CALL_STATUS:
-    offset = get_tlv_offset_by_id((uint8_t *)bytes, len, TLV_REMOTE_NUMBER);
-    if (offset <= 0) {
-      logger(MSG_ERROR, "%s:Couldn't retrieve remote number data \n", __func__);
-    } else if (offset > 0) {
-      struct remote_party *rmtparty;
-      rmtparty = (struct remote_party *)(bytes + offset);
-      logger(MSG_DEBUG, "Size %i , Call instances: %i\n", rmtparty->length,
-             get_num_instances(bytes, len));
-      struct remote_party_data *thisnum;
-      int prev_num_size = 0;
-      for (int i = 0; i < get_num_instances(bytes, len); i++) {
-        if (i == 0) {
-          /* We start at remote_party + id + len + first_entry */
-          thisnum = (struct remote_party_data *)(bytes + offset + 3);
-          memcpy(phone_number, thisnum->phone, thisnum->len);
-          mask_phone_number(phone_number, log_phone_number, thisnum->len);
-          logger(MSG_INFO, "%s: Call #%i: %s\n", __func__, i, log_phone_number);
-          prev_num_size += thisnum->len + 3;
-
-          if (get_num_instances(bytes, len) > 1 &&
-              get_call_state(bytes, len) == CALL_STATE_WAITING) {
-            if (callwait_auto_hangup_operation_mode() == 2) {
-              int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                                   "Automatically rejecting the call from %s "
-                                   "while you're talking\n",
-                                   phone_number);
-              add_sms_to_queue(reply, strsz);
-              autokill_call(bytes, len, thisnum->call_id, adspfd);
-            } else {
-              int strsz =
-                  snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                           "Call from %s while you're talking (ignoring it) \n",
-                           phone_number);
-              add_sms_to_queue(reply, strsz);
-            }
-          }
-        } else {
-          thisnum =
-              (struct remote_party_data *)(bytes + offset + 3 + prev_num_size);
-          memcpy(phone_number, thisnum->phone, thisnum->len);
-          mask_phone_number(phone_number, log_phone_number, thisnum->len);
-          logger(MSG_INFO, "%s: Call #%i: %s\n", __func__, i, log_phone_number);
-          if (callwait_auto_hangup_operation_mode() > 0) {
-            needs_rerouting = 1;
-          }
-        }
-        j = thisnum->len;
-        thisnum = NULL;
-      }
-      rmtparty = NULL;
-    }
-
-    /* Caller ID is set */
-    if (j > 0) {
-      if (memcmp(phone_number, our_phone, 12) == 0) {
-        logger(MSG_DEBUG, "%s: Internal call\n", __func__);
-        needs_rerouting = 1;
-      } else {
-        if (get_call_simulation_mode()) {
-          logger(
-              MSG_WARN,
-              "%s: New call while internally talking, ending simulated call\n",
-              __func__);
-          close_internal_call(usbfd, pkt->qmi.transaction_id);
-        }
-        handle_call_pkt(bytes, len, phone_number, strlen((char*)phone_number));
-      }
-    } else {
-      /* Caller ID is *NOT* set */
-      if (get_call_simulation_mode()) {
-        needs_rerouting = 1;
-      } else {
-        logger(MSG_WARN, "%s: Unknown number %s\n", __func__, log_phone_number);
-        memcpy((uint8_t *)phone_number, (uint8_t *)"Unknown",
-               strlen("Unknown"));
-        handle_call_pkt(bytes, len, phone_number, strlen((char*)phone_number));
-      }
-    }
+uint8_t handle_voice_service_call_status(uint8_t source, void *bytes,
+                                         size_t len, int adspfd, int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  uint8_t phone_num_size = 0;
+  uint16_t offset;
+  uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char log_phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
+  char our_phone[] = "223344556677";
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  int j = 0;
+  switch (source) {
+  case FROM_DSP:
+    logger(MSG_INFO, "%s DSP is sending a call status response\n", __func__);
     break;
-
-  case VO_SVC_GET_ALL_CALL_INFO: /* FIXME: IMPLEMENT THIS */
-    logger(MSG_INFO, "%s: VO_SVC_GET_ALL_CALL_INFO: Unimplemented\n", __func__);
-    set_log_level(0);
-    dump_pkt_raw(bytes, len);
-    set_log_level(1);
-
-    break;
-
-  case VO_SVC_CALL_STATUS_CHANGE:
-    logger(MSG_DEBUG, "%s: State change in call.. on hold?\n", __func__);
-    break;
-
-  case VO_SVC_CALL_END_REQ:
-    logger(MSG_INFO, "%s: Request to terminate the call\n", __func__);
-    if (get_call_simulation_mode()) {
-      logger(MSG_DEBUG, "%s: Sending disconnect ACK\n", __func__);
-      send_voice_cal_disconnect_ack(usbfd, pkt->qmi.transaction_id);
-      usleep(100000);
-      logger(MSG_DEBUG, "%s: [DISCONNECTING]\n", __func__);
-      close_internal_call(usbfd, pkt->qmi.transaction_id);
-      needs_rerouting = 1;
-    }
-    break;
-
-  default:
-    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x\n", __func__, msgid);
+  case FROM_HOST:
+    logger(MSG_INFO, "%s HOST requests call status\n", __func__);
     break;
   }
 
-  free(reply);
-  pkt = NULL;
-  return needs_rerouting;
+  offset = get_tlv_offset_by_id((uint8_t *)bytes, len, TLV_REMOTE_NUMBER);
+  if (offset == 0) {
+    logger(MSG_ERROR,
+           "%s:CRITICAL: Couldn't find the remote party data in the QMI "
+           "message \n",
+           __func__);
+    return proxy_action;
+  }
+
+  struct remote_party *rmtparty = (struct remote_party *)(bytes + offset);
+  logger(MSG_DEBUG, "Size %i , Call instances: %i\n", rmtparty->length,
+         get_num_instances(bytes, len));
+  struct remote_party_data *thisnum;
+  int prev_num_size = 0;
+  for (int i = 0; i < get_num_instances(bytes, len); i++) {
+    if (i == 0) {
+      /* We start at remote_party + id + len + first_entry */
+      thisnum = (struct remote_party_data *)(bytes + offset + 3);
+      memcpy(phone_number, thisnum->phone, thisnum->len);
+      mask_phone_number(phone_number, log_phone_number, thisnum->len);
+      logger(MSG_INFO, "%s: Call #%i: %s\n", __func__, i, log_phone_number);
+      prev_num_size += thisnum->len + 3;
+
+      if (get_num_instances(bytes, len) > 1 &&
+          get_call_state(bytes, len, TLV_CALL_INFO) == CALL_STATE_WAITING) {
+        if (callwait_auto_hangup_operation_mode() == 2) {
+          int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                               "Automatically rejecting the call from %s "
+                               "while you're talking\n",
+                               phone_number);
+          add_sms_to_queue(reply, strsz);
+          autokill_call(bytes, len, thisnum->call_id, adspfd);
+          proxy_action = PACKET_BYPASS;
+        } else if (callwait_auto_hangup_operation_mode() == 1) {
+          int strsz =
+              snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Call from %s while you're talking (ignoring it) \n",
+                       phone_number);
+          add_sms_to_queue(reply, strsz);
+          proxy_action = PACKET_BYPASS;
+        }
+      } else if (call_rt.do_not_disturb &&
+                 get_call_direction(bytes, len, TLV_CALL_INFO) ==
+                     CALL_DIRECTION_INCOMING &&
+                 get_call_state(bytes, len, TLV_CALL_INFO) ==
+                     CALL_STATE_RINGING) {
+        int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "Call from %s while in DND mode \n", phone_number);
+        add_sms_to_queue(reply, strsz);
+        proxy_action = PACKET_BYPASS;
+        logger(MSG_INFO, "CALL RING BYPASS!\n");
+      }
+    } else {
+      thisnum =
+          (struct remote_party_data *)(bytes + offset + 3 + prev_num_size);
+      memcpy(phone_number, thisnum->phone, thisnum->len);
+      mask_phone_number(phone_number, log_phone_number, thisnum->len);
+      logger(MSG_INFO, "%s: Call #%i: %s\n", __func__, i, log_phone_number);
+      if (callwait_auto_hangup_operation_mode() > 0) {
+        proxy_action = PACKET_BYPASS;
+      }
+    }
+    j = thisnum->len;
+    thisnum = NULL;
+  }
+  rmtparty = NULL;
+
+  if (call_rt.do_not_disturb && get_call_direction(bytes, len, TLV_CALL_INFO) ==
+                                    CALL_DIRECTION_INCOMING) {
+    proxy_action = PACKET_BYPASS;
+    logger(MSG_INFO, "We're in DND mode. Skip notifying the host\n");
+    return proxy_action;
+  }
+
+  /* Caller ID is set */
+  if (j > 0) {
+    if (memcmp(phone_number, our_phone, 12) == 0) {
+      logger(MSG_DEBUG, "%s: Internal call\n", __func__);
+      proxy_action = PACKET_BYPASS;
+    } else {
+      if (get_call_simulation_mode()) {
+        logger(MSG_WARN,
+               "%s: New call while internally talking, ending simulated call\n",
+               __func__);
+        close_internal_call(usbfd, get_qmi_transaction_id(bytes, len));
+      }
+      handle_call_pkt(bytes, len, phone_number, strlen((char *)phone_number));
+    }
+  } else {
+    /* Caller ID is *NOT* set */
+    if (get_call_simulation_mode()) {
+      proxy_action = PACKET_BYPASS;
+    } else {
+      logger(MSG_WARN, "%s: Unknown number %s\n", __func__, log_phone_number);
+      memcpy((uint8_t *)phone_number, (uint8_t *)"Unknown", strlen("Unknown"));
+      handle_call_pkt(bytes, len, phone_number, strlen((char *)phone_number));
+    }
+  }
+  return proxy_action;
+}
+
+uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
+                                                  size_t len, int adspfd,
+                                                  int usbfd) {
+  uint8_t proxy_action = PACKET_FORCED_PT;
+  switch (source) {
+  case FROM_DSP:
+    logger(MSG_INFO, "%s DSP is sending a all call info response\n", __func__);
+    if (call_rt.do_not_disturb) {
+      size_t response_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof (struct qmi_generic_result_ind);
+      uint8_t *fake_response = malloc(response_len);
+      logger(MSG_INFO, "Killing this packet\n");
+      if (build_qmux_header(fake_response, response_len, 0x80, get_qmux_service_id(bytes, len), get_qmux_instance_id(bytes, len)) < 0) {
+        logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+      }
+      if (build_qmi_header(fake_response, response_len, 0x02, get_qmi_transaction_id(bytes, len),
+                            VO_SVC_GET_ALL_CALL_INFO) < 0) {
+        logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+      }
+      struct qmi_generic_result_ind* indication = (struct qmi_generic_result_ind*) (fake_response + response_len - sizeof(struct qmi_generic_result_ind));
+      indication->result_code_type = TLV_QMI_RESULT;
+      indication->generic_result_size = 0x04;
+      indication->result = 0x00;
+      indication->response = 0x00;
+      if (write(usbfd, fake_response, response_len) != response_len) {
+        logger(MSG_ERROR, "%s: Error writing simulated response\n", __func__);
+      }
+      free(fake_response);
+      proxy_action = PACKET_BYPASS;
+    }
+    break;
+  case FROM_HOST:
+    logger(MSG_INFO,
+           "%s HOST requests call information for *all* active calls\n",
+           __func__);
+    break;
+  }
+  return proxy_action;
+}
+
+uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
+                             int adspfd, int usbfd) {
+  int proxy_action = PACKET_FORCED_PT;
+  int i, j = 0, offset;
+
+  uint16_t qmi_message_id = get_qmi_message_id(bytes, len);
+
+  switch (qmi_message_id) {
+  case VO_SVC_CALL_REQUEST:
+    proxy_action =
+        handle_voice_service_call_request(source, bytes, len, adspfd, usbfd);
+    break;
+
+  case VO_SVC_CALL_ANSWER_REQ:
+    proxy_action =
+        handle_voice_service_answer_request(source, bytes, len, usbfd);
+    break;
+
+  case VO_SVC_CALL_INFO: /* FIXME: IMPLEMENT THIS */
+    proxy_action =
+        handle_voice_service_call_info(source, bytes, len, adspfd, usbfd);
+    break;
+
+  case VO_SVC_CALL_STATUS:
+    proxy_action =
+        handle_voice_service_call_status(source, bytes, len, adspfd, usbfd);
+    break;
+
+  case VO_SVC_GET_ALL_CALL_INFO: /* FIXME: IMPLEMENT THIS */
+    proxy_action = handle_voice_service_all_call_status_info(source, bytes, len,
+                                                             adspfd, usbfd);
+    break;
+
+  case VO_SVC_CALL_STATUS_CHANGE:
+    logger(MSG_INFO, "%s: VO_SVC_CALL_STATUS_CHANGE: Unimplemented\n",
+           __func__);
+    set_log_level(0);
+    dump_pkt_raw(bytes, len);
+    set_log_level(1);
+    break;
+
+  case VO_SVC_CALL_END_REQ:
+    proxy_action =
+        handle_voice_service_disconnect_request(source, bytes, len, usbfd);
+    break;
+
+  default:
+    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x (let it pass...)\n", __func__,
+           qmi_message_id);
+    break;
+  }
+  return proxy_action;
 }

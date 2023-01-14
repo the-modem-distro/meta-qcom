@@ -10,6 +10,8 @@
 #define RMNET_CTL "/dev/rmnet_ctrl"
 /* SMD Control device #8, where RMNET_CTRL is piped */
 #define SMD_CNTL "/dev/smdcntl8"
+/* SMD Control device #0, for use in internal connections (DATA5) */
+#define INT_SMD_CNTL "/dev/smdcntl0"
 /* SMD Device 7: ADSP side GPS port */
 #define SMD_GPS "/dev/smd7"
 /* SMD Data 3 is used by Quectel's LPM kernel driver */

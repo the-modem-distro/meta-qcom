@@ -41,20 +41,20 @@ int find_free_task_slot() {
 int save_tasks_to_storage() {
   FILE *fp;
   int ret;
-  logger(MSG_INFO, "%s: Start\n", __func__);
+  logger(MSG_DEBUG, "%s: Start\n", __func__);
   if (set_persistent_partition_rw() < 0) {
     logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Open file\n", __func__);
+  logger(MSG_DEBUG, "%s: Open file\n", __func__);
   fp = fopen(SCHEDULER_DATA_FILE_PATH, "w");
   if (fp == NULL) {
     logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Store\n", __func__);
+  logger(MSG_DEBUG, "%s: Store\n", __func__);
   ret = fwrite(sch_runtime.tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
-  logger(MSG_INFO, "%s: Close (%i bytes written)\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Close (%i bytes written)\n", __func__, ret);
   fclose(fp);
   do_sync_fs();
   if (!use_persistent_logging()) {
@@ -71,18 +71,16 @@ int read_tasks_from_storage() {
   FILE *fp;
   int ret;
   struct task_p tasks[MAX_NUM_TASKS];
-  logger(MSG_INFO, "%s: Start\n", __func__);
-  logger(MSG_INFO, "%s: Open file\n", __func__);
+  logger(MSG_DEBUG, "%s: Start, open file\n", __func__);
   fp = fopen(SCHEDULER_DATA_FILE_PATH, "r");
   if (fp == NULL) {
-    logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
+    logger(MSG_DEBUG, "%s: Can't open config file for reading\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Store\n", __func__);
   ret = fread(tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
-  logger(MSG_INFO, "%s: Close (%i bytes read)\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Close (%i bytes read)\n", __func__, ret);
   if (ret >= sizeof(struct task_p)) {
-    logger(MSG_INFO, "%s: Recovering tasks\n ", __func__);
+    logger(MSG_DEBUG, "%s: Recovering tasks\n ", __func__);
     for (int i = 0; i < MAX_NUM_TASKS; i++) {
       sch_runtime.tasks[i] = tasks[i];
     }
@@ -160,6 +158,14 @@ int remove_task(int taskID) {
   return ret;
 }
 
+int remove_all_tasks_by_type(uint8_t task_type) {
+  for (int i = 0; i < MAX_NUM_TASKS; i++) {
+    if (sch_runtime.tasks[i].type == task_type) {
+      remove_task(i);
+    }
+  }
+  return 0;
+}
 int update_task_status(int taskID, uint8_t status) {
   if (taskID < MAX_NUM_TASKS) {
     sch_runtime.tasks[taskID].status = status;
@@ -216,6 +222,10 @@ int run_task(int taskID) {
     logger(MSG_INFO, "%s: Try to wake up the host\n", __func__);
     pulse_ring_in();
     break;
+  case TASK_TYPE_DND_CLEAR:
+    logger(MSG_INFO, "%s: Clear do not disturb mode\n", __func__);
+    set_do_not_disturb(false);
+    break;
   }
   cleanup_tasks();
   return 0;
@@ -230,7 +240,7 @@ void *start_scheduler_thread() {
     sch_runtime.cur_time = time(NULL);
     for (i = 0; i < MAX_NUM_TASKS; i++) {
       if (sch_runtime.tasks[i].status == STATUS_PENDING) {
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: Checking time for task %i of type %i\n Exec time %ld, "
                "current %ld\n",
                __func__, i, sch_runtime.tasks[i].type,

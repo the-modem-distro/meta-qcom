@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
@@ -251,15 +252,15 @@ int init_port_mapper_internal() {
   dpmreq->hw.hw_control_name_sz = strlen(LOCAL_SMD_CTL_PORT_NAME);
   memcpy(dpmreq->hw.port_name, LOCAL_SMD_CTL_PORT_NAME,
          dpmreq->hw.hw_control_name_sz);
-  dpmreq->hw.ep_type = htole32(5);
-  dpmreq->hw.peripheral_id = htole32(1);
+  dpmreq->hw.ep_type = htole32(DATA_EP_TYPE_BAM_DMUX);
+  dpmreq->hw.peripheral_id = htole32(0);
 
   // SW
   dpmreq->sw.id = 0x11;
   dpmreq->sw.len = 0x0011;
   dpmreq->sw.valid_ctl_list = 1;
   dpmreq->sw.ep_type = htole32(5);
-  dpmreq->sw.peripheral_id = htole32(1);
+  dpmreq->sw.peripheral_id = htole32(0);
   dpmreq->sw.consumer_pipe_num = htole32(0);
   dpmreq->sw.prod_pipe_num = htole32(0);
 
@@ -335,7 +336,7 @@ int init_port_mapper() {
   dpmreq->hw.valid_ctl_list = 1;
   dpmreq->hw.hw_control_name_sz = strlen(SMDCTLPORTNAME);
   memcpy(dpmreq->hw.port_name, SMDCTLPORTNAME, dpmreq->hw.hw_control_name_sz);
-  dpmreq->hw.ep_type = htole32(5);
+  dpmreq->hw.ep_type = htole32(DATA_EP_TYPE_BAM_DMUX);
   dpmreq->hw.peripheral_id = htole32(8);
 
   // SW
@@ -344,8 +345,8 @@ int init_port_mapper() {
   dpmreq->sw.valid_ctl_list = 1;
   dpmreq->sw.ep_type = htole32(5);
   dpmreq->sw.peripheral_id = htole32(8);
-  dpmreq->sw.consumer_pipe_num = htole32(0);
-  dpmreq->sw.prod_pipe_num = htole32(0);
+  dpmreq->sw.consumer_pipe_num = htole32(1);
+  dpmreq->sw.prod_pipe_num = htole32(1);
 
   do {
     sleep(5);
@@ -364,8 +365,6 @@ int init_port_mapper() {
 
   free(dpmreq);
   dpmreq = NULL;
-  // All the rest is moved away from here and into the init
-  // init_port_mapper_internal();
 
   return 0;
 }

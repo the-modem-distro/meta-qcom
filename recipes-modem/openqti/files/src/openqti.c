@@ -26,6 +26,7 @@
 #include "../inc/thermal.h"
 #include "../inc/timesync.h"
 #include "../inc/tracking.h"
+#include "../inc/wds.h"
 
 /*
  *                                                                          88
@@ -68,11 +69,12 @@ int main(int argc, char **argv) {
   pthread_t pwrkey_thread;
   pthread_t scheduler_thread;
   pthread_t thermal_thread;
+  pthread_t internal_network_thread;
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
 
   // To track thread exits
-  void *retgps, *retrmnet, *retatfwd;
+  void *retgps, *retrmnet, *retatfwd, *intnet;
   /* Set initial settings before moving to actual initialization */
   set_initial_config();
 
@@ -166,6 +168,12 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error setting up port mapper!\n", __func__);
   }
 
+  // All the rest is moved away from here and into the init
+  if (is_internal_connect_enabled()) {
+    logger(MSG_INFO, "%s: Attempting to initialize internal SMD channel (SMDCNTL0)...\n", __func__);
+    init_port_mapper_internal();
+  }
+
   do {
     rmnet_nodes.node2.fd = open(SMD_CNTL, O_RDWR);
     if (rmnet_nodes.node2.fd < 0) {
@@ -222,6 +230,7 @@ int main(int argc, char **argv) {
   reset_sms_runtime();
   reset_call_state();
   set_cmd_runtime_defaults();
+  reset_wds_runtime();
 
   /* Enable or disable ADB depending on the misc partition setting */
   set_adb_runtime(is_adb_enabled());
@@ -258,6 +267,13 @@ int main(int argc, char **argv) {
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating thermal monitor thread\n", __func__);
   }
+/*
+  logger(MSG_INFO, "%s: Init: Create Internal network initialization thread \n", __func__);
+  if ((ret = pthread_create(&internal_network_thread, NULL, &init_internal_networking,
+                            NULL))) {
+    logger(MSG_ERROR, "%s: Error starting internal networking thread\n", __func__);
+  }
+*/
 
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {

@@ -49,8 +49,7 @@ void *time_sync() {
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
   while (!get_network_type()) {
-    logger(MSG_INFO, "%s: Waiting for network to be ready... %i\n", __func__,
-           is_network_in_service());
+    logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
     sleep(30);
   }
 
@@ -66,7 +65,7 @@ void *time_sync() {
     if (cmd_ret == 0 && strstr(response, "+QLTS: ") != NULL) { // Sync was ok
       begin = strchr(response, '"');
       if (get_int_from_str(begin, 1) == 20 &&
-          get_int_from_str(begin, 3) >= 22) {
+          get_int_from_str(begin, 3) >= 23) {
         time_sync_data.year = get_int_from_str(begin, 3);
         time_sync_data.month = get_int_from_str(begin, 6);
         time_sync_data.day = get_int_from_str(begin, 9);

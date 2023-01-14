@@ -631,7 +631,7 @@ void handle_call_pkt(uint8_t *pkt, int sz,
       break;
     case CALL_STATE_ALERTING:
       logger(MSG_INFO, "%s: --> Alerting state \n", __func__);
-      if (use_custom_alert_tone()) {
+      if (!use_custom_alert_tone()) {
         start_audio(mode);
       } else if (use_custom_alert_tone() && !audio_runtime_state.is_alerting) {
         audio_runtime_state.is_alerting = 1;

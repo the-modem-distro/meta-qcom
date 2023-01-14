@@ -48,6 +48,7 @@ int set_initial_config() {
   settings->sms_logging = 0;
   settings->callwait_autohangup = 0;
   settings->automatic_call_recording = 0;
+  settings->allow_internal_modem_connectivity = 0;
   settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
@@ -121,6 +122,11 @@ int parse_line(char *buf) {
     settings->sms_logging = atoi(value);
     return 1;
   }
+
+  if (strcmp(setting, "allow_internal_modem_connectivity") == 0) {
+    settings->allow_internal_modem_connectivity = atoi(value);
+    return 1;
+  }
   
   if (strcmp(setting, "automatic_call_recording") == 0) {
     settings->automatic_call_recording = atoi(value);
@@ -167,6 +173,7 @@ int write_settings_to_storage() {
   fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
   fprintf(fp, "automatic_call_recording=%i\n", settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
+  fprintf(fp, "allow_internal_modem_connectivity=%i\n", settings->allow_internal_modem_connectivity);
   logger(MSG_INFO, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
@@ -220,11 +227,20 @@ void clear_ifrst_boot_flag() { settings->first_boot = false; }
 
 int use_persistent_logging() { return settings->persistent_logging; }
 
+char *get_openqti_logfile() {
+  if (settings->persistent_logging)
+    return PERSISTENT_LOGPATH;
+
+  return VOLATILE_LOGPATH;
+}
 int use_custom_alert_tone() { return settings->custom_alert_tone; }
 
 int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 int is_sms_logging_enabled() { return settings->sms_logging; }
+
+int is_internal_connect_enabled() { return settings->allow_internal_modem_connectivity; }
+
 int is_automatic_call_recording_enabled() { return settings->automatic_call_recording; }
 
 int callwait_auto_hangup_operation_mode() {
@@ -273,6 +289,17 @@ void set_sms_logging(bool en) {
   } else {
     logger(MSG_WARN, "Disabling SMS logging\n");
     settings->sms_logging = 0;
+  }
+  write_settings_to_storage();
+}
+
+void set_internal_connectivity(bool en) {
+  if (en) {
+    logger(MSG_WARN, "Enabling Internal networking support (reboot needed)\n");
+    settings->allow_internal_modem_connectivity = 1;
+  } else {
+    logger(MSG_WARN, "Disabling Internal networking support (reboot needed)\n");
+    settings->allow_internal_modem_connectivity = 0;
   }
   write_settings_to_storage();
 }
