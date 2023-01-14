@@ -958,7 +958,7 @@ void suspend_call_notifications(uint8_t *command) {
     }
   }
 
-  logger(MSG_INFO, "%s: Total words in command: %i\n", __func__, phrase_size);
+  logger(MSG_DEBUG, "%s: Total words in command: %i\n", __func__, phrase_size);
   for (int i = 0; i < phrase_size; i++) {
     start = markers[i];
     if (i + 1 >= phrase_size) {
@@ -981,16 +981,15 @@ void suspend_call_notifications(uint8_t *command) {
      *  0    1  2      3   4  5OPT
      */
 
-    logger(MSG_INFO, "Current word: %s\n", current_word);
     switch (i) {
     case 0: /* Fall through */
     case 1:
     case 2:
-      logger(MSG_INFO, "Current word in pos %i: %s\n", i, current_word);
+      logger(MSG_DEBUG, "Current word in pos %i: %s\n", i, current_word);
       break;
     case 3:
       if (strchr(current_word, ':') != NULL) {
-        logger(MSG_INFO, "%s: Time has minutes", __func__);
+        logger(MSG_DEBUG, "%s: Time has minutes", __func__);
         char *offset = strchr((char *)current_word, ':');
         scheduler_task.time.hh = get_int_from_str(current_word, 0);
         scheduler_task.time.mm = get_int_from_str(offset, 1);
@@ -1031,46 +1030,38 @@ void suspend_call_notifications(uint8_t *command) {
         } else {
           scheduler_task.time.hh = atoi(current_word);
           scheduler_task.time.mm = 0;
-          if (scheduler_task.time.mode) {
-            logger(MSG_WARN, "%s: Waiting for %i hours\n", __func__,
-                   scheduler_task.time.hh);
+          if (scheduler_task.time.hh > 0) {
             strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                             "Waiting for %i hours to re-enable incoming calls\n",
+                             "Blocking incoming calls for %i hour(s)\n",
                              scheduler_task.time.hh);
+
           } else {
-            if (scheduler_task.time.hh > 24) {
-              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                               "I might not be very smart, but I don't think "
-                               "there's enough hours in a day \n");
-              add_message_to_queue(reply, strsz);
-              free(reply);
-              reply = NULL;
-              return;
-            } else {
-              logger(MSG_WARN, "%s: Waiting until %i to enable incoming calls again\n",
-                     __func__, scheduler_task.time.hh);
-              strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                               "Waiting until %i to enable incoming calls\n",
-                               scheduler_task.time.hh);
-            }
+            strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                             "%i hours is not a valid time! Please specify the number of hours\n",
+                             scheduler_task.time.hh);
+                    add_message_to_queue(reply, strsz);
+          free(reply);
+          reply = NULL;
+          return;
           }
         }
       }
       break;
     }
   }
+  
   set_do_not_disturb(true);
   scheduler_task.type = TASK_TYPE_DND_CLEAR;
   scheduler_task.status = STATUS_PENDING;
   scheduler_task.param = 0;
   scheduler_task.time.mode = scheduler_task.time.mode;
   snprintf(scheduler_task.arguments, MAX_MESSAGE_SIZE,
-           "Do not disturb timer cleared, %s", cmd_runtime.user_name);
+           "Hi %s, as requested, I'm disabling DND now!", cmd_runtime.user_name);
   remove_all_tasks_by_type(TASK_TYPE_DND_CLEAR); // We clear all previous timers set
   if (add_task(scheduler_task) < 0) {
     set_do_not_disturb(false);
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     " Can't schedule DND disable, so keeping it off! (too many tasks)\n");
+                     "Can't schedule DND disable, so keeping it off! (too many tasks)\n");
   }
   add_message_to_queue(reply, strsz);
   free(reply);
