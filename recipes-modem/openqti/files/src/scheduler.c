@@ -41,20 +41,20 @@ int find_free_task_slot() {
 int save_tasks_to_storage() {
   FILE *fp;
   int ret;
-  logger(MSG_INFO, "%s: Start\n", __func__);
+  logger(MSG_DEBUG, "%s: Start\n", __func__);
   if (set_persistent_partition_rw() < 0) {
     logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Open file\n", __func__);
+  logger(MSG_DEBUG, "%s: Open file\n", __func__);
   fp = fopen(SCHEDULER_DATA_FILE_PATH, "w");
   if (fp == NULL) {
     logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Store\n", __func__);
+  logger(MSG_DEBUG, "%s: Store\n", __func__);
   ret = fwrite(sch_runtime.tasks, sizeof(struct task_p), MAX_NUM_TASKS, fp);
-  logger(MSG_INFO, "%s: Close (%i bytes written)\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Close (%i bytes written)\n", __func__, ret);
   fclose(fp);
   do_sync_fs();
   if (!use_persistent_logging()) {
