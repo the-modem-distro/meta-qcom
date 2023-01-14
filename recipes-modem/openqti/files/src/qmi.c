@@ -144,7 +144,6 @@ uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len) {
                this_tlv->response, get_qmi_error_string(this_tlv->response));
       }
       arr = NULL;
-
       this_tlv = NULL;
       return result;
     }

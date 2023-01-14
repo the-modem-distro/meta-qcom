@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
-#ifndef _TRACKING_H_
-#define _TRACKING_H_
+#ifndef __TRACKING__H_
+#define __TRACKING__H_
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
