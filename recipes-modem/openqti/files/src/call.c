@@ -762,7 +762,6 @@ uint8_t handle_voice_service_call_status(uint8_t source, void *bytes,
       logger(MSG_INFO, "%s: Call #%i: %s\n", __func__, i, log_phone_number);
       prev_num_size += thisnum->len + 3;
 
-
       if (get_num_instances(bytes, len) > 1 &&
           get_call_state(bytes, len, TLV_CALL_INFO) == CALL_STATE_WAITING) {
         if (callwait_auto_hangup_operation_mode() == 2) {
@@ -783,7 +782,9 @@ uint8_t handle_voice_service_call_status(uint8_t source, void *bytes,
         }
       } else if (call_rt.do_not_disturb &&
                  get_call_direction(bytes, len, TLV_CALL_INFO) ==
-                     CALL_DIRECTION_INCOMING) {
+                     CALL_DIRECTION_INCOMING &&
+                 get_call_state(bytes, len, TLV_CALL_INFO) ==
+                     CALL_STATE_RINGING) {
         int strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                              "Call from %s while in DND mode \n", phone_number);
         add_sms_to_queue(reply, strsz);
@@ -805,8 +806,8 @@ uint8_t handle_voice_service_call_status(uint8_t source, void *bytes,
   }
   rmtparty = NULL;
 
-  if (call_rt.do_not_disturb &&
-      get_call_direction(bytes, len, TLV_CALL_INFO) == CALL_DIRECTION_INCOMING) {
+  if (call_rt.do_not_disturb && get_call_direction(bytes, len, TLV_CALL_INFO) ==
+                                    CALL_DIRECTION_INCOMING) {
     proxy_action = PACKET_BYPASS;
     logger(MSG_INFO, "We're in DND mode. Skip notifying the host\n");
     return proxy_action;
@@ -847,7 +848,29 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
   case FROM_DSP:
     logger(MSG_INFO, "%s DSP is sending a all call info response\n", __func__);
     if (call_rt.do_not_disturb) {
+      size_t response_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof (struct qmi_generic_result_ind);
+      uint8_t *fake_response = malloc(response_len);
       logger(MSG_INFO, "Killing this packet\n");
+      if (build_qmux_header(fake_response, response_len, 0x80, get_qmux_service_id(bytes, len), get_qmux_instance_id(bytes, len)) < 0) {
+        logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+      }
+      if (build_qmi_header(fake_response, response_len, 0x02, get_qmi_transaction_id(bytes, len),
+                            VO_SVC_GET_ALL_CALL_INFO) < 0) {
+        logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+      }
+      struct qmi_generic_result_ind* indication = (struct qmi_generic_result_ind*) (fake_response + response_len - sizeof(struct qmi_generic_result_ind));
+      indication->result_code_type = 0x02;
+      indication->generic_result_size = 0x04;
+      indication->result = 0x00;
+      indication->response = 0x00;
+      set_log_level(0);
+      dump_pkt_raw(bytes, len);
+      dump_pkt_raw(fake_response, response_len);
+      set_log_level(1);
+      if (write(usbfd, fake_response, response_len) != response_len) {
+        logger(MSG_ERROR, "%s: Error writing simulated response\n", __func__);
+      }
+      free(fake_response);
       proxy_action = PACKET_BYPASS;
     }
     break;
@@ -857,7 +880,6 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
            __func__);
     break;
   }
-
   return proxy_action;
 }
 
