@@ -19,7 +19,8 @@
 #include "../inc/sms.h"
 #include "../inc/timesync.h"
 
-#define MSG_PDU_DECODE MSG_INFO
+/* Workaround while I debug pdu_decode()*/
+#define MSG_PDU_DECODE MSG_DEBUG
 /*
  * NOTE:
  *  This is pretty much just a prototype. There are lots of holes
@@ -280,7 +281,8 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
   uint8_t user_data_encoding = 0;
   uint8_t has_udh = 0;
 
-  logger(MSG_PDU_DECODE, "%s: Attempting to decode PDU from %i byte message", __func__, size);
+  logger(MSG_PDU_DECODE, "%s: Attempting to decode PDU from %i byte message",
+         __func__, size);
 
   msg = (struct incoming_message *)buffer;
   logger(MSG_PDU_DECODE, "- Message size: %.4x\n", msg->msg.raw_message_len);
@@ -505,7 +507,9 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
       logger(MSG_PDU_DECODE, " - Encoding: unknown\n");
       break;
     default:
-      logger(MSG_PDU_DECODE, "%s: Error getting the coding scheme, bailing out (dcs %.2x)!\n", msg_out->dcs);
+      logger(MSG_PDU_DECODE,
+             "%s: Error getting the coding scheme, bailing out (dcs %.2x)!\n",
+             msg_out->dcs);
       return -1;
     }
 
@@ -552,8 +556,10 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
 
       udhl = msg->msg.data[tp_user_data_offset] + 1;
       end = tp_user_data_offset + udhl;
-      logger(MSG_PDU_DECODE, "UDHL:: Size: %.2x \n", msg->msg.data[tp_user_data_offset]);
-      logger(MSG_PDU_DECODE, "UDHL:: END: %.2x \n",  msg->msg.data[tp_user_data_offset + udhl]);
+      logger(MSG_PDU_DECODE, "UDHL:: Size: %.2x \n",
+             msg->msg.data[tp_user_data_offset]);
+      logger(MSG_PDU_DECODE, "UDHL:: END: %.2x \n",
+             msg->msg.data[tp_user_data_offset + udhl]);
       if (size < tp_user_data_offset + udhl) {
         logger(MSG_ERROR, "%s: UDH: Packet too small!\n", __func__);
         return -ENOMEM;
@@ -634,7 +640,8 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
       char text[160] = {0};
 
       /* Otherwise if it's 7-bit or UCS2 we can decode it */
-      logger(MSG_PDU_DECODE, "GSM7: Decoding SMS text with %u elements (%u bytes) \n",
+      logger(MSG_PDU_DECODE,
+             "GSM7: Decoding SMS text with %u elements (%u bytes) \n",
              tp_user_data_size_elements, tp_user_data_size_bytes);
       gsm7_to_ascii(&msg->msg.data[tp_user_data_offset],
                     tp_user_data_size_elements, text, tp_user_data_size_bytes,
@@ -648,7 +655,10 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
     case MM_SMS_ENCODING_8BIT:
     case MM_SMS_ENCODING_UNKNOWN:
     default: {
-      logger(MSG_WARN, "%s: Not converting message contents, passing it raw (encoding: %.2x)\n", __func__, user_data_encoding);
+      logger(MSG_WARN,
+             "%s: Not converting message contents, passing it raw (encoding: "
+             "%.2x)\n",
+             __func__, user_data_encoding);
       uint8_t raw_data[160];
       if (tp_user_data_size_bytes > 160) {
         logger(MSG_ERROR, "ERROR: Size exceeds what fits in a SMS\n");
@@ -1260,8 +1270,8 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
 
   switch (pkt->qmi.msgid) {
   case WMS_EVENT_REPORT:
-    logger(MSG_INFO, "%s: WMS_EVENT_REPORT for message %i. ID %.4x\n", __func__,
-           sms_runtime.current_message_id, pkt->qmi.msgid);
+    logger(MSG_DEBUG, "%s: WMS_EVENT_REPORT for message %i. ID %.4x\n",
+           __func__, sms_runtime.current_message_id, pkt->qmi.msgid);
     break;
   case WMS_RAW_SEND:
     logger(MSG_DEBUG, "%s: WMS_RAW_SEND for message %i. ID %.4x\n", __func__,
@@ -1278,45 +1288,23 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
      */
     logger(MSG_INFO, "%s: Requesting message contents for ID %i\n", __func__,
            sms_runtime.current_message_id);
-    if (len >= sizeof(struct wms_request_message)) {
-      dump_pkt_raw(bytes, len);
-      struct wms_request_message *request;
-      request = (struct wms_request_message *)bytes;
-      offset = get_tlv_offset_by_id(bytes, len, 0x01);
-      if (offset > 0) {
-        struct sms_storage_type *storage;
-        storage = (struct sms_storage_type *)(bytes + offset);
-        logger(MSG_INFO,
-               "%s: Calculated from offset: 0x%.2x, from request: 0x%.2x\n",
-               __func__, storage->message_id, request->storage.message_id);
-      }
-      logger(MSG_INFO, "%s: TLV ID for this query should be 0x%.2x\n", __func__,
-             request->message_tag.id);
-      if (request->message_tag.id == 0x01) {
-        logger(MSG_INFO,
-               "oFono gives us the message id tlv in a different order...\n ");
-        struct wms_request_message_ofono *req2 =
-            (struct wms_request_message_ofono *)bytes;
-        sms_runtime.current_message_id = req2->storage.message_id;
-        req2 = NULL;
-      } else {
-        sms_runtime.current_message_id = request->storage.message_id;
-      }
-      request = NULL;
+    offset = get_tlv_offset_by_id(bytes, len, 0x01);
+    if (offset > 0) {
+      struct sms_storage_type *storage;
+      storage = (struct sms_storage_type *)(bytes + offset);
+      logger(MSG_WARN, "%s: Message ID: (offset) 0x%.2x\n", __func__,
+             storage->message_id);
+      sms_runtime.current_message_id = storage->message_id;
       sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
       handle_message_state(fd, sms_runtime.current_message_id);
       clock_gettime(
           CLOCK_MONOTONIC,
           &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
-      //    request = NULL;
-    } else {
-      logger(MSG_INFO,
-             "%s: WMS_READ_MESSAGE cannot proceed: Packet too small\n",
-             __func__);
 
+    } else {
+      logger(MSG_ERROR, "%s: Can't find offset for raw_message!\n", __func__);
       dump_pkt_raw(bytes, len);
     }
-
     break;
   case WMS_DELETE:
     logger(MSG_DEBUG, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
@@ -1537,24 +1525,21 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
      */
     if (pkt->pdu_type >= 0x11) {
       uint8_t tp_user_data_size_elements = pkt->contents.content_sz;
-      uint8_t tp_user_data_size_bytes = (7 * (tp_user_data_size_elements + 1)) / 8;
-      ret = gsm7_to_ascii(pkt->contents.contents,
-                          tp_user_data_size_elements,
-                          (char *)output, 
-                          tp_user_data_size_bytes, 
-                          0);
+      uint8_t tp_user_data_size_bytes =
+          (7 * (tp_user_data_size_elements + 1)) / 8;
+      ret = gsm7_to_ascii(pkt->contents.contents, tp_user_data_size_elements,
+                          (char *)output, tp_user_data_size_bytes, 0);
       if (ret < 0) {
         logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
                __LINE__);
       }
     } else if (pkt->pdu_type == 0x01) {
       uint8_t tp_user_data_size_elements = nodate_pkt->contents.content_sz;
-      uint8_t tp_user_data_size_bytes = (7 * (tp_user_data_size_elements + 1)) / 8;
+      uint8_t tp_user_data_size_bytes =
+          (7 * (tp_user_data_size_elements + 1)) / 8;
       ret = gsm7_to_ascii(nodate_pkt->contents.contents,
-                          tp_user_data_size_elements,
-                          (char *)output, 
-                          tp_user_data_size_bytes, 
-                          0);
+                          tp_user_data_size_elements, (char *)output,
+                          tp_user_data_size_bytes, 0);
       if (ret < 0) {
         logger(MSG_ERROR, "%s: %i: Failed to convert to ASCII\n", __func__,
                __LINE__);
@@ -1594,15 +1579,6 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
     struct outgoing_sms_packet *pkt;
     struct outgoing_no_validity_period_sms_packet *nodate_pkt;
     if (len >= sizeof(struct outgoing_sms_packet) - (MAX_MESSAGE_SIZE + 2)) {
-      logger(MSG_INFO, "Alternate message decoding in testing:\n");
-      if (pdu_decode(bytes, len, msg_out) < 0) {
-        logger(MSG_ERROR, "ERROR DECODING THE PDU\n");
-      } else {
-        logger(MSG_INFO, "[SMS] Phone Number %s | Contents: %s\n", msg_out->phone_number,
-             msg_out->message);
-      }
-      logger(MSG_INFO, "Alternate message decoding in testing finished\n");
-      // TO BE REMOVED IF PDU_DECODE WORKS
       pkt = (struct outgoing_sms_packet *)bytes;
       nodate_pkt = (struct outgoing_no_validity_period_sms_packet *)bytes;
       ret = decode_phone_number(pkt->target.phone_number, pkt->target.sz,
@@ -1639,7 +1615,7 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
     nodate_pkt = NULL;
   } else if (source == FROM_DSP) {
     if (pdu_decode(bytes, len, msg_out) < 0) {
-      logger(MSG_ERROR, "ERROR DECODING THE PDU\n");
+        logger(MSG_ERROR, "%s: [dsp] Error decoding the PDU! is this an outgoing message from the host?\n", __func__);
     }
   }
   free(output);
@@ -1775,60 +1751,6 @@ int parse_and_forward_adsp_message(void *bytes, size_t len) {
   return 0;
 }
 
-/*
- * Request message deletion
- *
- */
-/*
-raw_pkt[] = {
- 0x01,
- 0x1b, 0x00,
- 0x00,
- 0x05,
- 0x01,
-
- 0x00,
- 0x10, 0x00,
- 0x24, 0x00,
- 0x0f, 0x00,
-
- 0x12,
- 0x01, 0x00,
- 0x01,
-
- 0x10,
- 0x04, 0x00,
- 0x01, 0x00, 0x00, 0x00,  // Message ID
-
- 0x01,
- 0x01, 0x00,
- 0x01,   // Storage type?
- };
-
-  Redone:
-  0x01, 
-  0x18, 0x00, 
-  0x00, 
-  0x05, 
-  0x01, 
-  
-  0x00, 
-  0x01, 0x00, 
-  0x24, 0x00, 
-  0x0c, 0x00, 
-
-  0x12, 
-  0x01, 0x00, 
-  0x01, 
-
-  0x10, 
-  0x04, 0x00, 
-  0x02, 0x00, 0x00, 0x00, 
-
-  0x01, 
-  0x01, 0x00, 
-  0x01,  
-*/
 int request_message_delete(int adspfd, uint8_t instance_id,
                            uint16_t transaction_id, uint32_t message_id) {
   struct timeval tv;
@@ -1894,10 +1816,11 @@ int request_message_delete(int adspfd, uint8_t instance_id,
       return -EINVAL;
     }
   } else {
-    logger(MSG_ERROR,
-           "**** %s: Couldn't delete message %u (req failed, no answer from the "
-           "baseband)\n",
-           __func__, message_id);
+    logger(
+        MSG_ERROR,
+        "**** %s: Couldn't delete message %u (req failed, no answer from the "
+        "baseband)\n",
+        __func__, message_id);
     return -EINVAL;
   }
   free(request);
@@ -1992,7 +1915,8 @@ int retrieve_and_delete(int adspfd, int usbfd) {
   struct sms_get_message_by_id *thismsg =
       calloc(1, sizeof(struct sms_get_message_by_id));
   logger(MSG_INFO, " *** %s start *** \n", __func__);
-  logger(MSG_WARN, "This function is in testing stage. Enabling debug mode now\n");
+  logger(MSG_WARN,
+         "This function is in testing stage. Enabling debug mode now\n");
   set_log_level(0);
   if (sms_runtime.stuck_message_data != NULL) {
     logger(MSG_WARN,
@@ -2006,7 +1930,7 @@ int retrieve_and_delete(int adspfd, int usbfd) {
                                     transaction_id,
                                     this_message->message_id) == 0) {
         logger(MSG_INFO, "%s: We got your message back!\n", __func__);
-        transaction_id ++;
+        transaction_id++;
         if (request_message_delete(adspfd, pkt->qmuxpkt.instance_id,
                                    transaction_id,
                                    this_message->message_id) == 0) {
@@ -2081,7 +2005,8 @@ int check_wms_list_all_messages(uint8_t source, void *bytes, size_t len,
         set_log_level(0);
         logger(MSG_DEBUG, "%s: Packet Dump: List all messages\n", __func__);
         dump_pkt_raw(bytes, len);
-        logger(MSG_DEBUG, "%s: Packet Dump: List all messages: END\n", __func__);
+        logger(MSG_DEBUG, "%s: Packet Dump: List all messages: END\n",
+               __func__);
         set_log_level(1);
         logger(MSG_INFO, "Total messages in memory: %u\n",
                pkt->info.number_of_messages_listed);
@@ -2116,7 +2041,8 @@ int check_wms_list_all_messages(uint8_t source, void *bytes, size_t len,
           ret = write(usbfd, empty_answer,
                       sizeof(struct sms_list_all_resp_empty));
           if (ret < 0) {
-            logger(MSG_ERROR, "%s: Failed to write the simulated reply\n", __func__);
+            logger(MSG_ERROR, "%s: Failed to write the simulated reply\n",
+                   __func__);
           }
           free(empty_answer);
         }
