@@ -28,6 +28,11 @@ uint8_t get_qmux_service_id(void *bytes, size_t len) {
   return pkt->service;
 }
 
+/* Get instance from QMUX header */
+uint8_t get_qmux_instance_id(void *bytes, size_t len) {
+  struct qmux_packet *pkt = (struct qmux_packet *)bytes;
+  return pkt->instance_id;
+}
 /* Get Message ID from a QMI control message*/
 uint16_t get_control_message_id(void *bytes, size_t len) {
   struct ctl_qmi_packet *pkt = (struct ctl_qmi_packet *)(bytes + sizeof(struct qmux_packet));
@@ -38,16 +43,17 @@ uint16_t get_control_message_id(void *bytes, size_t len) {
 /* Get Message ID for a QMI message (from a service) */
 uint16_t get_qmi_message_id(void *bytes, size_t len) {
   struct qmi_packet *pkt = (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
-  logger(MSG_INFO, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
+  logger(MSG_DEBUG, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
   return pkt->msgid;
 }
 
 /* Get Message ID for a QMI message (from a service) */
 uint16_t get_qmi_transaction_id(void *bytes, size_t len) {
   struct qmi_packet *pkt = (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
-  logger(MSG_INFO, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
+  logger(MSG_DEBUG, "QMI message: CTL %.2x | TID: %.2x | MSG %.4x | LEN %.4x\n", pkt->ctlid, pkt->transaction_id, pkt->msgid, pkt->length);
   return pkt->transaction_id;
 }
+
 
 /* Get Transaction ID for a QMI message */
 uint16_t get_transaction_id(void *bytes, size_t len) {
@@ -166,7 +172,7 @@ int build_qmux_header(void *output, size_t output_len, uint8_t control, uint8_t 
   }
   struct qmux_packet *pkt = (struct qmux_packet *)output;
   pkt->version = 0x01;
-  pkt->packet_length = 0x00; // To be filled later
+  pkt->packet_length = output_len - sizeof(uint8_t); // QMUX's stated length is entire size - version field
   pkt->control = control;
   pkt->service = service;
   pkt->instance_id = instance;
@@ -183,7 +189,7 @@ int build_qmi_header(void *output, size_t output_len, uint8_t ctlid, uint16_t tr
   pkt->ctlid = ctlid;
   pkt->transaction_id = transaction_id;
   pkt->msgid = message_id;
-  pkt->length = output_len - sizeof(struct qmux_packet) - sizeof(struct qmux_packet);
+  pkt->length = output_len - sizeof(struct qmux_packet) - sizeof(struct qmi_packet);
   pkt = NULL;
   return 0;
 }

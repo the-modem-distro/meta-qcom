@@ -378,10 +378,13 @@ struct client_alloc_response {
 } __attribute__((packed));
 
 uint8_t get_qmux_service_id(void *bytes, size_t len);
+uint8_t get_qmux_instance_id(void *bytes, size_t len);
 uint16_t get_control_message_id(void *bytes, size_t len);
 uint16_t get_qmi_message_id(void *bytes, size_t len);
 uint16_t get_qmi_transaction_id(void *bytes, size_t len);
 uint16_t get_transaction_id(void *bytes, size_t len);
 uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid);
 uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len);
+int build_qmux_header(void *output, size_t output_len, uint8_t control, uint8_t service, uint8_t instance);
+int build_qmi_header(void *output, size_t output_len, uint8_t ctlid, uint16_t transaction_id, uint16_t message_id);
 #endif
