@@ -304,7 +304,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
    */
   switch (get_qmux_service_id(pkt, pkt_size)) {
     case 0: // Control packet with no service
-      logger(MSG_INFO, "%s Control message, Command: %s\n",
+      logger(MSG_DEBUG, "%s Control message, Command: %s\n",
             __func__, get_ctl_command(get_control_message_id(pkt, pkt_size))); // reroute to the tracker for further inspection
       if (get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_REGISTER_REQ || 
           get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_RELEASE_REQ) {
@@ -352,7 +352,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     case 9: // Voice service
       action = call_service_handler(source, pkt, pkt_size, adspfd,
                               usbfd);
-      logger(MSG_INFO, "Call service handler returned %u\n", action);
       break;
 
     case 16: // Location service
@@ -484,7 +483,7 @@ void *rmnet_proxy(void *node_data) {
         break;
       case PACKET_BYPASS:
         rmnet_packet_stats.bypassed++;
-        logger(MSG_INFO, "%s Packet bypassed\n", __func__);
+        logger(MSG_DEBUG, "%s Packet bypassed\n", __func__);
         break;
 
       default:
