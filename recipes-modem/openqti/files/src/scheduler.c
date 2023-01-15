@@ -176,14 +176,18 @@ int update_task_status(int taskID, uint8_t status) {
 }
 
 void cleanup_tasks() {
+  bool needs_write = false;
   for (int i = 0; i < MAX_NUM_TASKS; i++) {
     if (sch_runtime.tasks[i].status == STATUS_DONE ||
         sch_runtime.tasks[i].status == STATUS_FAILED) {
       logger(MSG_INFO, "%s: Removing task %i with status %i\n", __func__, i,
              sch_runtime.tasks[i].status);
       remove_task(i);
+      needs_write = true;
     }
   }
+  if (needs_write)
+    save_tasks_to_storage();
 }
 
 int run_task(int taskID) {
