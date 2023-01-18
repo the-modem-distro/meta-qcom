@@ -386,7 +386,7 @@ void *simulated_call_tts_handler() {
   int size;
   int num_read;
   FILE *file;
-  struct pcm *pcm0;
+  struct pcm *pcm0 = NULL;
   int i;
   bool handled;
   char *phrase; //[MAX_TTS_TEXT_SIZE];
@@ -481,12 +481,10 @@ void *simulated_call_tts_handler() {
       }
     } while (num_read > 0 && get_call_simulation_mode());
     fclose(file);
+    free(buffer);
   }
 
   logger(MSG_INFO, "%s: Cleaning up\n", __func__);
-
-  free(buffer);
-  buffer = NULL;
   pcm_close(pcm0);
 
   stop_multimedia_mixer();
