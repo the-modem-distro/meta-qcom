@@ -63,7 +63,7 @@ struct gsm_data {
   int rxqualfull;
   int voicecodec;
   uint8_t neighbour_sz;
-  struct gsm_neighbour neighbours[8];
+  struct gsm_neighbour neighbours[17];
 };
 /*
 <uarfcn>,<cell_resel_priorit
@@ -94,7 +94,7 @@ struct wcdma_data {
   int speech_codec;
   int conmod;
   uint8_t neighbour_sz;
-  struct wcdma_neighbour neighbours[8];
+  struct wcdma_neighbour neighbours[17];
 };
 
 struct lte_neighbour {
@@ -126,7 +126,7 @@ struct lte_data {
   int sinr;
   int srxlev;
   uint8_t neighbour_sz;
-  struct lte_neighbour neighbours[16];
+  struct lte_neighbour neighbours[17];
 };
 
 struct cell_report {
