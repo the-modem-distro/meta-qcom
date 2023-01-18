@@ -67,7 +67,7 @@ struct cell_report get_current_cell_report() {
 }
 
 struct cell_report parse_report_data(char *orig_string) {
-  struct cell_report report;
+  struct cell_report report = { 0 };
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
   strcpy(str, (char *)orig_string);
@@ -185,7 +185,7 @@ struct cell_report parse_report_data(char *orig_string) {
 }
 
 void parse_lte_intra_neighbour_data(char *orig_string, int len) {
-  struct lte_neighbour report;
+  struct lte_neighbour report = { 0 };
   uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
@@ -275,7 +275,7 @@ void parse_lte_intra_neighbour_data(char *orig_string, int len) {
 }
 
 void parse_lte_inter_neighbour_data(char *orig_string, int len) {
-  struct lte_neighbour report;
+  struct lte_neighbour report = { 0 };
   uint16_t i;
   char delim[] = ",";
   char str[MAX_RESPONSE_SZ];
