@@ -23,44 +23,64 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-int is_usb_suspended = 0;
-struct pkt_stats rmnet_packet_stats;
-struct pkt_stats gps_packet_stats;
+struct {
+  int is_usb_suspended;
+  uint8_t is_service_debugging_enabled;
+  uint8_t debug_service_id;
+  struct pkt_stats rmnet_packet_stats;
+  struct pkt_stats gps_packet_stats;
+} proxy_rt;
 
+void proxy_rt_reset() {
+  proxy_rt.is_usb_suspended = 0;
+  proxy_rt.is_service_debugging_enabled = 0;
+  proxy_rt.debug_service_id = 0;
+}
+
+void enable_service_debugging(uint8_t service_id) {
+  proxy_rt.debug_service_id = service_id;
+  proxy_rt.is_service_debugging_enabled = 1;
+}
+
+void disable_service_debugging() {
+  proxy_rt.is_service_debugging_enabled = 0;
+  proxy_rt.debug_service_id = 0;
+}
 struct pkt_stats get_rmnet_stats() {
-  return rmnet_packet_stats;
+  return proxy_rt.rmnet_packet_stats;
 }
 
 struct pkt_stats get_gps_stats() {
-  return gps_packet_stats;
+  return proxy_rt.gps_packet_stats;
 }
 
 int get_transceiver_suspend_state() {
   int fd, val = 0;
   char readval[6];
-  is_usb_suspended = 0;
+  proxy_rt.is_usb_suspended = 0;
   fd = open("/sys/devices/78d9000.usb/msm_hsusb/isr_suspend_state", O_RDONLY);
   if (fd < 0) {
     logger(MSG_ERROR, "%s: Cannot open USB state \n", __func__);
-    return is_usb_suspended;
+    return proxy_rt.is_usb_suspended;
   }
   lseek(fd, 0, SEEK_SET);
   if (read(fd, &readval, 1) <= 0) {
     logger(MSG_ERROR, "%s: Error reading USB Sysfs entry \n", __func__);
     close(fd);
-    return is_usb_suspended; // return last state
+    return proxy_rt.is_usb_suspended; // return last state
   }
   val = strtol(readval, NULL, 10);
 
-  if (val > 0 && is_usb_suspended == 0) {
-    is_usb_suspended = 1; // USB is suspended, stop trying to transfer data
-                          // system("echo mem > /sys/power/state");
-  } else if (val == 0 && is_usb_suspended == 1) {
-    usleep(100000);       // Allow time to finish wakeup
-    is_usb_suspended = 0; // Then allow transfers again
+  if (val > 0 && proxy_rt.is_usb_suspended == 0) {
+    proxy_rt.is_usb_suspended =
+        1; // USB is suspended, stop trying to transfer data
+           // system("echo mem > /sys/power/state");
+  } else if (val == 0 && proxy_rt.is_usb_suspended == 1) {
+    usleep(100000);                // Allow time to finish wakeup
+    proxy_rt.is_usb_suspended = 0; // Then allow transfers again
   }
   close(fd);
-  return is_usb_suspended;
+  return proxy_rt.is_usb_suspended;
 }
 
 /*
@@ -77,11 +97,11 @@ int get_transceiver_suspend_state() {
  *  using it), GPS is still active and won't need resyncing
  */
 void find_and_set_current_sms_memory_index(uint8_t *buf, int len) {
-  char* pos;
+  char *pos;
   uint8_t val;
-  if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
+  if (strstr((char *)buf, "+CMTI: \"ME\",") != NULL) {
     logger(MSG_WARN, "%s CMTI Report: %s\n", __func__, buf);
-    pos = strstr((char*)buf, ",");
+    pos = strstr((char *)buf, ",");
     if (pos != NULL) {
       val = atoi(pos);
       logger(MSG_WARN, "%s: Memory index: %u\n", __func__, val);
@@ -136,23 +156,23 @@ void *gps_proxy() {
       if (ret > 0) {
         dump_packet("GPS_SMD-->USB", buf, ret);
         // CMTI Initial check:
- /*       if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
-          logger(MSG_WARN, "CMTI Report: %s", buf);
-          find_and_set_current_sms_memory_index(buf, ret);
-        }*/
+        /*       if (strstr((char*)buf, "+CMTI: \"ME\",") != NULL) {
+                 logger(MSG_WARN, "CMTI Report: %s", buf);
+                 find_and_set_current_sms_memory_index(buf, ret);
+               }*/
         if (!get_transceiver_suspend_state() && nodes->node2.fd >= 0) {
-          gps_packet_stats.allowed++;
+          proxy_rt.gps_packet_stats.allowed++;
           ret = write(nodes->node2.fd, buf, ret);
           if (ret == 0) {
-            gps_packet_stats.failed++;
+            proxy_rt.gps_packet_stats.failed++;
             logger(MSG_ERROR, "%s: [GPS_TRACK Failed to write to USB\n",
                    __func__);
           }
         } else {
-          gps_packet_stats.discarded++;
+          proxy_rt.gps_packet_stats.discarded++;
         }
       } else {
-        gps_packet_stats.empty++;
+        proxy_rt.gps_packet_stats.empty++;
         logger(MSG_WARN, "%s: Closing at the ADSP side \n", __func__);
         close(nodes->node1.fd);
         nodes->node1.fd = -1;
@@ -162,15 +182,15 @@ void *gps_proxy() {
 
       ret = read(nodes->node2.fd, &buf, MAX_PACKET_SIZE);
       if (ret > 0) {
-        gps_packet_stats.allowed++;
+        proxy_rt.gps_packet_stats.allowed++;
         dump_packet("GPS_SMD<--USB", buf, ret);
         ret = write(nodes->node1.fd, buf, ret);
         if (ret == 0) {
-          gps_packet_stats.failed++;
+          proxy_rt.gps_packet_stats.failed++;
           logger(MSG_ERROR, "%s: Failed to write to the ADSP\n", __func__);
         }
       } else {
-        gps_packet_stats.empty++;
+        proxy_rt.gps_packet_stats.empty++;
         logger(MSG_ERROR, "%s: Closing at the USB side \n", __func__);
         nodes->allow_exit = true;
         close(nodes->node2.fd);
@@ -222,7 +242,7 @@ uint8_t process_simulated_packet(uint8_t source, int adspfd, int usbfd) {
   if (at_debug_stream_cb_message_requested()) {
     send_cb_message_to_modemmanager(usbfd, -2);
   }
-  
+
   return 0;
 }
 
@@ -272,14 +292,15 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     return PACKET_EMPTY; // Abort processing
   }
 
-  /* 
+  /*
    * There are two different types of QMI packets, and we don't know
    * which one we're handling right now, so cast both and then check
    */
 
-  /* 
-   * Message needs to have a QMUX header and at least a 6 byte QMI header (control)
-   * Or QMUX header + 7 Byte QMI header (service). If it's less than that we stop here
+  /*
+   * Message needs to have a QMUX header and at least a 6 byte QMI header
+   * (control) Or QMUX header + 7 Byte QMI header (service). If it's less than
+   * that we stop here
    */
 
   if (pkt_size < (sizeof(struct qmux_packet) + sizeof(struct ctl_qmi_packet))) {
@@ -287,81 +308,89 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     return PACKET_EMPTY;
   }
 
-  qmux_header = (struct qmux_packet *) pkt;
+  qmux_header = (struct qmux_packet *)pkt;
   /* If we have enough for a "service" QMI message we will inspect things
    * further down
    */
   if (pkt_size >= sizeof(struct encapsulated_qmi_packet)) {
     packet = (struct encapsulated_qmi_packet *)pkt;
   }
-  
+
   logger(MSG_DEBUG, "[New QMI message] Service: %s (%i bytes)\n",
          get_service_name(qmux_header->service), pkt_size);
 
+  if (proxy_rt.is_service_debugging_enabled &&
+      get_qmux_service_id(pkt, pkt_size) == proxy_rt.debug_service_id) {
+    pretty_print_qmi_pkt(source == FROM_HOST ? "Host --> Baseband"
+                                             : "Baseband --> Host",
+                         pkt, pkt_size);
+  }
   /* In the future we can use this as a router inside the application.
    * For now we only do some simple tasks depending on service, so no
    * need to do too much
    */
   switch (get_qmux_service_id(pkt, pkt_size)) {
-    case 0: // Control packet with no service
-      logger(MSG_DEBUG, "%s Control message, Command: %s\n",
-            __func__, get_ctl_command(get_control_message_id(pkt, pkt_size))); // reroute to the tracker for further inspection
-      if (get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_REGISTER_REQ || 
-          get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_RELEASE_REQ) {
-        track_client_count(pkt, source, pkt_size, adspfd, usbfd);
+  case 0: // Control packet with no service
+    logger(
+        MSG_DEBUG, "%s Control message, Command: %s\n", __func__,
+        get_ctl_command(get_control_message_id(
+            pkt, pkt_size))); // reroute to the tracker for further inspection
+    if (get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_REGISTER_REQ ||
+        get_control_message_id(pkt, pkt_size) == CONTROL_CLIENT_RELEASE_REQ) {
+      track_client_count(pkt, source, pkt_size, adspfd, usbfd);
+    }
+    break;
+  case 3:
+    logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
+    if (packet->qmi.msgid == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
+      struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
+      update_network_data(level->signal.id, level->signal.signal_level);
+      if (is_first_boot()) {
+        send_hello_world();
       }
-      break;
-    case 3:
-      logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
-      if (packet->qmi.msgid == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
-        struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
-        update_network_data(level->signal.id,
-                            level->signal.signal_level);
-        if (is_first_boot()) {
-          send_hello_world();
-        }
-        if (get_call_simulation_mode()) {
-          logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
-                __func__);
-          action = PACKET_BYPASS;
-        }
-        level = NULL;
-      }
-      break;
-    /* Here we'll trap messages to the Modem */
-    case 5: // Message for the WMS service
-      action = PACKET_FORCED_PT;
-      logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
-      if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
-        action = PACKET_BYPASS; // We bypass response
-      } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
-        action = PACKET_FORCED_PT;
-      } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
-        action = PACKET_FORCED_PT;
-      } else if (check_wms_list_all_messages(source, pkt, pkt_size, adspfd, usbfd)) {
+      if (get_call_simulation_mode()) {
+        logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
+               __func__);
         action = PACKET_BYPASS;
-      } else if (source == FROM_HOST && process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
-        action = PACKET_BYPASS; // We bypass response
       }
+      level = NULL;
+    }
+    break;
+  /* Here we'll trap messages to the Modem */
+  case 5: // Message for the WMS service
+    action = PACKET_FORCED_PT;
+    logger(MSG_DEBUG, "%s WMS Packet\n", __func__);
+    if (check_wms_message(source, pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_BYPASS; // We bypass response
+    } else if (check_wms_indication_message(pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_FORCED_PT;
+    } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_FORCED_PT;
+    } else if (check_wms_list_all_messages(source, pkt, pkt_size, adspfd,
+                                           usbfd)) {
+      action = PACKET_BYPASS;
+    } else if (source == FROM_HOST &&
+               process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
+      action = PACKET_BYPASS; // We bypass response
+    }
 
-      break;
+    break;
 
-    /* Here we'll handle in call audio and simulated voicecalls */
-    /* REMEMBER: 0x002e -> Call indication
-                0x0024 -> All Call information */
-    case 9: // Voice service
-      action = call_service_handler(source, pkt, pkt_size, adspfd,
-                              usbfd);
-      break;
+  /* Here we'll handle in call audio and simulated voicecalls */
+  /* REMEMBER: 0x002e -> Call indication
+              0x0024 -> All Call information */
+  case 9: // Voice service
+    action = call_service_handler(source, pkt, pkt_size, adspfd, usbfd);
+    break;
 
-    case 16: // Location service
-      logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
-            packet->qmi.msgid);
-      gps_packet_stats.other++;
-      break;
+  case 16: // Location service
+    logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
+           packet->qmi.msgid);
+    proxy_rt.gps_packet_stats.other++;
+    break;
 
-    default:
-      break;
+  default:
+    break;
   }
   packet = NULL;
   return action; // 1 == Pass through
@@ -387,10 +416,10 @@ uint8_t is_inject_needed() {
   } else if (get_call_simulation_mode()) {
     logger(MSG_DEBUG, "%s: In simulated call\n", __func__);
     return 1;
-  } else if (at_debug_cb_message_requested() || 
-            at_debug_random_cb_message_requested() ||
-            at_debug_stream_cb_message_requested()) {
-        logger(MSG_INFO, "We're going to fake some Cell Broadcast messages now");
+  } else if (at_debug_cb_message_requested() ||
+             at_debug_random_cb_message_requested() ||
+             at_debug_stream_cb_message_requested()) {
+    logger(MSG_INFO, "We're going to fake some Cell Broadcast messages now");
     return 1;
   } else if (is_stuck_message_retrieve_pending()) {
     logger(MSG_INFO, "%s: We have pending messages to get\n", __func__);
@@ -439,7 +468,9 @@ void *rmnet_proxy(void *node_data) {
       targetfd = nodes->node2.fd;
     } else if (is_inject_needed()) {
       source = FROM_OPENQTI;
-      logger(MSG_DEBUG, "%s: OpenQTI needs to take over communication between the host and the baseband \n",
+      logger(MSG_DEBUG,
+             "%s: OpenQTI needs to take over communication between the host "
+             "and the baseband \n",
              __func__);
       process_simulated_packet(source, nodes->node2.fd, nodes->node1.fd);
     }
@@ -452,20 +483,20 @@ void *rmnet_proxy(void *node_data) {
       case PACKET_EMPTY:
         logger(MSG_WARN, "%s Empty packet on %s, (device closed?)\n", __func__,
                (source == FROM_HOST ? "HOST" : "ADSP"));
-        rmnet_packet_stats.empty++;
+        proxy_rt.rmnet_packet_stats.empty++;
         break;
       case PACKET_PASS_TRHU:
         logger(MSG_DEBUG, "%s Pass through\n", __func__); // MSG_DEBUG
         if (!get_transceiver_suspend_state() || source == FROM_HOST) {
-          rmnet_packet_stats.allowed++;
+          proxy_rt.rmnet_packet_stats.allowed++;
           bytes_written = write(targetfd, buf, bytes_read);
           if (bytes_written < 1) {
             logger(MSG_WARN, "%s Error writing to %s\n", __func__,
                    (source == FROM_HOST ? "ADSP" : "HOST"));
-            rmnet_packet_stats.failed++;
+            proxy_rt.rmnet_packet_stats.failed++;
           }
         } else {
-          rmnet_packet_stats.discarded++;
+          proxy_rt.rmnet_packet_stats.discarded++;
           logger(MSG_DEBUG, "%s Data discarded from %s to %s\n", __func__,
                  (source == FROM_HOST ? "HOST" : "ADSP"),
                  (source == FROM_HOST ? "ADSP" : "HOST"));
@@ -473,16 +504,16 @@ void *rmnet_proxy(void *node_data) {
         break;
       case PACKET_FORCED_PT:
         logger(MSG_DEBUG, "%s Force pass through\n", __func__); // MSG_DEBUG
-        rmnet_packet_stats.allowed++;
+        proxy_rt.rmnet_packet_stats.allowed++;
         bytes_written = write(targetfd, buf, bytes_read);
         if (bytes_written < 1) {
           logger(MSG_WARN, "%s [FPT] Error writing to %s\n", __func__,
                  (source == FROM_HOST ? "ADSP" : "HOST"));
-          rmnet_packet_stats.failed++;
+          proxy_rt.rmnet_packet_stats.failed++;
         }
         break;
       case PACKET_BYPASS:
-        rmnet_packet_stats.bypassed++;
+        proxy_rt.rmnet_packet_stats.bypassed++;
         logger(MSG_DEBUG, "%s Packet bypassed\n", __func__);
         break;
 
