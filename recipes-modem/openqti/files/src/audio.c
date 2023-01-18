@@ -307,6 +307,7 @@ void *incall_recording_tread() {
   if (audio_runtime_state.is_recording) {
     logger(MSG_ERROR, "%s: Can't start recording thread, already recording!\n",
            __func__);
+    free(sms_message);
     return NULL;
   }
 
