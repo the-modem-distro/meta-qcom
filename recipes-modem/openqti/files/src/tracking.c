@@ -15,7 +15,7 @@
 #include "../inc/tracking.h"
 
 struct {
-  struct service_pair services[32];
+  struct service_pair services[33];
   uint8_t last_active;
   uint32_t regtime;
   uint8_t host_side_managing_app;
