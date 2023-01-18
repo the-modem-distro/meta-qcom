@@ -128,7 +128,7 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance) {
   struct server_lookup_args *lookup;
 
   int sock;
-  struct msm_ipc_server_info port_combo;
+  struct msm_ipc_server_info port_combo = {0};
 
   port_combo.node_id = 0;
   port_combo.port_id = 0;
@@ -178,6 +178,7 @@ int setup_ipc_security() {
   fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   if (!fd) {
     logger(MSG_ERROR, " Error opening socket \n");
+    free(cur_rule);
     return -1;
   }
   for (i = 0; i < ipc_categories; i++) {
@@ -218,6 +219,7 @@ int init_port_mapper_internal() {
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
     logger(MSG_ERROR, "%s: Error opening IPC Socket!\n", __func__);
+    free(dpmreq);
     return -EINVAL;
   }
 
@@ -228,6 +230,7 @@ int init_port_mapper_internal() {
   dpmfd = open(DPM_CTL, O_RDWR);
   if (dpmfd < 0) {
     logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    free(dpmreq);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
@@ -303,6 +306,7 @@ int init_port_mapper() {
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
     logger(MSG_ERROR, "%s: Error opening IPC Socket!\n", __func__);
+    free(dpmreq);
     return -EINVAL;
   }
 
@@ -313,6 +317,7 @@ int init_port_mapper() {
   dpmfd = open(DPM_CTL, O_RDWR);
   if (dpmfd < 0) {
     logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    free(dpmreq);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
