@@ -28,7 +28,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
-
+#include "../inc/ipc.h"
 struct {
   bool is_unlocked;
   uint32_t unlock_time;
@@ -166,6 +166,30 @@ void set_custom_modem_name(uint8_t *command) {
   free(reply);
   reply = NULL;
 }
+
+void enable_service_debugging_for_service_id(uint8_t *command) {
+  int strsz = 0;
+  uint8_t *offset;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t service_id = 0;
+  offset = (uint8_t *)strstr((char *)command, partial_commands[7].cmd);
+  if (offset == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Error setting my new name\n");
+  } else {
+    int ofs = (int)(offset - command) + strlen(partial_commands[7].cmd);
+    if (strlen((char *)command) > ofs) {
+      service_id = atoi((char*)(command + ofs));
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Enabling debugging of service id %u (%s)\n",
+                       service_id, (command + ofs));
+      enable_service_debugging(service_id);                  
+    }
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
+
 
 void set_custom_user_name(uint8_t *command) {
   int strsz = 0;
@@ -1049,7 +1073,7 @@ void suspend_call_notifications(uint8_t *command) {
       break;
     }
   }
-  
+
   set_do_not_disturb(true);
   scheduler_task.type = TASK_TYPE_DND_CLEAR;
   scheduler_task.status = STATUS_PENDING;
@@ -1582,6 +1606,31 @@ uint8_t parse_command(uint8_t *command) {
     set_do_not_disturb(false);
     remove_all_tasks_by_type(TASK_TYPE_DND_CLEAR); 
     break;
+
+  case 49:
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    disable_service_debugging();
+    break;
+  case 50:
+      strsz = 0;
+    snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+             "Known QMI Services\n");
+    add_message_to_queue(reply, strsz);
+    strsz = 0;
+    for (i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
+      if (strlen(common_names[i].name) + (3 * sizeof(uint8_t)) +
+              strlen(common_names[i].name) + strsz >
+          MAX_MESSAGE_SIZE) {
+        add_message_to_queue(reply, strsz);
+        strsz = 0;
+      }
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "%u: %s\n", common_names[i].service, common_names[i].name);
+    }
+    add_message_to_queue(reply, strsz);
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
@@ -1603,6 +1652,9 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 106: /* Leave me alone [not implemented yet] */
     suspend_call_notifications(command);
+    break;
+  case 107:
+    enable_service_debugging_for_service_id(command);
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,

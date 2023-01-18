@@ -69,6 +69,8 @@ static const struct {
     {46, "enable internal net", "Warning: this doesn't work yet", "Attempts to init modem's internal RMNET port"},
     {47, "disable internal net", "Warning: this doesn't work yet", "Attempts to init modem's internal RMNET port"},
     {48, "disable dnd", "Disabling Do Not Disturb", "Disables Do Not Disturb feature"},
+    {49, "disable service debugging", "Done boss!", "Disables extensive logging for a defined service"},
+    {50, "list qmi services", "Available QMI services:", "Shows QMI Service IDs (for service debugging)"}
 };
 
 static const struct {
@@ -87,7 +89,8 @@ static const struct {
     {105, "delete task ", "Removing task ",
      "delete task X: Removes task X from the scheduler"},
     {106, "enable dnd for ", "Silencing calls for  ",
-     "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "}
+     "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "},
+    {107, "enable debugging of service ", "Enabling debugging of service ", "Enables extensive logging of a defined QMI service"},
 };
 
 static const struct {
