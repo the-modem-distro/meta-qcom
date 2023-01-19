@@ -272,10 +272,6 @@ int init_port_mapper_internal() {
     logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
-    set_log_level(0);
-    dump_pkt_raw((uint8_t *)dpmreq,
-                 sizeof(struct portmapper_open_request_shared));
-    set_log_level(1);
   } while (sendto(qmidev->fd, dpmreq,
                   sizeof(struct portmapper_open_request_shared), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
@@ -358,7 +354,6 @@ int init_port_mapper() {
     logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
-    dump_pkt_raw((uint8_t *)dpmreq, sizeof(struct portmapper_open_request_new));
   } while (sendto(qmidev->fd, dpmreq,
                   sizeof(struct portmapper_open_request_new), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
