@@ -457,11 +457,11 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 132: // Runtime set log level to debug
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_log_level(0);
+    set_log_level(MSG_DEBUG);
     break;
   case 133: // Runtime set log level to info
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_log_level(1);
+    set_log_level(MSG_INFO);
     break;
   case 134: // Simulate SMS
     bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",%i\r\n", get_internal_pending_messages() + get_pending_messages_in_adsp());
