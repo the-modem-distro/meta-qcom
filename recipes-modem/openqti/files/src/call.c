@@ -706,9 +706,9 @@ uint8_t handle_voice_service_call_info(uint8_t source, void *bytes, size_t len,
   }
   /* NOT IMPLEMENTED */
   logger(MSG_INFO, "%s: VO_SVC_CALL_INFO: Unimplemented!\n", __func__);
-  set_log_level(0);
+  set_log_level(MSG_DEBUG);
   dump_pkt_raw(bytes, len);
-  set_log_level(1);
+  set_log_level(MSG_INFO);
   if (source == FROM_DSP && call_rt.do_not_disturb &&
       get_call_direction(bytes, len, TLV_REMOTE_NUMBER) ==
           CALL_DIRECTION_INCOMING) {
@@ -913,9 +913,9 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
   case VO_SVC_CALL_STATUS_CHANGE:
     logger(MSG_INFO, "%s: VO_SVC_CALL_STATUS_CHANGE: Unimplemented\n",
            __func__);
-    set_log_level(0);
+    set_log_level(MSG_DEBUG);
     dump_pkt_raw(bytes, len);
-    set_log_level(1);
+    set_log_level(MSG_INFO);
     break;
 
   case VO_SVC_CALL_END_REQ:
