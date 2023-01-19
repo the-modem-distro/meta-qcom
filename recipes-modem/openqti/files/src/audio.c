@@ -271,7 +271,7 @@ uint8_t watch_storage(char *filename) {
       cleanup_storage(1, false, filename);
     } else if (avail_space_persist != -EINVAL && avail_space_persist < 10) {
       // Only log errors from now on to avoid wasting more space
-      set_log_level(2);
+      set_log_level(MSG_ERROR);
     }
   } else {
     if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
@@ -284,7 +284,7 @@ uint8_t watch_storage(char *filename) {
       cleanup_storage(0, false, filename);
     } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 10) {
       // Only log errors from now on to avoid wasting more space
-      set_log_level(2);
+      set_log_level(MSG_ERROR);
     }
   }
   return kill_recording;
