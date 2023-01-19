@@ -259,7 +259,14 @@ static const struct {
     {0x0183, "enotrecoverable"},
 };
 
-enum {
+typedef enum {
+  QMI_REQUEST = 0x00,
+  QMI_RESPONSE = 0x01,
+  QMI_INDICATION = 0x02,
+  QMI_RESERVED = 0x03,
+} QMI_Control;
+
+typedef enum {
   QMI_SERVICE_CONTROL = 0x00,
   QMI_SERVICE_WDS = 0x01,
   QMI_SERVICE_DMS = 0x02,
@@ -288,7 +295,7 @@ enum {
   QMI_SERVICE_SAP = 0x19, // Service Access Proxy  
 
   QMI_SERVICES_LAST = 0xff,
-};
+} QMI_Service;
 
 
 /* DMS Testing */
@@ -305,12 +312,14 @@ enum {
 
 };
 
-
 struct qmi_service_bindings {
   uint8_t service;
   uint8_t instance;
   uint8_t is_initialized;
-  uint16_t curr_transaction_id;
+  uint8_t has_pending_message;
+  uint8_t *message;
+  size_t message_len;
+  uint16_t transaction_id;
 };
 
 struct qmux_packet {      // 6 byte
@@ -435,6 +444,7 @@ uint8_t get_qmux_service_id(void *bytes, size_t len);
 uint8_t get_qmux_instance_id(void *bytes, size_t len);
 uint16_t get_control_message_id(void *bytes, size_t len);
 uint16_t get_qmi_message_id(void *bytes, size_t len);
+uint16_t get_qmi_message_type(void *bytes, size_t len);
 uint16_t get_qmi_transaction_id(void *bytes, size_t len);
 uint16_t get_transaction_id(void *bytes, size_t len);
 uint16_t get_tlv_offset_by_id(uint8_t *bytes, size_t len, uint8_t tlvid);
@@ -442,5 +452,9 @@ const char *get_qmi_error_string(uint16_t result_code);
 uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len);
 int build_qmux_header(void *output, size_t output_len, uint8_t control, uint8_t service, uint8_t instance);
 int build_qmi_header(void *output, size_t output_len, uint8_t ctlid, uint16_t transaction_id, uint16_t message_id);
+
+void clear_current_transaction_id(uint8_t service);
+uint16_t get_transaction_id_for_service(uint8_t service);
+int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len);
 void *init_internal_qmi_client();
 #endif

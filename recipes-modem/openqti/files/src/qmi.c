@@ -7,7 +7,7 @@
 #include "../inc/logger.h"
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
-
+#include "../inc/wds.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -20,6 +20,7 @@
 
 struct {
   uint8_t is_initialized;
+  uint8_t has_pending_message;
   int fd;
   struct qmi_service_bindings services[QMI_SERVICES_LAST];
 } internal_qmi_client;
@@ -45,6 +46,19 @@ uint8_t get_qmux_instance_id(void *bytes, size_t len) {
   struct qmux_packet *pkt = (struct qmux_packet *)bytes;
   return pkt->instance_id;
 }
+
+
+/* Set current instance in QMUX header and transaction id in qmi header*/
+void prepare_internal_pkt(void *bytes, size_t len) {
+  struct qmux_packet *pkt = (struct qmux_packet *)bytes;
+  pkt->instance_id = internal_qmi_client.services[pkt->service].instance;
+  struct qmi_packet *qmi = (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
+  qmi->transaction_id = internal_qmi_client.services[pkt->service].transaction_id;
+
+  pkt = NULL;
+  qmi = NULL;
+}
+
 /* Get Message ID from a QMI control message*/
 uint16_t get_control_message_id(void *bytes, size_t len) {
   struct ctl_qmi_packet *pkt =
@@ -60,6 +74,13 @@ uint16_t get_qmi_message_id(void *bytes, size_t len) {
   struct qmi_packet *pkt =
       (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
   return pkt->msgid;
+}
+
+/* Get Message trype for a QMI message (from a service) */
+uint16_t get_qmi_message_type(void *bytes, size_t len) {
+  struct qmi_packet *pkt =
+      (struct qmi_packet *)(bytes + sizeof(struct qmux_packet));
+  return pkt->ctlid;
 }
 
 /* Get Message ID for a QMI message (from a service) */
@@ -178,6 +199,9 @@ uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len) {
   return result;
 }
 
+/*
+ * Makes a QMUX header
+ */
 int build_qmux_header(void *output, size_t output_len, uint8_t control,
                       uint8_t service, uint8_t instance) {
   if (output_len < sizeof(struct qmux_packet)) {
@@ -197,6 +221,9 @@ int build_qmux_header(void *output, size_t output_len, uint8_t control,
   return 0;
 }
 
+/*
+ * Makes a QMI header for a service (not a control QMI header)
+ */
 int build_qmi_header(void *output, size_t output_len, uint8_t ctlid,
                      uint16_t transaction_id, uint16_t message_id) {
   if (output_len < (sizeof(struct qmux_packet) + sizeof(struct qmi_packet))) {
@@ -214,7 +241,22 @@ int build_qmi_header(void *output, size_t output_len, uint8_t ctlid,
   pkt = NULL;
   return 0;
 }
+
 /* INTERNAL QMI CLIENT */
+
+/*
+ * Signals to the proxy thread that some internal service has a pending message
+ */
+void set_pending_message(uint8_t service) {
+  logger(MSG_INFO, "%s: Pending QMI message for service %.2x\n", __func__,
+         service);
+  internal_qmi_client.services[service].has_pending_message = 1;
+  internal_qmi_client.has_pending_message = 1;
+}
+
+/*
+ * Attempts to read from /dev/smdcntl0
+ */
 size_t read_from_qmi_port(void *buff, size_t max_sz) {
   size_t bytes_read = 0;
   fd_set readfds;
@@ -229,18 +271,16 @@ size_t read_from_qmi_port(void *buff, size_t max_sz) {
     logger(MSG_INFO, "%s: Is set!\n", __func__);
     bytes_read = read(internal_qmi_client.fd, buff, max_sz);
   }
-  set_log_level(0);
-  dump_pkt_raw(buff, bytes_read);
-  set_log_level(1);
   logger(MSG_INFO, "%s: Bytes read: %u\n", __func__, bytes_read);
   return bytes_read;
 }
 
+/*
+ * Attempts to write a buffer to /dev/smdcntl0
+ */
 size_t write_to_qmi_port(void *buff, size_t bufsz) {
   size_t bytes_written = 0;
-  set_log_level(0);
-  dump_pkt_raw(buff, bufsz);
-  set_log_level(1);
+
   bytes_written = write(internal_qmi_client.fd, buff, bufsz);
   if (bytes_written != bufsz) {
     logger(MSG_WARN,
@@ -255,17 +295,7 @@ int allocate_qmi_client(uint8_t service) {
   struct client_alloc_request *request = NULL;
   size_t bytes = 0;
   int ret = 0;
-  if (!internal_qmi_client.is_initialized) {
-    internal_qmi_client.fd = open(INT_SMD_CNTL, O_RDWR);
-    if (internal_qmi_client.fd < 0) {
-      logger(MSG_ERROR, "Error opening %s!\n", INT_SMD_CNTL);
-      free(buff);
-      return -EINVAL;
-    } else {
-      logger(MSG_INFO, "%s: Opened internal SMD port\n", __func__);
-      internal_qmi_client.is_initialized = 1;
-    }
-  }
+
 
   request = (struct client_alloc_request *)buff;
   request->qmux.version = 0x01;
@@ -299,7 +329,7 @@ int allocate_qmi_client(uint8_t service) {
           response->instance.service_id;
       internal_qmi_client.services[service].instance =
           response->instance.instance_id;
-      internal_qmi_client.services[service].curr_transaction_id =
+      internal_qmi_client.services[service].transaction_id =
           response->qmi.transaction_id;
       internal_qmi_client.services[service].is_initialized = 1;
     }
@@ -311,14 +341,238 @@ int allocate_qmi_client(uint8_t service) {
   return ret;
 }
 
+/*
+ * Returns either 1 or 0 if there's a pending message to deliver
+ * to the baseband
+ */
+uint8_t is_internal_qmi_message_pending() {
+  if (internal_qmi_client.has_pending_message) {
+    logger(MSG_INFO, "%s: Pending messages found\n", __func__);
+    return 1;
+  }
+  return 0;
+}
+
+/*
+ * Clears the buffer and the pending flag after sending a message
+ * to the baseband
+ */
+void clear_message_for_service(uint8_t service) {
+  if (service > QMI_SERVICES_LAST) {
+    logger(MSG_ERROR, "%s: Invalid service %.2x!!\n", __func__, service);
+    return;
+  }
+
+  if (internal_qmi_client.services[service].message == NULL) {
+    logger(MSG_ERROR, "%s: Message for %.2x is already NULL!\n", __func__, service);
+    return;
+  }
+
+  free(internal_qmi_client.services[service].message);
+  internal_qmi_client.services[service].message = NULL;
+  internal_qmi_client.services[service].message_len = 0;
+  logger(MSG_INFO, "%s: Message for %.2x cleared.\n", __func__, service);
+}
+
+/*
+ * Set the transaction_id to 0 for a service
+ */
+void clear_current_transaction_id(uint8_t service) {
+  if (service > QMI_SERVICES_LAST) {
+    logger(MSG_ERROR, "%s: Invalid service %.2x!!\n", __func__, service);
+    return;
+  }
+  internal_qmi_client.services[service].transaction_id = 0;
+}
+
+/*
+ * Get last transaction_id for a service
+ */
+uint16_t get_transaction_id_for_service(uint8_t service) {
+  if (service > QMI_SERVICES_LAST) {
+    logger(MSG_ERROR, "%s: Invalid service %.2x!!\n", __func__, service);
+    return 0;
+  }
+  return internal_qmi_client.services[service].transaction_id;
+}
+
+/*
+ * Set a transaction ID for a service
+ */
+void set_transaction_id_for_service(uint8_t service, uint16_t transaction_id) {
+  if (service > QMI_SERVICES_LAST) {
+    logger(MSG_ERROR, "%s: Invalid service %.2x!!\n", __func__, service);
+    return;
+  }
+  internal_qmi_client.services[service].transaction_id = transaction_id;
+}
+
+/*
+ * Looks for pending internal messages and dispatches them from the service
+ */
+int send_pending_internal_qmi_messages() {
+  uint8_t clear_pending_flag = 1;
+  if (!internal_qmi_client.has_pending_message) {
+    logger(MSG_WARN, "%s was called with no pending messages!\n", __func__);
+    return -EINVAL;
+  }
+  for (uint8_t i = 0; i < QMI_SERVICES_LAST; i++) {
+    if (internal_qmi_client.services[i].has_pending_message) {
+      if (!internal_qmi_client.services[i].is_initialized) {
+        /*
+         * Try to allocate a new client, but don't send the pending message
+         * just yet, but wait for next pass. This avoids hogging the port
+         * if the client fails to be allocated and allows for the rest of the
+         * stack to keep working
+         */
+        if (allocate_qmi_client(i) < 0) {
+          logger(MSG_ERROR, "%s: Failed to allocate client: SVC %.2x\n",
+                 __func__, i);
+        } else {
+          logger(MSG_INFO, "%s: Connected to %.2x. On next pass we'll send the pending message\n", __func__, i);
+        }
+
+      } else {
+        switch (i) { /* Just to add some debugging here */
+        case QMI_SERVICE_WDS: // Wireless Data Service
+          logger(MSG_INFO, "%s: Pending message for WDS\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message, internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message, internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+
+        case QMI_SERVICE_DMS: // Device Management Service
+          logger(MSG_INFO, "%s: Pending message for DMS\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message, internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message, internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+
+        default:
+          logger(MSG_ERROR, "%s: Unknown service %.2x, discarding the flag\n",
+                 __func__, i);
+          internal_qmi_client.services[i].has_pending_message = 0;
+          break;
+        }
+      }
+    }
+  }
+
+  for (uint8_t i = 0; i < QMI_SERVICES_LAST; i++) {
+    if (internal_qmi_client.services[i].has_pending_message == 1) {
+      clear_pending_flag = 0;
+    }
+  }
+  if (clear_pending_flag) {
+    internal_qmi_client.has_pending_message = 0;
+    logger(MSG_INFO, "%s: Pending flag cleared\n", __func__);
+  }
+  return 0;
+}
+/*
+ * This is called from each client to add a message to the pool
+ */
+int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
+  uint8_t retries = 10;
+  uint8_t *temporary_buffer = malloc(buf_len);
+  if (service > QMI_SERVICES_LAST) {
+    logger(MSG_ERROR, "%s: Invalid Service ID: %.2x\n", __func__);
+    free(temporary_buffer);
+    return -EINVAL;
+  }
+  memcpy(temporary_buffer, buf, buf_len);
+  while(internal_qmi_client.services[service].has_pending_message && retries > 0) {
+    logger(MSG_WARN, "%s: The QMI Service %.2x already has something pending. We'll wait in line...\n", __func__, service);
+    sleep(1);
+    retries--;
+  }
+
+  if (!internal_qmi_client.services[service].has_pending_message) {
+    internal_qmi_client.services[service].message = malloc(buf_len);
+    internal_qmi_client.services[service].message_len = buf_len;
+    memcpy(internal_qmi_client.services[service].message, temporary_buffer, buf_len);
+    free(temporary_buffer);
+    internal_qmi_client.services[service].has_pending_message = 1;
+    internal_qmi_client.has_pending_message = 1;
+    return 0;
+  }
+
+  logger(MSG_ERROR, "%s: Failed to add the pending message for service %.2x!\n", __func__, service);
+  return -EINVAL;
+}
+
+void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
+  logger(MSG_INFO, "%s: Pending message delivery service\n", __func__);
+  uint8_t service = get_qmux_service_id(buf, buf_len);
+  uint16_t transaction_id = get_transaction_id(buf, buf_len);
+
+  set_transaction_id_for_service(service, transaction_id+1);
+  switch (service) {
+    case QMI_SERVICE_WDS:
+      handle_incoming_wds_message(buf, buf_len);
+      break;
+    default:
+      logger(MSG_WARN, "%s: Unhandled target service: %.2x\n", __func__, service);
+      break;
+  }
+  return;
+}
+/*
+ * Sort of like the rmnet proxy, but for the internal SMD control port
+ * The idea is to have a pseudo QMI client working inside openqti, to
+ * avoid depending on communication going to the host, so this one should
+ * be able to dispatch data from services, and also route incoming data
+ * from QMI to the required service
+ */
 void *init_internal_qmi_client() {
-  int ret;
+  size_t buf_len;
   fd_set readfds;
   uint8_t buf[MAX_PACKET_SIZE];
   struct timeval tv;
+  if (!internal_qmi_client.is_initialized) {
+    internal_qmi_client.fd = open(INT_SMD_CNTL, O_RDWR);
+    if (internal_qmi_client.fd < 0) {
+      logger(MSG_ERROR, "Error opening %s!\n", INT_SMD_CNTL);
+      return NULL;;
+    } else {
+      logger(MSG_INFO, "%s: Opened internal SMD port\n", __func__);
+      internal_qmi_client.is_initialized = 1;
+    }
+  }
+  while (1) {
+    logger(MSG_INFO, "%s: loop\n", __func__);
+    FD_SET(internal_qmi_client.fd, &readfds);
+    tv.tv_sec = 0;
+    tv.tv_usec = 500000;
+    select(MAX_FD, &readfds, NULL, NULL, &tv);
+    if (FD_ISSET(internal_qmi_client.fd, &readfds)) {
+      buf_len = read(internal_qmi_client.fd, &buf, MAX_PACKET_SIZE);
+      logger(MSG_INFO, "%s: New QMI Message of %i bytes\n", __func__, buf_len);
+      if (buf_len > (sizeof(struct qmux_packet) + sizeof(struct ctl_qmi_packet))) {
+        pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
+        dispatch_incoming_qmi_message(buf, buf_len);
+      } else {
+        logger(MSG_WARN, "%s: Size is too small!\n", __func__);
+      }
+    }
+
+    if (is_internal_qmi_message_pending()) {
+      send_pending_internal_qmi_messages();
+    }
+
+    /* Demo: put code below */
+
+  }
+
+  return NULL;
+}
+
+/*
   uint8_t sample_demo = 0;
   size_t demo_pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
   uint8_t *demo_pkt = malloc(demo_pkt_len);
+
+
   logger(MSG_WARN, "%s Trying to register to WDS\n", __func__);
   if (allocate_qmi_client(QMI_SERVICE_WDS) < 0) {
     logger(MSG_ERROR, "%s: Failed to allocate client: QMI_SERVICE_WDS\n",
@@ -335,17 +589,9 @@ void *init_internal_qmi_client() {
     logger(MSG_INFO, "%s: Connected to QMI_SERVICE_DMS\n", __func__);
   }
 
-  while (1) {
-    logger(MSG_INFO, "%s: loop\n", __func__);
-    FD_SET(internal_qmi_client.fd, &readfds);
-    tv.tv_sec = 0;
-    tv.tv_usec = 500000;
-    select(MAX_FD, &readfds, NULL, NULL, &tv);
-    if (FD_ISSET(internal_qmi_client.fd, &readfds)) {
-      ret = read(internal_qmi_client.fd, &buf, MAX_PACKET_SIZE);
-      logger(MSG_INFO, "%s: New QMI Message of %i bytes\n", __func__, ret);
-      pretty_print_qmi_pkt("Baseband --> Host", buf, ret);
-    }
+
+
+
     memset(demo_pkt, 0, demo_pkt_len);
     if (build_qmux_header(
             demo_pkt, demo_pkt_len, 0x00, QMI_SERVICE_DMS,
@@ -354,25 +600,25 @@ void *init_internal_qmi_client() {
     }
     switch (sample_demo) {
     case 0:
-      if (build_qmi_header(demo_pkt, demo_pkt_len, 0x00, 0,
+      if (build_qmi_header(demo_pkt, demo_pkt_len, QMI_REQUEST, 0,
                            DMS_GET_REVISION) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
       break;
     case 1:
-      if (build_qmi_header(demo_pkt, demo_pkt_len, 0x00, 1,
+      if (build_qmi_header(demo_pkt, demo_pkt_len, QMI_REQUEST, 1,
                            DMS_GET_SERIAL_NUM) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
       break;
     case 2:
-      if (build_qmi_header(demo_pkt, demo_pkt_len, 0x00, 2,
+      if (build_qmi_header(demo_pkt, demo_pkt_len, QMI_REQUEST, 2,
                            DMS_GET_MODEL) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
       break;
     case 3:
-      if (build_qmi_header(demo_pkt, demo_pkt_len, 0x00, 3,
+      if (build_qmi_header(demo_pkt, demo_pkt_len, QMI_REQUEST, 3,
                            DMS_GET_TIME) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
@@ -391,7 +637,4 @@ void *init_internal_qmi_client() {
       logger(MSG_INFO, "Restarting demo in 5s\n");
       sleep(5);
     }
-  }
-
-  return NULL;
-}
+    */
