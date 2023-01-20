@@ -8,6 +8,7 @@
 #include "../inc/openqti.h"
 #include "../inc/sms.h"
 #include "../inc/wds.h"
+#include "../inc/dms.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -525,6 +526,9 @@ void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
     case QMI_SERVICE_CONTROL:
       handle_incoming_qmi_control_message(buf, buf_len);
       break;
+    case QMI_SERVICE_DMS:
+      handle_incoming_dms_message(buf, buf_len);
+      break;
     case QMI_SERVICE_WDS:
       handle_incoming_wds_message(buf, buf_len);
       break;
@@ -583,6 +587,9 @@ void *init_internal_qmi_client() {
   return NULL;
 }
 
+uint8_t is_internal_qmi_client_ready() {
+  return internal_qmi_client.is_initialized;
+}
 /*
   uint8_t sample_demo = 0;
   size_t demo_pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
