@@ -134,7 +134,7 @@ int parse_line(char *buf) {
   }
   
   if (strcmp(setting, "user_name") == 0) {
-    strncpy(settings->user_name, value, sizeof(settings->user_name));
+    memcpy(settings->user_name, value, strlen(settings->user_name));
     settings->user_name[(sizeof(settings->user_name) - 1)] = 0;
     return 1;
   }
