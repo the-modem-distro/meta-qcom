@@ -73,8 +73,6 @@ int main(int argc, char **argv) {
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
 
-  // To track thread exits
-  void *retgps, *retrmnet, *retatfwd, *intnet;
   /* Set initial settings before moving to actual initialization */
   set_initial_config();
 
@@ -90,7 +88,7 @@ int main(int argc, char **argv) {
   /* Begin */
   reset_client_handler();
   reset_dirty_reconnects();
-  set_log_level(1); // By default, set log level to info
+  set_log_level(MSG_INFO); // By default, set log level to info
   print_banner();
   while ((ret = getopt(argc, argv, "dulv?")) != -1)
     switch (ret) {
@@ -108,7 +106,7 @@ int main(int argc, char **argv) {
       fprintf(stdout, "Log everything (even passing packets)");
       fprintf(stdout, "WARNING: Your logfile might contain sensitive data, "
                       "such as phone numbers or message contents\n\n");
-      set_log_level(0);
+      set_log_level(MSG_DEBUG);
       break;
 
     case '?':
@@ -169,9 +167,9 @@ int main(int argc, char **argv) {
   }
 
   // All the rest is moved away from here and into the init
+  init_port_mapper_internal();
   if (is_internal_connect_enabled()) {
     logger(MSG_INFO, "%s: Attempting to initialize internal SMD channel (SMDCNTL0)...\n", __func__);
-    init_port_mapper_internal();
   }
 
   do {
@@ -231,6 +229,7 @@ int main(int argc, char **argv) {
   reset_call_state();
   set_cmd_runtime_defaults();
   reset_wds_runtime();
+  proxy_rt_reset();
 
   /* Enable or disable ADB depending on the misc partition setting */
   set_adb_runtime(is_adb_enabled());
@@ -267,13 +266,12 @@ int main(int argc, char **argv) {
                             NULL))) {
     logger(MSG_ERROR, "%s: Error creating thermal monitor thread\n", __func__);
   }
-/*
-  logger(MSG_INFO, "%s: Init: Create Internal network initialization thread \n", __func__);
-  if ((ret = pthread_create(&internal_network_thread, NULL, &init_internal_networking,
+
+  logger(MSG_INFO, "%s: Init: Create Internal QMI client thread \n", __func__);
+  if ((ret = pthread_create(&internal_network_thread, NULL, &init_internal_qmi_client,
                             NULL))) {
-    logger(MSG_ERROR, "%s: Error starting internal networking thread\n", __func__);
+    logger(MSG_ERROR, "%s: Error starting internal QMI client thread\n", __func__);
   }
-*/
 
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
@@ -283,7 +281,7 @@ int main(int argc, char **argv) {
 
   /* just in case we previously died... */
   enable_usb_port();
-
+ 
   /* This pipes messages between rmnet_ctl and smdcntl8,
      and reads the IPC socket in case there's a pending
      AT command to answer to */
