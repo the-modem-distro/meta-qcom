@@ -274,7 +274,6 @@ void send_hello_world() {
  */
 uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
                        int adspfd, int usbfd) {
-  struct encapsulated_qmi_packet *packet;
   struct qmux_packet *qmux_header;
 
   // By default everything should just go to its place
@@ -312,9 +311,6 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
   /* If we have enough for a "service" QMI message we will inspect things
    * further down
    */
-  if (pkt_size >= sizeof(struct encapsulated_qmi_packet)) {
-    packet = (struct encapsulated_qmi_packet *)pkt;
-  }
 
   logger(MSG_DEBUG, "[New QMI message] Service: %s (%i bytes)\n",
          get_service_name(qmux_header->service), pkt_size);
@@ -342,14 +338,14 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
   case 3:
     logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
-    if (packet->qmi.msgid == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
+    if (get_qmi_message_id(pkt, pkt_size) == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
       struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
       update_network_data(level->signal.id, level->signal.signal_level);
       if (is_first_boot()) {
         send_hello_world();
       }
       if (get_call_simulation_mode()) {
-        logger(MSG_INFO, "%s: Skip signall level reporting while in call\n",
+        logger(MSG_INFO, "%s: Skip signal level reporting while in call\n",
                __func__);
         action = PACKET_BYPASS;
       }
@@ -385,14 +381,13 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 
   case 16: // Location service
     logger(MSG_DEBUG, "%s Location service packet, MSG ID = %.4x \n", __func__,
-           packet->qmi.msgid);
+           get_qmi_message_id(pkt, pkt_size));
     proxy_rt.gps_packet_stats.other++;
     break;
 
   default:
     break;
   }
-  packet = NULL;
   return action; // 1 == Pass through
 }
 
