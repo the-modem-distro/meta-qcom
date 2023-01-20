@@ -339,6 +339,12 @@ struct qmi_generic_result_ind {
   uint16_t response;
 } __attribute__((packed));
 
+struct qmi_generic_uch_arr {
+  uint8_t id;     // 0x02
+  uint16_t len; // 0x04 0x00
+  uint8_t *data[0];
+} __attribute__((packed));
+
 struct encapsulated_qmi_packet {
   struct qmux_packet qmux;
   struct qmi_packet qmi;
