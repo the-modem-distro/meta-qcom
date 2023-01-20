@@ -136,7 +136,7 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
    * If this happens you'll see a SIM with a question mark in Phosh
    */
   if (pkt[8] == CLIENT_REGISTER_REQ && pkt[10] == 0x04 && from == FROM_HOST) {
-    logger(MSG_INFO, "%s: Request for service 0x%.2x...\n", __func__, pkt[15]);
+    logger(MSG_INFO, "%s: Request for service %s (0x%.2x)...\n", __func__, get_service_name(pkt[15]), pkt[15] );
     // 1. This is the first time someone is trying to connect
     if (client_tracking.regtime == 0) {
       update_register_time();
@@ -162,9 +162,9 @@ int track_client_count(uint8_t *pkt, int from, int sz, int fd, int rmnet_fd) {
            pkt[15], pkt[16]);
     client_tracking.regtime = get_curr_timestamp();
   } else if (pkt[8] == CLIENT_REGISTER_REQ && from == FROM_DSP) {
-    logger(MSG_INFO, "%s: DSP: Add client: S:0x%.2x I:0x%.2x, AC:%i \n",
+    logger(MSG_INFO, "%s: DSP: Add client: S:0x%.2x I:0x%.2x, AC:%i (%s)\n",
            __func__, pkt[msglength], pkt[msglength + 1],
-           client_tracking.last_active);
+           client_tracking.last_active, get_service_name(pkt[msglength]));
     ret = add_client(pkt[msglength], pkt[msglength + 1]);
   } else if (sz >= 16 && pkt[8] == CLIENT_RELEASE_REQ && from == FROM_DSP) {
     logger(MSG_INFO, "%s: QMI Client Release from HOST,S:%.2x I:%.2x, AC:%i \n",

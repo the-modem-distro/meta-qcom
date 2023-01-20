@@ -473,11 +473,9 @@ void *schedule_call(void *cmd) {
 
 void render_gsm_signal_data() {
   int strsz = 0;
-  struct network_state netstat;
   char *network_types[] = {
     "Unknown", "CDMA", "EVDO", "AMPS", "GSM", "UMTS", "Error", "Error", "LTE"};
 
-  netstat = get_network_status();
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Network type: ");
@@ -1619,15 +1617,15 @@ uint8_t parse_command(uint8_t *command) {
              "Known QMI Services\n");
     add_message_to_queue(reply, strsz);
     strsz = 0;
-    for (i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
-      if (strlen(common_names[i].name) + (3 * sizeof(uint8_t)) +
-              strlen(common_names[i].name) + strsz >
+    for (i = 0; i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
+      if (strlen(qmi_services[i].name) + (3 * sizeof(uint8_t)) +
+              strlen(qmi_services[i].name) + strsz >
           MAX_MESSAGE_SIZE) {
         add_message_to_queue(reply, strsz);
         strsz = 0;
       }
       strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                        "%u: %s\n", common_names[i].service, common_names[i].name);
+                        "%u: %s\n", qmi_services[i].service, qmi_services[i].name);
     }
     add_message_to_queue(reply, strsz);
     break;
