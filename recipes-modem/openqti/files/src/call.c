@@ -691,10 +691,6 @@ uint8_t handle_voice_service_disconnect_request(uint8_t source, void *bytes,
 uint8_t handle_voice_service_call_info(uint8_t source, void *bytes, size_t len,
                                        int adspfd, int usbfd) {
   uint8_t proxy_action = PACKET_FORCED_PT;
-  uint8_t phone_num_size = 0;
-  uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
-  char log_phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
-  char our_phone[] = "223344556677";
 
   switch (source) {
   case FROM_DSP:
@@ -721,7 +717,6 @@ uint8_t handle_voice_service_call_info(uint8_t source, void *bytes, size_t len,
 uint8_t handle_voice_service_call_status(uint8_t source, void *bytes,
                                          size_t len, int adspfd, int usbfd) {
   uint8_t proxy_action = PACKET_FORCED_PT;
-  uint8_t phone_num_size = 0;
   uint16_t offset;
   uint8_t phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
   char log_phone_number[MAX_PHONE_NUMBER_LENGTH] = {0};
@@ -880,7 +875,6 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
 uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
                              int adspfd, int usbfd) {
   int proxy_action = PACKET_FORCED_PT;
-  int i, j = 0, offset;
 
   uint16_t qmi_message_id = get_qmi_message_id(bytes, len);
 
