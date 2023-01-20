@@ -298,20 +298,6 @@ typedef enum {
 } QMI_Service;
 
 
-/* DMS Testing */
-enum {
-  DMS_RESET = 0x0000,
-  DMS_SET_EVENT_REPORT = 0x0001,
-  DMS_REGISTER = 0x0003,
-  DMS_GET_MODEL = 0x0022,
-  DMS_GET_REVISION = 0x0023, /* 10 boot, 11 firmware, 01 revision*/
-  DMS_GET_SERIAL_NUM = 0x0025,
-  DMS_GET_TIME = 0x002f,
-  DMS_SET_TIME = 0x004b,
-  DMS_GET_HARDWARE_REVISION = 0x002c,
-
-};
-
 struct qmi_service_bindings {
   uint8_t service;
   uint8_t instance;
@@ -457,4 +443,5 @@ void clear_current_transaction_id(uint8_t service);
 uint16_t get_transaction_id_for_service(uint8_t service);
 int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len);
 void *init_internal_qmi_client();
+uint8_t is_internal_qmi_client_ready();
 #endif
