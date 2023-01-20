@@ -293,9 +293,6 @@ size_t write_to_qmi_port(void *buff, size_t bufsz) {
 int allocate_qmi_client(uint8_t service) {
   uint8_t *buff = malloc(1024 * sizeof(uint8_t));
   struct client_alloc_request *request = NULL;
-  size_t bytes = 0;
-  int ret = 0;
-
 
   request = (struct client_alloc_request *)buff;
   request->qmux.version = 0x01;
@@ -313,32 +310,11 @@ int allocate_qmi_client(uint8_t service) {
   if (write_to_qmi_port((void *)request, sizeof(struct client_alloc_request)) <
       sizeof(struct client_alloc_request)) {
     logger(MSG_ERROR, "%s: Allocation failed\n", __func__);
-    free(buff);
     return -ENOMEM;
   }
   memset(buff, 0, 1024);
-  bytes = read_from_qmi_port(buff, 1024);
-  if (bytes >= sizeof(struct client_alloc_response)) {
-    logger(MSG_INFO, "We may have a valid response, let's check it\n");
-    struct client_alloc_response *response =
-        (struct client_alloc_response *)buff;
-    if (response->result.response == 0x00 && response->result.result == 0x00) {
-      logger(MSG_INFO, "%s: Yesss we allocated or client, instance ID: %.2x\n",
-             __func__, response->instance.instance_id);
-      internal_qmi_client.services[service].service =
-          response->instance.service_id;
-      internal_qmi_client.services[service].instance =
-          response->instance.instance_id;
-      internal_qmi_client.services[service].transaction_id =
-          response->qmi.transaction_id;
-      internal_qmi_client.services[service].is_initialized = 1;
-    }
-  } else {
-    logger(MSG_ERROR, "%s: Invalid allocation response: %u bytes\n", __func__,
-           bytes);
-  }
   free(buff);
-  return ret;
+  return 0;
 }
 
 /*
@@ -371,6 +347,7 @@ void clear_message_for_service(uint8_t service) {
   free(internal_qmi_client.services[service].message);
   internal_qmi_client.services[service].message = NULL;
   internal_qmi_client.services[service].message_len = 0;
+  internal_qmi_client.services[service].has_pending_message = 0;
   logger(MSG_INFO, "%s: Message for %.2x cleared.\n", __func__, service);
 }
 
@@ -429,7 +406,7 @@ int send_pending_internal_qmi_messages() {
           logger(MSG_ERROR, "%s: Failed to allocate client: SVC %.2x\n",
                  __func__, i);
         } else {
-          logger(MSG_INFO, "%s: Connected to %.2x. On next pass we'll send the pending message\n", __func__, i);
+          logger(MSG_INFO, "%s: Requested allocation to svc %.2x. On next pass we'll send the pending message\n", __func__, i);
         }
 
       } else {
@@ -501,6 +478,43 @@ int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
   return -EINVAL;
 }
 
+int handle_incoming_qmi_control_message(uint8_t *buf, size_t buf_len) {
+  
+  switch(get_control_message_id(buf, buf_len)) {
+    case CLIENT_REGISTER_REQ:
+      if (buf_len >= sizeof(struct client_alloc_response)) {
+        logger(MSG_INFO, "We may have a valid response, let's check it\n");
+        struct client_alloc_response *response =
+            (struct client_alloc_response *)buf;
+        if (response->result.response == 0x00 && response->result.result == 0x00) {
+          logger(MSG_INFO, "%s: Yesss we allocated or client, instance ID: %.2x\n",
+                __func__, response->instance.instance_id);
+          internal_qmi_client.services[response->instance.service_id].service =
+              response->instance.service_id;
+          internal_qmi_client.services[response->instance.service_id].instance =
+              response->instance.instance_id;
+          internal_qmi_client.services[response->instance.service_id].transaction_id =
+              response->qmi.transaction_id;
+          internal_qmi_client.services[response->instance.service_id].is_initialized = 1;
+        }
+      } else {
+        logger(MSG_ERROR, "%s: Invalid allocation response: %u bytes\n", __func__,
+              buf_len);
+      }
+    break;
+    case CLIENT_RELEASE_REQ:
+      // Not implemented
+      break;
+  default:
+    logger(MSG_INFO, "%s: Unhandled message for CTL Service: %.4x\n", __func__,
+           get_control_message_id(buf, buf_len));
+    break;    
+  
+
+  }
+  return 0;
+}
+
 void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Pending message delivery service\n", __func__);
   uint8_t service = get_qmux_service_id(buf, buf_len);
@@ -508,6 +522,9 @@ void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
 
   set_transaction_id_for_service(service, transaction_id+1);
   switch (service) {
+    case QMI_SERVICE_CONTROL:
+      handle_incoming_qmi_control_message(buf, buf_len);
+      break;
     case QMI_SERVICE_WDS:
       handle_incoming_wds_message(buf, buf_len);
       break;
@@ -540,7 +557,6 @@ void *init_internal_qmi_client() {
     }
   }
   while (1) {
-    logger(MSG_INFO, "%s: loop\n", __func__);
     FD_SET(internal_qmi_client.fd, &readfds);
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
