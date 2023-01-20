@@ -29,6 +29,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "../inc/ipc.h"
+#include "../inc/dms.h"
 struct {
   bool is_unlocked;
   uint32_t unlock_time;
@@ -1203,9 +1204,21 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 3:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                      "I'm at version %s\n"
-                      "ADSP Version is %s\n",
-                      RELEASE_VER, known_adsp_fw[read_adsp_version()].fwstring);
+                      "FW Ver:%s\n"
+                      "ADSP Ver:%s\n"
+                      "Serial:%s\n"
+                      "HW Rev:%s\n"
+                      "Rev:%s\n"
+                      "Model:%s\n",
+                      RELEASE_VER, 
+                      known_adsp_fw[read_adsp_version()].fwstring,
+                      dms_get_modem_modem_serial_num(),
+                      dms_get_modem_modem_hw_rev(),
+                      dms_get_modem_revision(),
+                      dms_get_modem_modem_model() );
+    if (strsz > 159) {
+      strsz = 159;
+    }
     add_message_to_queue(reply, strsz);
     break;
   case 4:
