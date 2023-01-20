@@ -30,8 +30,8 @@ int get_temperature(char *sensor_path) {
     return -EINVAL;
   }
   lseek(fd, 0, SEEK_SET);
-  read(fd, &readval, 6);
-  val = strtol(readval, NULL, 10);
+  if (read(fd, &readval, 6) > 0)
+   val = strtol(readval, NULL, 10);
 
   close(fd);
   return val;

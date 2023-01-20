@@ -100,9 +100,9 @@ int find_services() {
           lookup->srv_info[i].port_id != 0x0b) {
         fprintf(stdout, "%i \t %i \t 0x%.2x \t 0x%.2x \t", k, instance,
                 lookup->srv_info[i].node_id, lookup->srv_info[i].port_id);
-        for (j = 0; j < (sizeof(common_names) / sizeof(common_names[0])); j++) {
-          if (common_names[j].service == k) {
-            fprintf(stdout, " %s\n", common_names[j].name);
+        for (j = 0; j < (sizeof(qmi_services) / sizeof(qmi_services[0])); j++) {
+          if (qmi_services[j].service == k) {
+            fprintf(stdout, " %s\n", qmi_services[j].name);
             name = true;
           }
         }
@@ -370,9 +370,9 @@ int init_port_mapper() {
 }
 
 const char *get_service_name(uint8_t service_id) {
-  for (int i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
-    if (common_names[i].service == service_id) {
-      return common_names[i].name;
+  for (int i = 0; i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
+    if (qmi_services[i].service == service_id) {
+      return qmi_services[i].name;
     }
   }
   return (char *)"Unknown service";
