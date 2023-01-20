@@ -28,6 +28,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/thermal.h \
            file://inc/space_mon.h \
            file://inc/wds.h \
+           file://inc/dms.h \
            file://src/qmi.c \
            file://src/tracking.c \
            file://src/helpers.c \
@@ -53,6 +54,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/thermal.c \
            file://src/space_mon.c \
            file://src/wds_client.c \
+           file://src/dms_client.c \
            file://init_openqti \
            file://external/ring8k.wav \
            file://thankyou/thankyou.txt"
