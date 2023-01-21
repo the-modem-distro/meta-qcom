@@ -243,6 +243,48 @@ int build_qmi_header(void *output, size_t output_len, uint8_t ctlid,
   return 0;
 }
 
+int build_u8_tlv(void *output, size_t output_len, size_t offset, uint8_t id,
+                     uint8_t data) {
+  if (output_len < offset + sizeof(struct qmi_generic_uint8_t_tlv)) {
+    logger(MSG_ERROR, "%s: Can't build U8 TLV, buffer is too small\n",
+           __func__);
+    return -ENOMEM;
+  }
+  struct qmi_generic_uint8_t_tlv *pkt =
+      (struct qmi_generic_uint8_t_tlv *)(output + offset);
+  pkt->id = id;
+  pkt->len = 0x01;
+  pkt->data = data;
+  pkt = NULL;
+  return 0;
+}
+
+uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len) {
+  uint16_t cur_byte;
+  uint8_t *arr = (uint8_t *)bytes;
+  uint16_t num_tlvs = 0;
+  struct empty_tlv *this_tlv;
+  if (len < sizeof(struct encapsulated_qmi_packet) + 4) {
+    logger(MSG_ERROR, "%s: Packet is too small \n", __func__);
+    return 0;
+  }
+
+  cur_byte = sizeof(struct encapsulated_qmi_packet);
+  while ((cur_byte) < len) {
+    this_tlv = (struct empty_tlv *)(arr + cur_byte);
+    num_tlvs++;
+    cur_byte += le16toh(this_tlv->len) + sizeof(uint8_t) + sizeof(uint16_t);
+    if (cur_byte <= 0 || cur_byte > len) {
+      logger(MSG_ERROR, "Current byte is less than or exceeds size\n");
+      arr = NULL;
+      this_tlv = NULL;
+      return num_tlvs;
+    }
+  }
+  arr = NULL;
+  this_tlv = NULL;
+  return num_tlvs;
+}
 /* INTERNAL QMI CLIENT */
 
 /*
