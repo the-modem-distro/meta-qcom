@@ -113,7 +113,7 @@ int dms_request_serial_number() {
     free(pkt);
     return -EINVAL;
   }
-  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, DMS_GET_SERIAL_NUM) < 0) {
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, DMS_GET_IDS) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -221,7 +221,7 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
         }
     }
     break;
-  case DMS_GET_SERIAL_NUM:
+  case DMS_GET_IDS:
      if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
         int offset = get_tlv_offset_by_id(buf, buf_len, 0x12);
         if (offset > 0) {
