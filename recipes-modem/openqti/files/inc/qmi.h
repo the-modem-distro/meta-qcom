@@ -340,9 +340,28 @@ struct qmi_generic_result_ind {
 } __attribute__((packed));
 
 struct qmi_generic_uch_arr {
-  uint8_t id;     // 0x02
-  uint16_t len; // 0x04 0x00
+  uint8_t id;
+  uint16_t len;
   uint8_t *data[0];
+} __attribute__((packed));
+
+
+struct qmi_generic_uint8_t_tlv {
+  uint8_t id;
+  uint16_t len; //1
+  uint8_t data;
+} __attribute__((packed));
+
+struct qmi_generic_uint16_t_tlv {
+  uint8_t id;
+  uint16_t len; //2
+  uint16_t data;
+} __attribute__((packed));
+
+struct qmi_generic_uint32_t_tlv {
+  uint8_t id;
+  uint16_t len; //4
+  uint32_t data;
 } __attribute__((packed));
 
 struct encapsulated_qmi_packet {
@@ -444,7 +463,7 @@ const char *get_qmi_error_string(uint16_t result_code);
 uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len);
 int build_qmux_header(void *output, size_t output_len, uint8_t control, uint8_t service, uint8_t instance);
 int build_qmi_header(void *output, size_t output_len, uint8_t ctlid, uint16_t transaction_id, uint16_t message_id);
-
+int build_u8_tlv(void *output, size_t output_len, size_t offset, uint8_t id, uint8_t data);
 void clear_current_transaction_id(uint8_t service);
 uint16_t get_transaction_id_for_service(uint8_t service);
 int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len);
