@@ -152,6 +152,43 @@ static const struct {
      "Foxconn Set FCC Authentication v2"},
 };
 
+/* Firmware version parsing */
+
+enum {
+    FIRMWARE_STR_UNKNOWN = 0x0000,
+    FIRMWARE_STR_SBL = 0x000001,
+    FIRMWARE_STR_TZ = 0x000002,
+    FIRMWARE_STR_TZ_SEC = 0x000003,
+    FIRMWARE_STR_RPM = 0x000004,
+    FIRMWARE_STR_BOOTLOADER = 0x000007,
+    FIRMWARE_STR_APPS = 0x000008,
+    FIRMWARE_STR_MPSS = 0x000009,
+    FIRMWARE_STR_ADSP = 0x00000a,
+};
+
+struct dms_firmware_rel_string {
+    uint32_t section;
+    uint8_t version_length;
+    uint8_t *fw_version[0];
+} __attribute__((packed));
+
+struct dms_fw_version_strings_info {
+    uint8_t id;
+    uint16_t len;
+    uint8_t version_count;
+ //   struct dms_firmware_rel_string *dms_firmware_rel_string[0];
+} __attribute__((packed));
+
+/* Event Reporting stuff */
+enum { // all use uint8_t's
+    EVENT_TLV_POWER_STATE = 0x10,
+    EVENT_TLV_PIN_STATE = 0x12,
+    EVENT_ACTIVATION_STATE = 0x13,
+    EVENT_OP_MODE = 0x14,
+    EVENT_UIM_STATE = 0x15,
+    EVENT_AIRPLANE_MODE_STATE = 0x16,
+};
+
 /* External functions for the chat */
 const char *dms_get_modem_revision();
 const char *dms_get_modem_modem_serial_num();
