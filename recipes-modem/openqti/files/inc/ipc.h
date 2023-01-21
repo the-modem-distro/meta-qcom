@@ -39,7 +39,7 @@
 #define MODEM_OFFLINE _IO(QTI_IOCTL_MAGIC, 4)
 #define MODEM_ONLINE _IO(QTI_IOCTL_MAGIC, 5)
 
-#define MAX_PACKET_SIZE 4096 // rmnet max packet size
+#define MAX_PACKET_SIZE 6144 // rmnet max packet size
 // IPC Port security rules
 #define IOCTL_RULES _IOR(0xC3, 5, struct irsc_rule)
 #define IRSC_INSTANCE_ALL 4294967295
