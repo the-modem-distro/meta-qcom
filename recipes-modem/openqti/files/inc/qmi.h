@@ -469,4 +469,5 @@ uint16_t get_transaction_id_for_service(uint8_t service);
 int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len);
 void *init_internal_qmi_client();
 uint8_t is_internal_qmi_client_ready();
+uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len);
 #endif
