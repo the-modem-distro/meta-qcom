@@ -189,6 +189,15 @@ enum { // all use uint8_t's
     EVENT_AIRPLANE_MODE_STATE = 0x16,
 };
 
+enum {
+    DMS_EVENT_POWER_STATE = 0x10, //u16
+    DMS_EVENT_PIN_STATUS = 0x11,
+    DMS_EVENT_PIN2_STATUS = 0x12,
+    DMS_EVENT_ACT_STATE = 0x13, //u16: 0(not) || 1(act) || 2(connecting) || 3(connected) || 4-10(ota service provisioning state)
+    DMS_EVENT_OPERATING_MODE = 0x14, // u8 0-8 (online, low power, test mode, offline, reset, shutdown, persistlpm, lpm_only, gsm_testmode)
+    DMS_EVENT_CAPABILITY = 0x1c, 
+};
+
 /* External functions for the chat */
 const char *dms_get_modem_revision();
 const char *dms_get_modem_modem_serial_num();

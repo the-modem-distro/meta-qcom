@@ -279,11 +279,34 @@ void *dms_get_modem_info() {
 }
 
 void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
-  logger(MSG_INFO,
-         "************************* %s: New event report! If only I would have "
-         "implemented it...\n",
-         __func__);
-  did_qmi_op_fail(buf, buf_len);
+  /* An event report response has an result TLV, while
+   * an indication does not. I can use this to discern the response
+   * from the baseband
+  */
+  int result_tlv = get_tlv_offset_by_id(buf, buf_len, 0x02);
+  if (result_tlv > 0) {
+    logger(MSG_INFO, "%s: This is a response to one of our requests\n", __func__);
+    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
+      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n", __func__);
+  } else {
+    logger(MSG_WARN, "%s: DMS Event report operation returned an error", __func__);
+  }
+  } else {
+    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n", __func__);
+    uint8_t available_events[] = { DMS_EVENT_POWER_STATE, DMS_EVENT_PIN_STATUS,
+                                   DMS_EVENT_PIN2_STATUS, DMS_EVENT_ACT_STATE,
+                                   DMS_EVENT_OPERATING_MODE, DMS_EVENT_CAPABILITY };
+    logger(MSG_INFO, "%s: Event report response / indication\n",__func__);
+    uint16_t tlvs = count_tlvs_in_message(buf, buf_len);
+    logger(MSG_INFO, "%s: Found %u events in this message\n", __func__, tlvs);
+    for (int i = 0 ; i < 6; i++) {
+      int offset = get_tlv_offset_by_id(buf, buf_len, available_events[i]);
+      if (offset > 0) {
+        logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__, available_events[i], offset);
+      }
+    }
+  }
+
 }
 /*
  * Reroutes messages from the internal QMI client to the service
