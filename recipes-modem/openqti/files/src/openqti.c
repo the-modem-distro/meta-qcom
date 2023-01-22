@@ -27,6 +27,7 @@
 #include "../inc/timesync.h"
 #include "../inc/tracking.h"
 #include "../inc/wds.h"
+#include "../inc/dms.h"
 
 /*
  *                                                                          88
@@ -70,6 +71,7 @@ int main(int argc, char **argv) {
   pthread_t scheduler_thread;
   pthread_t thermal_thread;
   pthread_t internal_network_thread;
+  pthread_t dms_start_thread;
   struct node_pair rmnet_nodes;
   rmnet_nodes.allow_exit = false;
 
@@ -273,6 +275,13 @@ int main(int argc, char **argv) {
     logger(MSG_ERROR, "%s: Error starting internal QMI client thread\n", __func__);
   }
 
+
+  logger(MSG_INFO, "%s: Init: Start DMS request thread (tmp)\n", __func__);
+  if ((ret = pthread_create(&dms_start_thread, NULL, &dms_get_modem_info,
+                            NULL))) {
+    logger(MSG_ERROR, "%s: Error starting internal QMI client thread\n", __func__);
+  }
+
   logger(MSG_INFO, "%s: Switching to powersave mode\n", __func__);
   if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
     logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
@@ -288,7 +297,9 @@ int main(int argc, char **argv) {
   pthread_join(gps_proxy_thread, NULL);
   pthread_join(rmnet_proxy_thread, NULL);
   pthread_join(atfwd_thread, NULL);
-
+  pthread_join(internal_network_thread, NULL);
+  
+  
   flock(lockfile, LOCK_UN);
   close(lockfile);
   unlink(LOCKFILE);
