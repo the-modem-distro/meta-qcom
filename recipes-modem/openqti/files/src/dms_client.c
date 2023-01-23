@@ -40,48 +40,42 @@ struct {
   char modem_serial_num[DMS_MODEM_INFO_MAX_STR_LEN];
   char modem_hw_rev[DMS_MODEM_INFO_MAX_STR_LEN];
   char modem_model[DMS_MODEM_INFO_MAX_STR_LEN];
-  char modem_fw_pref[DMS_MODEM_INFO_MAX_STR_LEN];
   char modem_sw_ver[DMS_MODEM_INFO_MAX_STR_LEN];
   struct fw_parts firmware_sections;
 } dms_runtime;
 
-void reset_dms_runtime() {
-  memset(dms_runtime.modem_revision, 0, DMS_MODEM_INFO_MAX_STR_LEN);
-  memset(dms_runtime.modem_serial_num, 0, DMS_MODEM_INFO_MAX_STR_LEN);
-  memset(dms_runtime.modem_hw_rev, 0, DMS_MODEM_INFO_MAX_STR_LEN);
-  memset(dms_runtime.modem_model, 0, DMS_MODEM_INFO_MAX_STR_LEN);
-  memset(dms_runtime.modem_fw_pref, 0, DMS_MODEM_INFO_MAX_STR_LEN);
-  memset(dms_runtime.modem_sw_ver, 0, DMS_MODEM_INFO_MAX_STR_LEN);
+void reset_dms_runtime() {}
+void print_modem_information() {
+  logger(MSG_INFO, "Queried modem info:\n");
+  logger(MSG_INFO, "\t Model: %s\n", dms_runtime.modem_model);
+  logger(MSG_DEBUG, "\t Serial Number: %s\n", dms_runtime.modem_serial_num);
+  logger(MSG_INFO, "\t HW Revision: %s\n", dms_runtime.modem_hw_rev);
+  logger(MSG_INFO, "\t Revision: %s\n", dms_runtime.modem_revision);
+  logger(MSG_INFO, "\t SW Version: %s\n", dms_runtime.modem_sw_ver);
+  logger(MSG_INFO, "ADSP Section versions:\n");
+  logger(MSG_INFO, "\t Primary: %s\n", dms_runtime.firmware_sections.primary);
+  logger(MSG_INFO, "\t SBL: %s\n", dms_runtime.firmware_sections.sbl);
+  logger(MSG_INFO, "\t TrustZone Kernel: %s\n",
+         dms_runtime.firmware_sections.tz);
+  logger(MSG_DEBUG, "\t TrustZone Kernel (sec): %s\n",
+         dms_runtime.firmware_sections.tz_sec);
+  logger(MSG_INFO, "\t Resource/Power Manager: %s\n",
+         dms_runtime.firmware_sections.rpm);
+  logger(MSG_DEBUG, "\t Aboot: %s\n", dms_runtime.firmware_sections.aboot);
+  logger(MSG_DEBUG, "\t Apps: %s\n", dms_runtime.firmware_sections.apps);
+  logger(MSG_INFO, "\t MPSS: %s\n", dms_runtime.firmware_sections.mpss);
+  logger(MSG_DEBUG, "\t ADSP: %s\n", dms_runtime.firmware_sections.adsp);
 }
-
-const char *dms_get_modem_revision() {
-  return (dms_runtime.modem_revision[0] == 0 ? "[Not set]"
-                                             : dms_runtime.modem_revision);
-}
+const char *dms_get_modem_revision() { return dms_runtime.modem_revision; }
 const char *dms_get_modem_modem_serial_num() {
-  return (dms_runtime.modem_serial_num[0] == 0 ? "[Not set]"
-                                               : dms_runtime.modem_serial_num);
+  return dms_runtime.modem_serial_num;
 }
 
-const char *dms_get_modem_modem_hw_rev() {
-  return (dms_runtime.modem_hw_rev[0] == 0 ? "[Not set]"
-                                           : dms_runtime.modem_hw_rev);
-}
+const char *dms_get_modem_modem_hw_rev() { return dms_runtime.modem_hw_rev; }
 
-const char *dms_get_modem_modem_model() {
-  return (dms_runtime.modem_model[0] == 0 ? "[Not set]"
-                                          : dms_runtime.modem_model);
-}
+const char *dms_get_modem_modem_model() { return dms_runtime.modem_model; }
 
-const char *dms_get_modem_modem_fw_pref() {
-  return (dms_runtime.modem_fw_pref[0] == 0 ? "[Not set]"
-                                            : dms_runtime.modem_fw_pref);
-}
-
-const char *dms_get_modem_modem_sw_ver() {
-  return (dms_runtime.modem_sw_ver[0] == 0 ? "[Not set]"
-                                           : dms_runtime.modem_sw_ver);
-}
+const char *dms_get_modem_modem_sw_ver() { return dms_runtime.modem_sw_ver; }
 
 const char *get_dms_command(uint16_t msgid) {
   for (uint16_t i = 0;
@@ -173,10 +167,6 @@ int dms_request_hw_rev() {
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
 
-  /* We don't worry about instances or transaction IDs, we delegate that to the
-   * client code
-   */
-
   if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_DMS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
@@ -198,17 +188,17 @@ int dms_register_to_events() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
                    (1 * sizeof(struct qmi_generic_uint8_t_tlv));
   uint8_t *pkt = malloc(pkt_len);
-  uint8_t tlvs[] = {EVENT_TLV_POWER_STATE,  EVENT_TLV_PIN_STATE,
-                    EVENT_ACTIVATION_STATE, EVENT_OP_MODE,
-                    EVENT_UIM_STATE,        EVENT_AIRPLANE_MODE_STATE};
+  uint8_t tlvs[] = {DMS_EVENT_POWER_STATE,
+                    DMS_EVENT_PIN2_STATUS,    DMS_EVENT_ACT_STATE,
+                    DMS_EVENT_OPERATING_MODE};
 
-  for (int i = 0; i < 6; i++) {
+  /* So, if we try to subscribe to everything at the same time and
+   * we fail we don't subscribe to anything at all. So I iterate
+   * through the tlvs and attempt to register to receive indications
+   * for each one. If one fails to register the others will still work
+   */
+  for (int i = 0; i < 4; i++) {
     memset(pkt, 0, pkt_len);
-
-    /* We don't worry about instances or transaction IDs, we delegate that to
-     * the client code
-     */
-
     if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_DMS, 0) < 0) {
       logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
       free(pkt);
@@ -229,6 +219,50 @@ int dms_register_to_events() {
 
     add_pending_message(QMI_SERVICE_DMS, (uint8_t *)pkt, pkt_len);
   }
+
+  free(pkt);
+  return 0;
+}
+
+int dms_register_to_indications() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
+                   (3 * sizeof(struct qmi_generic_uint8_t_tlv));
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_DMS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, DMS_REGISTER_INDICATIONS) <
+      0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  if (build_u8_tlv(pkt, pkt_len, curr_offset,
+                   EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS, 1) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  curr_offset += sizeof(struct qmi_generic_uint8_t_tlv);
+  if (build_u8_tlv(pkt, pkt_len, curr_offset,
+                   EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG, 1) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  curr_offset += sizeof(struct qmi_generic_uint8_t_tlv);
+  if (build_u8_tlv(pkt, pkt_len, curr_offset,
+                   EVENT_INDICATION_TLV_IMS_CAPABILITY, 1) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  add_pending_message(QMI_SERVICE_DMS, (uint8_t *)pkt, pkt_len);
 
   free(pkt);
   return 0;
@@ -259,55 +293,125 @@ int dms_request_sw_ver() {
   free(pkt);
   return 0;
 }
-void *dms_get_modem_info() {
-  reset_dms_runtime();
-  do {
-    logger(MSG_INFO, "DMS: Wait!\n");
-    sleep(5);
-  } while (!is_internal_qmi_client_ready());
-
-  logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
-         __func__);
-  dms_request_model();
-  dms_request_hw_rev();
-  dms_request_revision();
-  dms_request_serial_number();
-  dms_register_to_events();
-  dms_request_sw_ver();
-  logger(MSG_INFO, "%s done!\n", __func__);
-  return NULL;
-}
 
 void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
   /* An event report response has an result TLV, while
    * an indication does not. I can use this to discern the response
    * from the baseband
-  */
+   */
   int result_tlv = get_tlv_offset_by_id(buf, buf_len, 0x02);
   if (result_tlv > 0) {
-    logger(MSG_INFO, "%s: This is a response to one of our requests\n", __func__);
+    logger(MSG_INFO, "%s: This is a response to one of our requests\n",
+           __func__);
     if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n", __func__);
+      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n",
+             __func__);
+    } else {
+      logger(MSG_WARN, "%s: DMS Event report operation returned an error\n",
+             __func__);
+    }
   } else {
-    logger(MSG_WARN, "%s: DMS Event report operation returned an error", __func__);
-  }
-  } else {
-    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n", __func__);
-    uint8_t available_events[] = { DMS_EVENT_POWER_STATE, DMS_EVENT_PIN_STATUS,
-                                   DMS_EVENT_PIN2_STATUS, DMS_EVENT_ACT_STATE,
-                                   DMS_EVENT_OPERATING_MODE, DMS_EVENT_CAPABILITY };
-    logger(MSG_INFO, "%s: Event report response / indication\n",__func__);
+    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n",
+           __func__);
+    uint8_t available_events[] = {
+        DMS_EVENT_POWER_STATE, DMS_EVENT_PIN_STATUS,     DMS_EVENT_PIN2_STATUS,
+        DMS_EVENT_ACT_STATE,   DMS_EVENT_OPERATING_MODE, DMS_EVENT_CAPABILITY};
+    logger(MSG_INFO, "%s: Event report response / indication\n", __func__);
     uint16_t tlvs = count_tlvs_in_message(buf, buf_len);
     logger(MSG_INFO, "%s: Found %u events in this message\n", __func__, tlvs);
-    for (int i = 0 ; i < 6; i++) {
+    for (int i = 0; i < 6; i++) {
       int offset = get_tlv_offset_by_id(buf, buf_len, available_events[i]);
       if (offset > 0) {
-        logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__, available_events[i], offset);
+        logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+               available_events[i], offset);
+        switch (i) {
+        case DMS_EVENT_POWER_STATE:
+          logger(MSG_INFO, "%s: DMS_EVENT_POWER_STATE\n", __func__);
+          break;
+        case DMS_EVENT_PIN_STATUS:
+          logger(MSG_INFO, "%s: DMS_EVENT_PIN_STATUS\n", __func__);
+          break;
+        case DMS_EVENT_PIN2_STATUS:
+          logger(MSG_INFO, "%s: DMS_EVENT_PIN2_STATUS\n", __func__);
+          break;
+        case DMS_EVENT_ACT_STATE:
+          logger(MSG_INFO, "%s: DMS_EVENT_ACT_STATE\n", __func__);
+          break;
+        case DMS_EVENT_OPERATING_MODE:
+          logger(MSG_INFO, "%s: DMS_EVENT_OPERATING_MODE\n", __func__);
+          break;
+        case DMS_EVENT_CAPABILITY:
+          logger(MSG_INFO, "%s: DMS_EVENT_CAPABILITY\n", __func__);
+          break;
+        }
       }
     }
   }
-
 }
+
+void parse_dms_event_indication(uint8_t *buf, size_t buf_len) {
+  /* An event report response has an result TLV, while
+   * an indication does not. I can use this to discern the response
+   * from the baseband
+   */
+  int result_tlv = get_tlv_offset_by_id(buf, buf_len, 0x02);
+  if (result_tlv > 0) {
+    logger(MSG_INFO, "%s: This is a response to one of our requests\n",
+           __func__);
+    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
+      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n",
+             __func__);
+    } else {
+      logger(MSG_WARN, "%s: DMS Event report operation returned an error\n",
+             __func__);
+    }
+  } else {
+    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n",
+           __func__);
+    uint8_t available_events[] = {EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS,
+                                  EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG,
+                                  EVENT_INDICATION_TLV_IMS_CAPABILITY};
+    logger(MSG_INFO, "%s: Event report response / indication\n", __func__);
+    uint16_t tlvs = count_tlvs_in_message(buf, buf_len);
+    logger(MSG_INFO, "%s: Found %u events in this message\n", __func__, tlvs);
+    for (int i = 0; i < 3; i++) {
+      int offset = get_tlv_offset_by_id(buf, buf_len, available_events[i]);
+      if (offset > 0) {
+        logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+               available_events[i], offset);
+        switch (i) {
+        case EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS:
+          logger(MSG_INFO, "%s: EVENT_TLV_POWER_STATE_MODE_STATUS\n", __func__);
+          break;
+        case EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG:
+          logger(MSG_INFO, "%s: EVENT_TLV_POWER_STATE_MODE_CONFIG\n", __func__);
+          break;
+        case EVENT_INDICATION_TLV_IMS_CAPABILITY:
+          logger(MSG_INFO, "%s: EVENT_TLV_IMS_CAPABILITY\n", __func__);
+          break;
+        default:
+          logger(MSG_INFO, "%s: unknown event %.2x\n", __func__, i);
+          break;
+        }
+      }
+    }
+  }
+}
+
+void check_and_set_fw_string(uint8_t *buf, size_t buf_len, uint8_t tlvid,
+                             char *target_str) {
+  if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
+    int offset = get_tlv_offset_by_id(buf, buf_len, tlvid);
+    if (offset > 0) {
+      struct qmi_generic_uch_arr *resp =
+          (struct qmi_generic_uch_arr *)(buf + offset);
+      if (resp->len < DMS_MODEM_INFO_MAX_STR_LEN) {
+        memcpy(target_str, resp->data, resp->len);
+      }
+    }
+  }
+}
+
 /*
  * Reroutes messages from the internal QMI client to the service
  */
@@ -318,66 +422,34 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
   case DMS_EVENT_REPORT:
     parse_dms_event_report(buf, buf_len);
     break;
+  case DMS_REGISTER_INDICATIONS:
+    logger(MSG_INFO, "%s: Register indication response\n", __func__);
+    break;
+  case DMS_GET_PSM_INDICATION:
+    logger(MSG_INFO, "%s: Power Save mode indication\n", __func__);
+    break;
+  case DMS_GET_PSM_CONFIG_CHANGE_INDICATION:
+    logger(MSG_INFO, "%s: Power Save mode config change indication\n",
+           __func__);
+    break;
+  case DMS_GET_IMS_SUBSCRIPTION_STATUS:
+    logger(MSG_INFO, "%s: IMS Subscription status change indication\n",
+           __func__);
+    break;
+
   case DMS_GET_MODEL:
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
-      if (offset > 0) {
-        struct qmi_generic_uch_arr *resp =
-            (struct qmi_generic_uch_arr *)(buf + offset);
-        if (resp->len < DMS_MODEM_INFO_MAX_STR_LEN) {
-          memcpy(dms_runtime.modem_model, resp->data, resp->len);
-        }
-      }
-    }
+    check_and_set_fw_string(buf, buf_len, 0x01, dms_runtime.modem_model);
     break;
   case DMS_GET_REVISION:
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
-      if (offset > 0) {
-        struct qmi_generic_uch_arr *resp =
-            (struct qmi_generic_uch_arr *)(buf + offset);
-        if (resp->len < DMS_MODEM_INFO_MAX_STR_LEN) {
-          strncpy(dms_runtime.modem_revision, (char *)resp->data, resp->len);
-        }
-      }
-    }
+    check_and_set_fw_string(buf, buf_len, 0x01, dms_runtime.modem_revision);
     break;
   case DMS_GET_IDS:
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, 0x12);
-      if (offset > 0) {
-        struct qmi_generic_uch_arr *resp =
-            (struct qmi_generic_uch_arr *)(buf + offset);
-        if (resp->len < DMS_MODEM_INFO_MAX_STR_LEN) {
-          memcpy(dms_runtime.modem_serial_num, resp->data, resp->len);
-        }
-      }
-    }
+    check_and_set_fw_string(buf, buf_len, 0x12, dms_runtime.modem_serial_num);
     break;
   case DMS_GET_HARDWARE_REVISION:
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
-      if (offset > 0) {
-        struct qmi_generic_uch_arr *resp =
-            (struct qmi_generic_uch_arr *)(buf + offset);
-        if (resp->len <= DMS_MODEM_INFO_MAX_STR_LEN) {
-          memcpy(dms_runtime.modem_hw_rev, resp->data, resp->len);
-        }
-      }
-    }
+    check_and_set_fw_string(buf, buf_len, 0x01, dms_runtime.modem_hw_rev);
     break;
-  case DMS_GET_STORED_IMAGE_INFO:
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
-      if (offset > 0) {
-        struct qmi_generic_uch_arr *resp =
-            (struct qmi_generic_uch_arr *)(buf + offset);
-        if (resp->len <= DMS_MODEM_INFO_MAX_STR_LEN) {
-          memcpy(dms_runtime.modem_fw_pref, resp->data, resp->len);
-        }
-      }
-    }
-    break;
+
   case DMS_GET_SOFTWARE_VERSION:
     if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
       int offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
@@ -460,17 +532,26 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
     break;
   }
 
-  logger(MSG_INFO,
-         "%s: Current data:\n"
-         "\tRevision: %s\n"
-         "\tSerial Number: %s\n"
-         "\tHW Revision: %s\n"
-         "\tModel: %s\n"
-         "\tFW Preference: %s\n"
-         "\tSW Version: %s\n",
-         __func__, dms_get_modem_revision(), dms_get_modem_modem_serial_num(),
-         dms_get_modem_modem_hw_rev(), dms_get_modem_modem_model(),
-         dms_get_modem_modem_fw_pref(), dms_get_modem_modem_sw_ver());
-
+  print_modem_information();
   return 0;
+}
+
+void *dms_get_modem_info() {
+  reset_dms_runtime();
+  do {
+    logger(MSG_INFO, "DMS: Waiting for DPM...\n");
+    sleep(5);
+  } while (!is_internal_qmi_client_ready());
+
+  logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
+         __func__);
+  dms_request_model();
+  dms_request_hw_rev();
+  dms_request_revision();
+  dms_request_serial_number();
+  dms_register_to_events();
+  dms_request_sw_ver();
+  dms_register_to_indications();
+  logger(MSG_INFO, "%s finished!\n", __func__);
+  return NULL;
 }

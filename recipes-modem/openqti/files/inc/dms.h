@@ -19,6 +19,7 @@ enum {
   DMS_RESET = 0x0000,
   DMS_SET_EVENT_REPORT = 0x0001,
   DMS_EVENT_REPORT = 0x0001,
+  DMS_REGISTER_INDICATIONS = 0x0003,
   DMS_GET_CAPABILITIES = 0x0020,
   DMS_GET_MANUFACTURER = 0x0021,
   DMS_GET_MODEL = 0x0022,
@@ -70,6 +71,13 @@ enum {
   DMS_SET_SERVICE_PROGRAMMING_CODE = 0x0052,
   DMS_GET_MAC_ADDRESS = 0x005C,
   DMS_GET_SUPPORTED_MESSAGES = 0x001E,
+  
+  DMS_GET_PSM_CONFIG = 0x0060,
+  DMS_ENTER_PSM = 0x0061, 
+  DMS_GET_PSM_INDICATION = 0x0062,
+  DMS_GET_PSM_CONFIG_CHANGE_INDICATION = 0x0067,
+  DMS_GET_IMS_SUBSCRIPTION_STATUS = 0x0068,
+
   DMS_HP_CHANGE_DEVICE_MODE = 0x5556,
   DMS_SWI_GET_CURRENT_FIRMWARE = 0x5556,
   DMS_SWI_GET_USB_COMPOSITION = 0x555B,
@@ -88,6 +96,7 @@ static const struct {
     {DMS_RESET, "Reset"},
     {DMS_SET_EVENT_REPORT, "Set Event Report"},
     {DMS_EVENT_REPORT, "Event Report"},
+    {DMS_REGISTER_INDICATIONS, "Register to DMS indications"},
     {DMS_GET_CAPABILITIES, "Get Capabilities"},
     {DMS_GET_MANUFACTURER, "Get Manufacturer"},
     {DMS_GET_MODEL, "Get Model"},
@@ -140,6 +149,11 @@ static const struct {
     {DMS_SET_SERVICE_PROGRAMMING_CODE, "Set Service Programming Code"},
     {DMS_GET_MAC_ADDRESS, "Get MAC Address"},
     {DMS_GET_SUPPORTED_MESSAGES, "Get Supported Messages"},
+    {DMS_GET_PSM_CONFIG, "Get PSM Config"},
+    {DMS_ENTER_PSM, "Enter Power Save Mode"},
+    {DMS_GET_PSM_INDICATION, "Power Save Mode Indication"},
+    {DMS_GET_PSM_CONFIG_CHANGE_INDICATION, "Power Save Mode configuration change"},
+    {DMS_GET_IMS_SUBSCRIPTION_STATUS, "IMS Subscription state change indication"},
     {DMS_HP_CHANGE_DEVICE_MODE, "HP Change Device Mode"},
     {DMS_SWI_GET_CURRENT_FIRMWARE, "Swi Get Current Firmware"},
     {DMS_SWI_GET_USB_COMPOSITION, "Swi Get USB Composition"},
@@ -196,6 +210,13 @@ enum {
     DMS_EVENT_ACT_STATE = 0x13, //u16: 0(not) || 1(act) || 2(connecting) || 3(connected) || 4-10(ota service provisioning state)
     DMS_EVENT_OPERATING_MODE = 0x14, // u8 0-8 (online, low power, test mode, offline, reset, shutdown, persistlpm, lpm_only, gsm_testmode)
     DMS_EVENT_CAPABILITY = 0x1c, 
+};
+
+
+enum { // all use uint8_t's
+    EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS = 0x10,
+    EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG = 0x11,
+    EVENT_INDICATION_TLV_IMS_CAPABILITY = 0x12,
 };
 
 /* External functions for the chat */
