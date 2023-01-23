@@ -29,6 +29,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/space_mon.h \
            file://inc/wds.h \
            file://inc/dms.h \
+           file://inc/voice.h \
            file://src/qmi.c \
            file://src/tracking.c \
            file://src/helpers.c \
@@ -55,6 +56,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/space_mon.c \
            file://src/wds_client.c \
            file://src/dms_client.c \
+           file://src/voice_client.c \
            file://init_openqti \
            file://external/ring8k.wav \
            file://thankyou/thankyou.txt"
@@ -63,7 +65,7 @@ S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 FILES:${PN} += "/usr/share/thank_you/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
+    ${CC} ${LDFLAGS} -O2 src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
 
 do_install() {
