@@ -291,7 +291,7 @@ uint8_t watch_storage(char *filename) {
 }
 void *incall_recording_tread() {
   char *buffer;
-  uint32_t bufsize;
+  size_t bufsize;
   FILE *file_rx;
   struct pcm *incall_pcm_rx;
   char filename[256];
@@ -404,8 +404,9 @@ void *incall_recording_tread() {
                    pcm_bytes_to_frames(incall_pcm_rx,
                                        pcm_get_buffer_size(incall_pcm_rx))) ==
           0) {
-        if (fwrite(buffer, bufsize, 1, file_rx) != bufsize) {
-          logger(MSG_WARN, "%s: bufsize differs\n", __func__);
+        size_t fret = fwrite(buffer, bufsize, 1, file_rx);
+        if (fret != 1) {
+          logger(MSG_WARN, "%s: Error writing to file, fwrite returned %u\n", __func__, fret);
         }
         file_header->data_bytes += bufsize;
       } else {
@@ -540,8 +541,7 @@ void handle_call_pkt(uint8_t *pkt, int sz,
     audio_runtime_state.calls[meta->call_id].call_type = meta->call_mode;
     memcpy(audio_runtime_state.calls[meta->call_id].phone_number, phone_number,
            phone_num_len);
-    logger(MSG_INFO, "Call ID set: ID %i, number: %s\n", meta->call_id,
-           audio_runtime_state.calls[meta->call_id].phone_number);
+    logger(MSG_INFO, "Call ID set: ID %i\n", meta->call_id);
     switch (meta->call_direction) {
     case CALL_DIRECTION_OUTGOING:
       logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,
