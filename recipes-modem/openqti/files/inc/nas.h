@@ -166,9 +166,29 @@ struct carrier_mcc_mnc {
     uint16_t lac2;
     uint8_t plmn_record_id;
     uint8_t instance2; //??
-
 } __attribute__((packed));
 
+/* INFO RETRIEVED FROM SERVING SYSTTEM */
+struct service_capability { // 0x11, an array
+    uint8_t gprs; // 0x01
+    uint8_t edge; // 0x02
+    uint8_t hsdpa; // 0x03
+    uint8_t hsupa; // 0x04
+    uint8_t wcdma; // 0x05
+    uint8_t gsm; // 0x0a
+    uint8_t lte; // 0x0b
+    uint8_t hsdpa_plus; // 0x0c
+    uint8_t dc_hsdpa_plus; // 0x0d
+};
+struct nas_serving_system_state {
+    uint8_t id; // 0x01 in msgid NAS_SERVING_SYSTEM
+    uint16_t len; // 6bytes
+    uint8_t registration_status; // 00 not registed, 01 registered, 02 searchign, 03 forbidden, 04 unknown
+    uint8_t cs_attached; // 00 unknown, 01 attached, 02 detached
+    uint8_t ps_attached; // 00 unknown, 01 attached, 02 detached
+    uint8_t radio_access; // 00 unknown, 01 3gpp2, 02 3gpp
+    uint8_t *connected_interfaces[0]; // 00 no interface (no service), 1 CDMA, 2 EVDO, 3 AMPS, 4 GSM, 5 UMTS, 6-7 unknown, 8 LTE
+} __attribute__((packed));
 
 const char *get_nas_command(uint16_t msgid);
 void *register_to_nas_service();

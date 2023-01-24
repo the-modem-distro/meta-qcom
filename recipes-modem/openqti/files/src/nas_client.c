@@ -21,12 +21,18 @@
 #include "../inc/nas.h"
 #include "../inc/qmi.h"
 
+
 struct {
   uint8_t operator_name[32];
   uint8_t mcc[3];
   uint8_t mnc[2];
   uint16_t location_area_code_1;
   uint16_t location_area_code_2;
+  struct service_capability current_service_capability;
+  uint8_t network_registration_status;
+  uint8_t circuit_switch_attached;
+  uint8_t packet_switch_attached;
+  uint8_t radio_access;
 } nas_runtime;
 
 const char *get_nas_command(uint16_t msgid) {
@@ -36,7 +42,7 @@ const char *get_nas_command(uint16_t msgid) {
       return nas_svc_commands[i].cmd;
     }
   }
-  return "Voice: Unknown command\n";
+  return "NAS: Unknown command\n";
 }
 
 int nas_register_to_events() {
@@ -139,6 +145,76 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
   }
 }
 
+void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
+  /* There can be a lot of tlvs here, but we care about 2, service and capability*/
+  int offset = get_tlv_offset_by_id(buf, buf_len, 0x11);
+  if (offset > 0) {
+    struct empty_tlv *capability_arr =
+        (struct empty_tlv *)(buf + offset);
+    if (buf_len < capability_arr->len) {
+      logger(MSG_ERROR, "%s: Message is shorter than the operator name\n",
+             __func__);
+      return;
+    }
+    // Set everything to 0, then repopulate
+    nas_runtime.current_service_capability.gprs = 0;
+    nas_runtime.current_service_capability.edge = 0;
+    nas_runtime.current_service_capability.hsdpa = 0;
+    nas_runtime.current_service_capability.hsupa = 0;
+    nas_runtime.current_service_capability.wcdma = 0;
+    nas_runtime.current_service_capability.gsm = 0;
+    nas_runtime.current_service_capability.lte = 0;
+    nas_runtime.current_service_capability.hsdpa_plus = 0;
+    nas_runtime.current_service_capability.dc_hsdpa_plus = 0;
+
+    for (uint16_t i = 0; i < capability_arr->len; i++) {
+        switch (capability_arr->data[i]) {
+            case 0x01:
+            nas_runtime.current_service_capability.gprs = 1;
+            break;
+            case 0x02:
+            nas_runtime.current_service_capability.edge = 1;
+            break;
+            case 0x03:
+            nas_runtime.current_service_capability.hsdpa = 1;
+            break;
+            case 0x04:
+            nas_runtime.current_service_capability.hsupa = 1;
+            break;
+            case 0x05:
+            nas_runtime.current_service_capability.wcdma = 1;
+            break;
+            case 0x0a:
+            nas_runtime.current_service_capability.gsm = 1;
+            break;
+            case 0x0b:
+            nas_runtime.current_service_capability.lte = 1;
+            break;
+            case 0x0c:
+            nas_runtime.current_service_capability.hsdpa_plus = 1;
+            break;
+            case 0x0d:
+            nas_runtime.current_service_capability.dc_hsdpa_plus = 1;
+            break;
+            default:
+                logger(MSG_WARN, "%s: Unknown service capability: %.2x\n", __func__, capability_arr->data[i]);
+                break;
+        }
+    }
+  }
+  offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
+  if (offset > 0) {
+    struct nas_serving_system_state *serving_sys = (struct nas_serving_system_state *)(buf + offset);
+    if (buf_len < serving_sys->len) {
+      logger(MSG_ERROR, "%s: Message is shorter than carrier data\n", __func__);
+      return;
+    }
+    nas_runtime.network_registration_status = serving_sys->registration_status;
+    nas_runtime.circuit_switch_attached = serving_sys->cs_attached;
+    nas_runtime.packet_switch_attached = serving_sys->ps_attached;
+    nas_runtime.radio_access = serving_sys->radio_access;
+  }
+}
 /*
  * Reroutes messages from the internal QMI client to the service
  */
@@ -190,6 +266,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     break;
   case NAS_GET_SERVING_SYSTEM:
     logger(MSG_INFO, "%s: Get Serving System\n", __func__);
+    parse_serving_system_message(buf, buf_len);
     break;
   case NAS_GET_HOME_NETWORK:
     logger(MSG_INFO, "%s: Get Home Network\n", __func__);
@@ -282,8 +359,35 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
          "\t LACs: %.4x %.4x\n",
          __func__, nas_runtime.operator_name, nas_runtime.mcc, nas_runtime.mnc,
          nas_runtime.location_area_code_1, nas_runtime.location_area_code_2);
+
+    logger(MSG_INFO, "%s: Capabilities\n"
+                     "\tGSM: %s\n"
+                     "\tGPRS: %s\n"
+                     "\tEDGE: %s\n"
+                     "\tWCDMA: %s\n"
+                     "\tHSDPA: %s\n"
+                     "\tHSUPA: %s\n"
+                     "\tHSDPA+: %s\n"
+                     "\tDC-HSDPA+: %s\n"
+                     "\tLTE: %s\n"
+                     "\tCircuit Switch Service Attached: %s\n"
+                     "\tPacket Switch Service attached: %s\n",
+                     __func__,
+                    nas_runtime.current_service_capability.gsm == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.gprs == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.edge == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.wcdma == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.hsdpa == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.hsupa == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.hsdpa_plus == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.dc_hsdpa_plus == 1 ? "Yes" : "No",
+                    nas_runtime.current_service_capability.lte == 1 ? "Yes" : "No",
+                    nas_runtime.circuit_switch_attached == 1 ? "Yes" : "No",
+                    nas_runtime.packet_switch_attached == 1 ? "Yes" : "No"
+    );
+
   return 0;
-}
+}// source == FROM_HOST ? "HOST" : "ADSP"
 
 void *register_to_nas_service() {
   nas_register_to_events();
