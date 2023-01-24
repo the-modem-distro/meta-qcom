@@ -147,6 +147,29 @@ enum {
     NAS_SVC_INDICATION_ARFCN_LIST_INFO = 0x3b,
     NAS_SVC_INDICATION_GET_RF_AVAILABILITY = 0x3d,
 };
+
+/* Info structures */
+struct carrier_name_string {
+    uint8_t id; // 0x10 in msgid NAS_OPERATOR_NAME
+    uint16_t len;
+    uint16_t instance;
+    uint8_t *operator_name[0];
+} __attribute__((packed));
+
+struct carrier_mcc_mnc {
+    uint8_t id; // 0x11 in msgid NAS_OPERATOR_NAME
+    uint16_t len;
+    uint16_t isntance;
+    uint8_t mcc[3];
+    uint8_t mnc[2];
+    uint16_t lac1;
+    uint16_t lac2;
+    uint8_t plmn_record_id;
+    uint8_t instance2; //??
+
+} __attribute__((packed));
+
+
 const char *get_nas_command(uint16_t msgid);
 void *register_to_nas_service();
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len);
