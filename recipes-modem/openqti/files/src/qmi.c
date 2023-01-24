@@ -10,6 +10,7 @@
 #include "../inc/sms.h"
 #include "../inc/wds.h"
 #include "../inc/voice.h"
+#include "../inc/nas.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -594,6 +595,9 @@ void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
   case QMI_SERVICE_VOICE:
     handle_incoming_voice_message(buf, buf_len);
     break;
+  case QMI_SERVICE_NAS:
+    handle_incoming_nas_message(buf, buf_len);
+    break;
   default:
     logger(MSG_WARN, "%s: Unhandled target service: %.2x\n", __func__, service);
     break;
@@ -680,8 +684,9 @@ void *start_service_initialization_thread() {
 
   logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
          __func__);
-         
+
   dms_get_modem_info();
   register_to_voice_service();
+  register_to_nas_service();
   return NULL;
 }

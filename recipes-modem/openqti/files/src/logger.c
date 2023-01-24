@@ -15,6 +15,9 @@
 #include "../inc/tracking.h"
 #include "../inc/wds.h"
 #include "../inc/dms.h"
+#include "../inc/voice.h"
+#include "../inc/nas.h"
+
 bool log_to_file = true;
 uint8_t log_level = 0;
 struct timespec startup_time;
@@ -187,6 +190,7 @@ void dump_pkt_raw(uint8_t *buf, int pktsize) {
     }
   }
 }
+
 const char *get_command_desc(uint8_t service, uint16_t msgid) {
   switch (service) {
   case QMI_SERVICE_WDS: // WDS
@@ -195,6 +199,10 @@ const char *get_command_desc(uint8_t service, uint16_t msgid) {
     return get_dms_command(msgid);
   case QMI_SERVICE_CONTROL:
     return get_ctl_command(msgid);
+  case QMI_SERVICE_VOICE:
+    return get_voice_command(msgid);
+  case QMI_SERVICE_NAS:
+    return get_nas_command(msgid);
   }
   return "Unknown command\n";
 }
