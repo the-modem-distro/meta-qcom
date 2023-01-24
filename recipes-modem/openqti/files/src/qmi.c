@@ -685,8 +685,8 @@ void *start_service_initialization_thread() {
   logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
          __func__);
 
-  dms_get_modem_info();
-  register_to_voice_service();
   register_to_nas_service();
+  register_to_voice_service();
+  dms_get_modem_info();
   return NULL;
 }
