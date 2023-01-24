@@ -225,7 +225,6 @@ const char *dms_get_modem_modem_serial_num();
 const char *dms_get_modem_modem_hw_rev();
 const char *dms_get_modem_modem_model();
 
-void reset_dms_runtime();
 void *dms_get_modem_info();
 const char *get_dms_command(uint16_t msgid);
 

@@ -86,6 +86,7 @@ enum VoiceIndicationTLVs {
     VOICE_EVENT_EMERGENCY_CALL_OPERATING_MODE_EVENT = 0x28,
     VOICE_EVENT_AUTOREJECTED_INCOMING_CALL_END_EVENT = 0x29,
 };
+const char *get_voice_command(uint16_t msgid);
 void *register_to_voice_service();
 int handle_incoming_voice_message(uint8_t *buf, size_t buf_len);
 #endif

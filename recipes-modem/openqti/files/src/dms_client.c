@@ -44,7 +44,6 @@ struct {
   struct fw_parts firmware_sections;
 } dms_runtime;
 
-void reset_dms_runtime() {}
 void print_modem_information() {
   logger(MSG_INFO, "Queried modem info:\n");
   logger(MSG_INFO, "\t Model: %s\n", dms_runtime.modem_model);
@@ -537,12 +536,6 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
 }
 
 void *dms_get_modem_info() {
-  reset_dms_runtime();
-  do {
-    logger(MSG_INFO, "DMS: Waiting for DPM...\n");
-    sleep(5);
-  } while (!is_internal_qmi_client_ready());
-
   logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
          __func__);
   dms_request_model();

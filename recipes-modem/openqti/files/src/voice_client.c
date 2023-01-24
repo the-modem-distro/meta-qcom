@@ -21,6 +21,17 @@
 #include "../inc/qmi.h"
 #include "../inc/voice.h"
 
+const char *get_voice_command(uint16_t msgid) {
+  for (uint16_t i = 0;
+       i < (sizeof(voice_svc_commands) / sizeof(voice_svc_commands[0])); i++) {
+    if (voice_svc_commands[i].id == msgid) {
+      return voice_svc_commands[i].cmd;
+    }
+  }
+  return "Voice: Unknown command\n";
+}
+
+
 int voice_register_to_events() {
     logger(MSG_INFO, "********* VOICE START\n");
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
@@ -95,11 +106,6 @@ int handle_incoming_voice_message(uint8_t *buf, size_t buf_len) {
 }
 
 void *register_to_voice_service() {
-  do {
-    logger(MSG_INFO, "VOICE: Waiting for DPM...\n");
-    sleep(5);
-  } while (!is_internal_qmi_client_ready());
-
   voice_register_to_events();
   logger(MSG_INFO, "%s finished!\n", __func__);
   return NULL;
