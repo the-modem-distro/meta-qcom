@@ -480,6 +480,24 @@ int send_pending_internal_qmi_messages() {
           clear_message_for_service(i);
           break;
 
+        case QMI_SERVICE_VOICE: // Voice Service (9)
+          logger(MSG_INFO, "%s: Pending message for Voice\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message,
+                               internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message,
+                            internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+
+        case QMI_SERVICE_NAS: // Network Access Service
+          logger(MSG_INFO, "%s: Pending message for NAS\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message,
+                               internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message,
+                            internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+
         default:
           logger(MSG_ERROR, "%s: Unknown service %.2x, discarding the flag\n",
                  __func__, i);
@@ -633,6 +651,9 @@ void *init_internal_qmi_client() {
     FD_SET(internal_qmi_client.fd, &readfds);
     tv.tv_sec = 0;
     tv.tv_usec = 500000;
+    if (is_internal_qmi_message_pending()) {
+      send_pending_internal_qmi_messages();
+    }
     select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(internal_qmi_client.fd, &readfds)) {
       buf_len = read(internal_qmi_client.fd, &buf, MAX_PACKET_SIZE);
@@ -651,7 +672,8 @@ void *init_internal_qmi_client() {
                  buf_len);
           if (buf_len >
               (sizeof(struct qmux_packet) + sizeof(struct qmi_packet))) {
-            pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
+// Too much noise with this printing everything
+//            pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
             dispatch_incoming_qmi_message(buf, buf_len);
           } else {
             logger(MSG_WARN, "%s: Size is too small!\n", __func__);
@@ -659,9 +681,7 @@ void *init_internal_qmi_client() {
         }
       }
     }
-      if (is_internal_qmi_message_pending()) {
-        send_pending_internal_qmi_messages();
-      }
+
 
       /* Demo: put code below */
     }
