@@ -14,6 +14,7 @@
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
+#include "../inc/nas.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -338,7 +339,7 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
   case 3:
     logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
-    if (get_qmi_message_id(pkt, pkt_size) == 0x004F) { // 0x004f == GET_SIGNAL_REPORT
+    if (get_qmi_message_id(pkt, pkt_size) == NAS_GET_SIGNAL_INFO) { // 0x004f == GET_SIGNAL_REPORT
       struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
       update_network_data(level->signal.id, level->signal.signal_level);
       if (is_first_boot()) {
