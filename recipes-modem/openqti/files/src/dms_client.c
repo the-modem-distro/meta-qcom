@@ -91,6 +91,18 @@ const char *get_dms_command(uint16_t msgid) {
   return "DMS: Unknown command\n";
 }
 
+const char *get_sim_unlock_state_text(uint8_t state) {
+  switch (state) {
+    case 1:
+      return "PIN enabled, SIM locked";
+    case 2:
+      return "PIN enabled, SIM unlocked";
+    case 3:
+      return "PIN disabled, SIM unlocked";
+  }
+  return "Unknown state";
+}
+
 int dms_request_model() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
   uint8_t *pkt = malloc(pkt_len);
@@ -303,17 +315,17 @@ void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
    */
   int result_tlv = get_tlv_offset_by_id(buf, buf_len, 0x02);
   if (result_tlv > 0) {
-    logger(MSG_INFO, "%s: This is a response to one of our requests\n",
+    logger(MSG_DEBUG, "%s: This is a response to one of our requests\n",
            __func__);
     if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n",
+      logger(MSG_INFO, "%s: Registered to event reports!\n",
              __func__);
     } else {
       logger(MSG_WARN, "%s: DMS Event report operation returned an error\n",
              __func__);
     }
   } else {
-    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n",
+    logger(MSG_DEBUG, "%s: This is an unsolicited indication from the modem\n",
            __func__);
     uint8_t available_events[] = {
         DMS_EVENT_POWER_STATE, DMS_EVENT_PIN_STATUS,     DMS_EVENT_PIN2_STATUS,
@@ -336,10 +348,10 @@ void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
           dms_runtime.sim_lock_status = pinstate->pin_state;
           logger(MSG_INFO,
                  "%s: Pin status report:\n"
-                 "\t State: %.2x\n"
+                 "\t State: %s (%.2x)\n"
                  "\t PIN retries left: %u\n"
                  "\t PUK retries left: %u\n",
-                 __func__, pinstate->pin_state, pinstate->pin_retries_left,
+                 __func__, get_sim_unlock_state_text(pinstate->pin_state), pinstate->pin_state, pinstate->pin_retries_left,
                  pinstate->puk_retries_left);
           break;
         case DMS_EVENT_PIN2_STATUS:
@@ -379,7 +391,10 @@ void check_and_set_fw_string(uint8_t *buf, size_t buf_len, uint8_t tlvid,
  */
 int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
+  
+  #ifdef DEBUG_DMS
   pretty_print_qmi_pkt("DMS: Baseband --> Host", buf, buf_len);
+  #endif 
 
   switch (get_qmi_message_id(buf, buf_len)) {
   case DMS_EVENT_REPORT:
@@ -408,9 +423,11 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
     break;
   case DMS_GET_IDS:
     check_and_set_fw_string(buf, buf_len, 0x12, dms_runtime.modem_serial_num);
+    print_modem_information();
     break;
   case DMS_GET_HARDWARE_REVISION:
     check_and_set_fw_string(buf, buf_len, 0x01, dms_runtime.modem_hw_rev);
+    print_modem_information();
     break;
 
   case DMS_GET_SOFTWARE_VERSION:
@@ -488,6 +505,7 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
         }
       }
     }
+    print_modem_information();
     break;
   default:
     logger(MSG_INFO, "%s: Unhandled message for DMS: %.4x\n", __func__,
@@ -495,7 +513,6 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
     break;
   }
 
-  print_modem_information();
   return 0;
 }
 
