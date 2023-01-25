@@ -653,6 +653,8 @@ void *init_internal_qmi_client() {
     tv.tv_usec = 500000;
     if (is_internal_qmi_message_pending()) {
       send_pending_internal_qmi_messages();
+      /* If we're sending stuff, we want a faster reply! */
+      tv.tv_usec = 50000;
     }
     select(MAX_FD, &readfds, NULL, NULL, &tv);
     if (FD_ISSET(internal_qmi_client.fd, &readfds)) {
@@ -672,7 +674,7 @@ void *init_internal_qmi_client() {
                  buf_len);
           if (buf_len >
               (sizeof(struct qmux_packet) + sizeof(struct qmi_packet))) {
-// Too much noise with this printing everything
+//            Too much noise with this printing everything
 //            pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
             dispatch_incoming_qmi_message(buf, buf_len);
           } else {
@@ -699,14 +701,26 @@ void *init_internal_qmi_client() {
 void *start_service_initialization_thread() {
   do {
     logger(MSG_INFO, "%s: Waiting for QMI client ready...\n", __func__);
-    sleep(5);
+    sleep(1);
   } while (!is_internal_qmi_client_ready());
 
   logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
          __func__);
 
+  /* First we register to the services 
+   * After registering we'll fill in 
+   * info from the baseband
+   * Otherwise we risk losing some initial events
+   * if the user unlocks the sim before we got a chance
+   * to subscribe to those indications.
+   * 
+   */
+  dms_register_to_events();
+  dms_register_to_indications();
   register_to_nas_service();
   register_to_voice_service();
-  dms_get_modem_info();
+
+
+  dms_retrieve_modem_info();
   return NULL;
 }
