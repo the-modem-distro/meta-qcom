@@ -234,13 +234,16 @@ enum { // all use uint8_t's
     EVENT_INDICATION_TLV_IMS_CAPABILITY = 0x12,
 };
 
+uint8_t get_sim_lock_state();
 /* External functions for the chat */
 const char *dms_get_modem_revision();
 const char *dms_get_modem_modem_serial_num();
 const char *dms_get_modem_modem_hw_rev();
 const char *dms_get_modem_modem_model();
 
-void *dms_get_modem_info();
+int dms_register_to_events();
+int dms_register_to_indications();
+void dms_retrieve_modem_info();
 const char *get_dms_command(uint16_t msgid);
 
 int handle_incoming_dms_message(uint8_t *buf, size_t buf_len);

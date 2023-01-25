@@ -42,6 +42,7 @@ struct {
   char modem_model[DMS_MODEM_INFO_MAX_STR_LEN];
   char modem_sw_ver[DMS_MODEM_INFO_MAX_STR_LEN];
   struct fw_parts firmware_sections;
+  uint8_t sim_lock_status;
 } dms_runtime;
 
 void print_modem_information() {
@@ -64,6 +65,10 @@ void print_modem_information() {
   logger(MSG_DEBUG, "\t Apps: %s\n", dms_runtime.firmware_sections.apps);
   logger(MSG_INFO, "\t MPSS: %s\n", dms_runtime.firmware_sections.mpss);
   logger(MSG_DEBUG, "\t ADSP: %s\n", dms_runtime.firmware_sections.adsp);
+}
+
+uint8_t get_sim_lock_state() {
+  return dms_runtime.sim_lock_status;
 }
 const char *dms_get_modem_revision() { return dms_runtime.modem_revision; }
 const char *dms_get_modem_modem_serial_num() {
@@ -328,6 +333,7 @@ void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
           logger(MSG_INFO, "%s: DMS_EVENT_PIN_STATUS\n", __func__);
           struct dms_event_pin_status_info *pinstate =
               (struct dms_event_pin_status_info *)(buf + offset);
+          dms_runtime.sim_lock_status = pinstate->pin_state;
           logger(MSG_INFO,
                  "%s: Pin status report:\n"
                  "\t State: %.2x\n"
@@ -493,16 +499,11 @@ int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
   return 0;
 }
 
-void *dms_get_modem_info() {
-  logger(MSG_INFO, "%s: QMI Client appears ready, gather modem info\n",
-         __func__);
+void dms_retrieve_modem_info() {
   dms_request_model();
   dms_request_hw_rev();
   dms_request_revision();
   dms_request_serial_number();
-  dms_register_to_events();
   dms_request_sw_ver();
-  dms_register_to_indications();
-  logger(MSG_INFO, "%s finished!\n", __func__);
-  return NULL;
+ return;
 }
