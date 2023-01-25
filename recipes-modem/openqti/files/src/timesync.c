@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "../inc/timesync.h"
-#include "../inc/cell.h"
+#include "../inc/nas.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
@@ -48,10 +48,10 @@ void *time_sync() {
   int retries = 0;
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
-  while (!get_network_type()) {
+  do {
+    sleep(5);
     logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
-    sleep(30);
-  }
+  } while(!nas_is_network_in_service());
 
   while (!sync_completed) {
     memset(response, 0, 128);
