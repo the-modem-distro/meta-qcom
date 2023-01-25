@@ -21,6 +21,7 @@
 #include "../inc/nas.h"
 #include "../inc/qmi.h"
 
+#define DEBUG_NAS 1
 struct {
   uint8_t operator_name[32];
   uint8_t mcc[4];
@@ -100,7 +101,7 @@ int nas_register_to_events() {
       NAS_SVC_INDICATION_GET_RF_AVAILABILITY,
   };
   memset(pkt, 0, pkt_len);
-  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_NAS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -134,7 +135,7 @@ int nas_request_cell_location_info() { // QMI_NAS_GET_SIG_INFO
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
 
-  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_NAS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -146,7 +147,7 @@ int nas_request_cell_location_info() { // QMI_NAS_GET_SIG_INFO
     return -EINVAL;
   }
 
-  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  add_pending_message(QMI_SERVICE_NAS, (uint8_t *)pkt, pkt_len);
   free(pkt);
   return 0;
 }
@@ -156,7 +157,7 @@ int nas_get_signal_info() {
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
 
-  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_NAS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -167,7 +168,7 @@ int nas_get_signal_info() {
     return -EINVAL;
   }
 
-  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  add_pending_message(QMI_SERVICE_NAS, (uint8_t *)pkt, pkt_len);
   free(pkt);
   return 0;
 }
@@ -177,7 +178,7 @@ int nas_get_ims_preference() {
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
 
-  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_NAS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -189,7 +190,7 @@ int nas_get_ims_preference() {
     return -EINVAL;
   }
 
-  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  add_pending_message(QMI_SERVICE_NAS, (uint8_t *)pkt, pkt_len);
   free(pkt);
   return 0;
 }
@@ -299,8 +300,9 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
  */
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
-  // pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
-
+  #ifdef DEBUG_NAS
+  pretty_print_qmi_pkt("NAS: Baseband --> Host", buf, buf_len);
+  #endif
   switch (get_qmi_message_id(buf, buf_len)) {
   case NAS_SERVICE_PROVIDER_NAME:
     logger(MSG_INFO, "%s: Service Provider Name\n", __func__);

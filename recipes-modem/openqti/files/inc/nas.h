@@ -191,7 +191,12 @@ struct nas_serving_system_state {
     uint8_t *connected_interfaces[0]; // 00 no interface (no service), 1 CDMA, 2 EVDO, 3 AMPS, 4 GSM, 5 UMTS, 6-7 unknown, 8 LTE
 } __attribute__((packed));
 
+uint8_t nas_is_network_in_service();
 const char *get_nas_command(uint16_t msgid);
+
+int nas_request_cell_location_info();
+int nas_get_signal_info();
+
 void *register_to_nas_service();
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len);
 #endif
