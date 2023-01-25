@@ -17,7 +17,6 @@
 
 enum {
   DMS_RESET = 0x0000,
-  DMS_SET_EVENT_REPORT = 0x0001,
   DMS_EVENT_REPORT = 0x0001,
   DMS_REGISTER_INDICATIONS = 0x0003,
   DMS_GET_CAPABILITIES = 0x0020,
@@ -94,7 +93,6 @@ static const struct {
   const char *cmd;
 } dms_svc_commands[] = {
     {DMS_RESET, "Reset"},
-    {DMS_SET_EVENT_REPORT, "Set Event Report"},
     {DMS_EVENT_REPORT, "Event Report"},
     {DMS_REGISTER_INDICATIONS, "Register to DMS indications"},
     {DMS_GET_CAPABILITIES, "Get Capabilities"},
@@ -193,8 +191,25 @@ struct dms_fw_version_strings_info {
  //   struct dms_firmware_rel_string *dms_firmware_rel_string[0];
 } __attribute__((packed));
 
+/*
+ * PIN State:
+ *  0 -> unknown
+ *  1 -> PIN enabled, locked
+ *  2 -> PIN enabled, unlocked
+ *  3 -> PIN disabled
+*/
+
+struct dms_event_pin_status_info {
+    uint8_t id; // 0x11 in DMS_EVENT_REPORT
+    uint16_t len; // always 3
+    uint8_t pin_state;
+    uint8_t pin_retries_left;
+    uint8_t puk_retries_left;
+ //   struct dms_firmware_rel_string *dms_firmware_rel_string[0];
+} __attribute__((packed));
+
 /* Event Reporting stuff */
-enum { // all use uint8_t's
+enum { // all use uint8_t's, these *only* *cover* *requests*
     EVENT_TLV_POWER_STATE = 0x10,
     EVENT_TLV_PIN_STATE = 0x12,
     EVENT_ACTIVATION_STATE = 0x13,
@@ -205,7 +220,7 @@ enum { // all use uint8_t's
 
 enum {
     DMS_EVENT_POWER_STATE = 0x10, //u16
-    DMS_EVENT_PIN_STATUS = 0x11,
+    DMS_EVENT_PIN_STATUS = 0x11, // state, retries left, retries to kill sim
     DMS_EVENT_PIN2_STATUS = 0x12,
     DMS_EVENT_ACT_STATE = 0x13, //u16: 0(not) || 1(act) || 2(connecting) || 3(connected) || 4-10(ota service provisioning state)
     DMS_EVENT_OPERATING_MODE = 0x14, // u8 0-8 (online, low power, test mode, offline, reset, shutdown, persistlpm, lpm_only, gsm_testmode)

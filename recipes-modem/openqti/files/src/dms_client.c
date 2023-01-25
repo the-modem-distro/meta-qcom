@@ -187,9 +187,8 @@ int dms_register_to_events() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
                    (1 * sizeof(struct qmi_generic_uint8_t_tlv));
   uint8_t *pkt = malloc(pkt_len);
-  uint8_t tlvs[] = {DMS_EVENT_POWER_STATE,
-                    DMS_EVENT_PIN2_STATUS,    DMS_EVENT_ACT_STATE,
-                    DMS_EVENT_OPERATING_MODE};
+  uint8_t tlvs[] = {DMS_EVENT_POWER_STATE, DMS_EVENT_PIN2_STATUS,
+                    DMS_EVENT_ACT_STATE, DMS_EVENT_OPERATING_MODE};
 
   /* So, if we try to subscribe to everything at the same time and
    * we fail we don't subscribe to anything at all. So I iterate
@@ -203,8 +202,7 @@ int dms_register_to_events() {
       free(pkt);
       return -EINVAL;
     }
-    if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, DMS_SET_EVENT_REPORT) <
-        0) {
+    if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, DMS_EVENT_REPORT) < 0) {
       logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       free(pkt);
       return -EINVAL;
@@ -315,20 +313,28 @@ void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
     uint8_t available_events[] = {
         DMS_EVENT_POWER_STATE, DMS_EVENT_PIN_STATUS,     DMS_EVENT_PIN2_STATUS,
         DMS_EVENT_ACT_STATE,   DMS_EVENT_OPERATING_MODE, DMS_EVENT_CAPABILITY};
-    logger(MSG_INFO, "%s: Event report response / indication\n", __func__);
     uint16_t tlvs = count_tlvs_in_message(buf, buf_len);
     logger(MSG_INFO, "%s: Found %u events in this message\n", __func__, tlvs);
-    for (int i = 0; i < 6; i++) {
+    for (uint8_t i = 0; i < 6; i++) {
       int offset = get_tlv_offset_by_id(buf, buf_len, available_events[i]);
       if (offset > 0) {
         logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
                available_events[i], offset);
-        switch (i) {
+        switch (available_events[i]) {
         case DMS_EVENT_POWER_STATE:
           logger(MSG_INFO, "%s: DMS_EVENT_POWER_STATE\n", __func__);
           break;
         case DMS_EVENT_PIN_STATUS:
           logger(MSG_INFO, "%s: DMS_EVENT_PIN_STATUS\n", __func__);
+          struct dms_event_pin_status_info *pinstate =
+              (struct dms_event_pin_status_info *)(buf + offset);
+          logger(MSG_INFO,
+                 "%s: Pin status report:\n"
+                 "\t State: %.2x\n"
+                 "\t PIN retries left: %u\n"
+                 "\t PUK retries left: %u\n",
+                 __func__, pinstate->pin_state, pinstate->pin_retries_left,
+                 pinstate->puk_retries_left);
           break;
         case DMS_EVENT_PIN2_STATUS:
           logger(MSG_INFO, "%s: DMS_EVENT_PIN2_STATUS\n", __func__);
@@ -341,55 +347,6 @@ void parse_dms_event_report(uint8_t *buf, size_t buf_len) {
           break;
         case DMS_EVENT_CAPABILITY:
           logger(MSG_INFO, "%s: DMS_EVENT_CAPABILITY\n", __func__);
-          break;
-        }
-      }
-    }
-  }
-}
-
-void parse_dms_event_indication(uint8_t *buf, size_t buf_len) {
-  /* An event report response has an result TLV, while
-   * an indication does not. I can use this to discern the response
-   * from the baseband
-   */
-  int result_tlv = get_tlv_offset_by_id(buf, buf_len, 0x02);
-  if (result_tlv > 0) {
-    logger(MSG_INFO, "%s: This is a response to one of our requests\n",
-           __func__);
-    if (did_qmi_op_fail(buf, buf_len) == QMI_RESULT_SUCCESS) {
-      logger(MSG_INFO, "%s: Operation (I guess register) returned a success!\n",
-             __func__);
-    } else {
-      logger(MSG_WARN, "%s: DMS Event report operation returned an error\n",
-             __func__);
-    }
-  } else {
-    logger(MSG_INFO, "%s: This is an unsolicited indication from the modem\n",
-           __func__);
-    uint8_t available_events[] = {EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS,
-                                  EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG,
-                                  EVENT_INDICATION_TLV_IMS_CAPABILITY};
-    logger(MSG_INFO, "%s: Event report response / indication\n", __func__);
-    uint16_t tlvs = count_tlvs_in_message(buf, buf_len);
-    logger(MSG_INFO, "%s: Found %u events in this message\n", __func__, tlvs);
-    for (int i = 0; i < 3; i++) {
-      int offset = get_tlv_offset_by_id(buf, buf_len, available_events[i]);
-      if (offset > 0) {
-        logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
-               available_events[i], offset);
-        switch (i) {
-        case EVENT_INDICATION_TLV_POWER_STATE_MODE_STATUS:
-          logger(MSG_INFO, "%s: EVENT_TLV_POWER_STATE_MODE_STATUS\n", __func__);
-          break;
-        case EVENT_INDICATION_TLV_POWER_STATE_MODE_CONFIG:
-          logger(MSG_INFO, "%s: EVENT_TLV_POWER_STATE_MODE_CONFIG\n", __func__);
-          break;
-        case EVENT_INDICATION_TLV_IMS_CAPABILITY:
-          logger(MSG_INFO, "%s: EVENT_TLV_IMS_CAPABILITY\n", __func__);
-          break;
-        default:
-          logger(MSG_INFO, "%s: unknown event %.2x\n", __func__, i);
           break;
         }
       }
@@ -416,6 +373,7 @@ void check_and_set_fw_string(uint8_t *buf, size_t buf_len, uint8_t tlvid,
  */
 int handle_incoming_dms_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
+  pretty_print_qmi_pkt("DMS: Baseband --> Host", buf, buf_len);
 
   switch (get_qmi_message_id(buf, buf_len)) {
   case DMS_EVENT_REPORT:
