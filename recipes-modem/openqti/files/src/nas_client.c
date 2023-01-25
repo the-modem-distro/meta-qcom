@@ -21,11 +21,10 @@
 #include "../inc/nas.h"
 #include "../inc/qmi.h"
 
-
 struct {
   uint8_t operator_name[32];
-  uint8_t mcc[3];
-  uint8_t mnc[2];
+  uint8_t mcc[4];
+  uint8_t mnc[3];
   uint16_t location_area_code_1;
   uint16_t location_area_code_2;
   struct service_capability current_service_capability;
@@ -35,6 +34,20 @@ struct {
   uint8_t radio_access;
 } nas_runtime;
 
+uint8_t nas_is_network_in_service() {
+  if (nas_runtime.current_service_capability.gprs ||
+      nas_runtime.current_service_capability.edge ||
+      nas_runtime.current_service_capability.hsdpa ||
+      nas_runtime.current_service_capability.hsupa ||
+      nas_runtime.current_service_capability.wcdma ||
+      nas_runtime.current_service_capability.gsm ||
+      nas_runtime.current_service_capability.lte ||
+      nas_runtime.current_service_capability.hsdpa_plus ||
+      nas_runtime.current_service_capability.dc_hsdpa_plus)
+    return 1;
+
+  return 0;
+}
 const char *get_nas_command(uint16_t msgid) {
   for (uint16_t i = 0;
        i < (sizeof(nas_svc_commands) / sizeof(nas_svc_commands[0])); i++) {
@@ -116,7 +129,7 @@ int nas_register_to_events() {
   return 0;
 }
 
-int nas_request_cell_location_info() { //QMI_NAS_GET_SIG_INFO
+int nas_request_cell_location_info() { // QMI_NAS_GET_SIG_INFO
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
@@ -126,7 +139,8 @@ int nas_request_cell_location_info() { //QMI_NAS_GET_SIG_INFO
     free(pkt);
     return -EINVAL;
   }
-  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, NAS_GET_CELL_LOCATION_INFO) < 0) {
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       NAS_GET_CELL_LOCATION_INFO) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -158,7 +172,6 @@ int nas_get_signal_info() {
   return 0;
 }
 
-
 int nas_get_ims_preference() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
   uint8_t *pkt = malloc(pkt_len);
@@ -169,7 +182,8 @@ int nas_get_ims_preference() {
     free(pkt);
     return -EINVAL;
   }
-  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, NAS_GET_IMS_PREFERENCE_STATE) < 0) {
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       NAS_GET_IMS_PREFERENCE_STATE) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -209,11 +223,11 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
 }
 
 void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
-  /* There can be a lot of tlvs here, but we care about 2, service and capability*/
+  /* There can be a lot of tlvs here, but we care about 2, service and
+   * capability*/
   int offset = get_tlv_offset_by_id(buf, buf_len, 0x11);
   if (offset > 0) {
-    struct empty_tlv *capability_arr =
-        (struct empty_tlv *)(buf + offset);
+    struct empty_tlv *capability_arr = (struct empty_tlv *)(buf + offset);
     if (buf_len < capability_arr->len) {
       logger(MSG_ERROR, "%s: Message is shorter than the operator name\n",
              __func__);
@@ -231,43 +245,45 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
     nas_runtime.current_service_capability.dc_hsdpa_plus = 0;
 
     for (uint16_t i = 0; i < capability_arr->len; i++) {
-        switch (capability_arr->data[i]) {
-            case 0x01:
-            nas_runtime.current_service_capability.gprs = 1;
-            break;
-            case 0x02:
-            nas_runtime.current_service_capability.edge = 1;
-            break;
-            case 0x03:
-            nas_runtime.current_service_capability.hsdpa = 1;
-            break;
-            case 0x04:
-            nas_runtime.current_service_capability.hsupa = 1;
-            break;
-            case 0x05:
-            nas_runtime.current_service_capability.wcdma = 1;
-            break;
-            case 0x0a:
-            nas_runtime.current_service_capability.gsm = 1;
-            break;
-            case 0x0b:
-            nas_runtime.current_service_capability.lte = 1;
-            break;
-            case 0x0c:
-            nas_runtime.current_service_capability.hsdpa_plus = 1;
-            break;
-            case 0x0d:
-            nas_runtime.current_service_capability.dc_hsdpa_plus = 1;
-            break;
-            default:
-                logger(MSG_WARN, "%s: Unknown service capability: %.2x\n", __func__, capability_arr->data[i]);
-                break;
-        }
+      switch (capability_arr->data[i]) {
+      case 0x01:
+        nas_runtime.current_service_capability.gprs = 1;
+        break;
+      case 0x02:
+        nas_runtime.current_service_capability.edge = 1;
+        break;
+      case 0x03:
+        nas_runtime.current_service_capability.hsdpa = 1;
+        break;
+      case 0x04:
+        nas_runtime.current_service_capability.hsupa = 1;
+        break;
+      case 0x05:
+        nas_runtime.current_service_capability.wcdma = 1;
+        break;
+      case 0x0a:
+        nas_runtime.current_service_capability.gsm = 1;
+        break;
+      case 0x0b:
+        nas_runtime.current_service_capability.lte = 1;
+        break;
+      case 0x0c:
+        nas_runtime.current_service_capability.hsdpa_plus = 1;
+        break;
+      case 0x0d:
+        nas_runtime.current_service_capability.dc_hsdpa_plus = 1;
+        break;
+      default:
+        logger(MSG_WARN, "%s: Unknown service capability: %.2x\n", __func__,
+               capability_arr->data[i]);
+        break;
+      }
     }
   }
   offset = get_tlv_offset_by_id(buf, buf_len, 0x01);
   if (offset > 0) {
-    struct nas_serving_system_state *serving_sys = (struct nas_serving_system_state *)(buf + offset);
+    struct nas_serving_system_state *serving_sys =
+        (struct nas_serving_system_state *)(buf + offset);
     if (buf_len < serving_sys->len) {
       logger(MSG_ERROR, "%s: Message is shorter than carrier data\n", __func__);
       return;
@@ -419,39 +435,40 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO,
          "%s: Report\n"
          "\tOperator: %s\n"
-         "\t MCC-MNC: %s-%s\n"
-         "\t LACs: %.4x %.4x\n",
-         __func__, nas_runtime.operator_name, nas_runtime.mcc, nas_runtime.mnc,
-         nas_runtime.location_area_code_1, nas_runtime.location_area_code_2);
+         "\tMCC-MNC: %s-%s\n"
+         "\tLACs: %.4x %.4x\n",
+         __func__, nas_runtime.operator_name, (unsigned char *)nas_runtime.mcc,
+         (unsigned char *)nas_runtime.mnc, nas_runtime.location_area_code_1,
+         nas_runtime.location_area_code_2);
 
-    logger(MSG_INFO, "%s: Capabilities\n"
-                     "\tGSM: %s\n"
-                     "\tGPRS: %s\n"
-                     "\tEDGE: %s\n"
-                     "\tWCDMA: %s\n"
-                     "\tHSDPA: %s\n"
-                     "\tHSUPA: %s\n"
-                     "\tHSDPA+: %s\n"
-                     "\tDC-HSDPA+: %s\n"
-                     "\tLTE: %s\n"
-                     "\tCircuit Switch Service Attached: %s\n"
-                     "\tPacket Switch Service attached: %s\n",
-                     __func__,
-                    nas_runtime.current_service_capability.gsm == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.gprs == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.edge == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.wcdma == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.hsdpa == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.hsupa == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.hsdpa_plus == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.dc_hsdpa_plus == 1 ? "Yes" : "No",
-                    nas_runtime.current_service_capability.lte == 1 ? "Yes" : "No",
-                    nas_runtime.circuit_switch_attached == 1 ? "Yes" : "No",
-                    nas_runtime.packet_switch_attached == 1 ? "Yes" : "No"
-    );
+  logger(
+      MSG_INFO,
+      "%s: Capabilities\n"
+      "\tGSM: %s"
+      "\tGPRS: %s"
+      "\tEDGE: %s\n"
+      "\tWCDMA: %s"
+      "\tHSDPA: %s"
+      "\tHSUPA: %s\n"
+      "\tHSDPA+: %s"
+      "\tDC-HSDPA+: %s"
+      "\tLTE: %s\n"
+      "\tCircuit Switch Service Attached: %s\n"
+      "\tPacket Switch Service attached: %s\n",
+      __func__, nas_runtime.current_service_capability.gsm == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.gprs == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.edge == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.wcdma == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsdpa == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsupa == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsdpa_plus == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.dc_hsdpa_plus == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.lte == 1 ? "Yes" : "No",
+      nas_runtime.circuit_switch_attached == 1 ? "Yes" : "No",
+      nas_runtime.packet_switch_attached == 1 ? "Yes" : "No");
 
   return 0;
-}// source == FROM_HOST ? "HOST" : "ADSP"
+} // source == FROM_HOST ? "HOST" : "ADSP"
 
 void *register_to_nas_service() {
   nas_register_to_events();
@@ -462,7 +479,8 @@ void *register_to_nas_service() {
   return NULL;
 }
 
-/* 
+/*
 We need a thread to keep track of these...
-get signal info should be triggered every few seconds, and cell location info too
+get signal info should be triggered every few seconds, and cell location info
+too
 */
