@@ -8,6 +8,8 @@
 #include "../inc/openqti.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
+#include "../inc/nas.h"
+
 #include <endian.h>
 #include <errno.h>
 #include <stdio.h>
@@ -239,13 +241,19 @@ int run_task(int taskID) {
 }
 
 void *start_scheduler_thread() {
-  int i;
-  sleep(120); // Wait 60 seconds to give time to modemmanager to connect...
+  int tick = 0;
+  do {
+    sleep(5);
+    logger(MSG_INFO, "%s: Waiting for network...\n", __func__);
+  } while (!nas_is_network_in_service());
+  /*
+    We should check here if time is synced by now...
+  */
   logger(MSG_INFO, "%s: Starting scheduler thread\n", __func__);
   read_tasks_from_storage();
   while (1) {
     sch_runtime.cur_time = time(NULL);
-    for (i = 0; i < MAX_NUM_TASKS; i++) {
+    for (int i = 0; i < MAX_NUM_TASKS; i++) {
       if (sch_runtime.tasks[i].status == STATUS_PENDING) {
         logger(MSG_DEBUG,
                "%s: Checking time for task %i of type %i\n Exec time %ld, "
@@ -259,6 +267,14 @@ void *start_scheduler_thread() {
     }
     logger(MSG_DEBUG, "%s Tick!\n", __func__);
     sleep(1);
+    if (tick > 10) {
+      logger(MSG_DEBUG, "%s: Tock!\n", __func__);
+      tick = 0;
+      // Request network update
+      nas_get_signal_info();
+      nas_request_cell_location_info();
+    }
+    tick++;
   }
   return NULL;
 }
