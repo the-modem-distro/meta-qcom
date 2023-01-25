@@ -116,6 +116,69 @@ int nas_register_to_events() {
   return 0;
 }
 
+int nas_request_cell_location_info() { //QMI_NAS_GET_SIG_INFO
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, NAS_GET_CELL_LOCATION_INFO) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
+
+int nas_get_signal_info() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, NAS_GET_SIGNAL_INFO) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
+
+
+int nas_get_ims_preference() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_VOICE, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, NAS_GET_IMS_PREFERENCE_STATE) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
 void update_operator_name(uint8_t *buf, size_t buf_len) {
   /* TLVS here: 0x10, 0x11, 0x12 (we discard this one since it's the same as
    * 0x10 but encoded in gsm7)*/
@@ -220,6 +283,7 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
  */
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
+  // pretty_print_qmi_pkt("Baseband --> Host", buf, buf_len);
 
   switch (get_qmi_message_id(buf, buf_len)) {
   case NAS_SERVICE_PROVIDER_NAME:
@@ -391,6 +455,14 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
 
 void *register_to_nas_service() {
   nas_register_to_events();
+  nas_request_cell_location_info();
+  nas_get_signal_info();
+  nas_get_ims_preference();
   logger(MSG_INFO, "%s finished!\n", __func__);
   return NULL;
 }
+
+/* 
+We need a thread to keep track of these...
+get signal info should be triggered every few seconds, and cell location info too
+*/
