@@ -149,6 +149,131 @@ enum {
     NAS_SVC_INDICATION_GET_RF_AVAILABILITY = 0x3d,
 };
 
+/* Cell location info */
+enum {
+    NAS_CELL_LAC_INFO_CELL_ID = 0x10,
+    NAS_CELL_LAC_INFO_UMTS_CELL_INFO = 0x11,
+    NAS_CELL_LAC_INFO_CDMA_CELL_INFO = 0x12,
+    NAS_CELL_LAC_INFO_LTE_INTRA_INFO = 0x13,
+    NAS_CELL_LAC_INFO_LTE_INTER_INFO = 0x14,
+    NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM = 0x15,
+    NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA = 0x16,
+    NAS_CELL_LAC_INFO_UMTS_CELL_ID = 0x17,
+    NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR = 0x18,
+    NAS_CELL_LAC_INFO_CDMA_RX_INFO = 0x19,
+    NAS_CELL_LAC_INFO_HDR_RX_INFO = 0x1a,
+    NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED = 0x1b,
+    NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED = 0x1c,
+    NAS_CELL_LAC_INFO_WCDMA_GSM_NEIGHBOUT_CELL_EXTENDED = 0x1d,
+    NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV = 0x1e,
+    NAS_CELL_LAC_INFO_WCDMA_INFO_ACTIVE_SET = 0x1f,
+    NAS_CELL_LAC_INFO_WCDMA_ACTIVE_SET_REF_RADIO_LINK = 0x20,
+    NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO = 0x21,
+    NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO = 0x22,
+    NAS_CELL_LAC_INFO_WCDMA_EXTENDED_INFO_AS = 0x23,
+    NAS_CELL_LAC_INFO_SCELL_GERAN_CONF = 0x24,
+    NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT = 0x25,
+    NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ = 0x26,
+    NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN = 0x27,
+    NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN = 0x28,
+    NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN = 0x29,
+    NAS_CELL_LAC_INFO_NAS_INFO_EMM_STATE = 0x2a,
+    NAS_CELL_LAC_INFO_NAS_RRC_STATE = 0x2c,
+    NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE = 0x2d,
+};
+
+/* Cell LAC structures */
+
+struct nmr_cell_data {
+    uint32_t cell_id;
+    uint8_t plmn[3];
+    uint16_t lac;
+    uint16_t arfcn;
+    uint8_t bsic;
+    uint16_t rx_level;
+} __attribute__((packed));
+
+struct umts_monitored_cells {
+    uint16_t uarfcn;
+    uint16_t psc;
+    int16_t rscp;
+    int16_t ecio;
+
+} __attribute__((packed));
+
+struct lte_cell_info {
+    uint16_t phy_cell_id;
+    int16_t rsrq;
+    int16_t rsrp;
+    int16_t rssi_level;
+    int16_t srx_level;
+} __attribute__((packed));
+
+struct cell_id { // 0x10
+    uint8_t id;
+    uint16_t len;
+    uint32_t cell_id;
+    uint8_t plmn[3];
+    uint16_t lac;
+    uint16_t arfcn;
+    uint8_t bsic;
+    uint32_t timing_advance;
+    uint16_t rx_level;
+    uint8_t nmr_instance; //num of elems below
+    struct nmr_cell_data *nmr_data[0];
+} __attribute__((packed));
+
+struct nas_lac_umts_cell_info { // 0x11: NAS_CELL_LAC_INFO_UMTS_CELL_INFO
+    uint8_t id;
+    uint16_t len;
+    uint16_t cell_id;
+    uint8_t plmn[3];
+    uint16_t lac;
+    uint16_t uarfcn;
+    uint16_t rscp;
+    int16_t signal;
+    int16_t ecio;
+    uint8_t instances; // num of elems below?
+    struct umts_monitored_cells *monitored_cells[0];
+} __attribute__((packed));
+
+struct nas_lac_cdma_cell_info { // 0x12: NAS_CELL_LAC_INFO_CDMA_CELL_INFO
+    uint8_t id;
+    uint16_t len;
+    uint16_t system_id;
+    uint16_t network_id;
+    uint16_t base_station_id;
+    uint16_t reference_pn;
+    uint32_t base_latitude;
+    uint32_t base_longitude;
+} __attribute__((packed));
+
+struct nas_lac_lte_infra_cell_info { // 0x13: NAS_CELL_LAC_INFO_LTE_INTRA_INFO
+    uint8_t id;
+    uint16_t len;
+    uint8_t is_idle;
+    uint8_t plmn[3];
+    uint16_t tracking_area_code;
+    uint32_t cell_id;
+    uint16_t earfcn;
+    uint16_t serv_cell_id;
+    uint8_t serving_freq_prio;
+    uint8_t inter_frequency_search_threshold;
+    uint8_t serving_cell_lower_threshold;
+    uint8_t reselect_threshold;
+    uint8_t num_of_cells;
+    struct lte_cell_info *lte_cell_info[0];
+} __attribute__((packed));
+
+/*
+struct ____DEMO___ {
+    uint8_t id;
+    uint16_t len;
+
+} __attribute__((packed));
+
+
+*/
 /* Info structures */
 struct carrier_name_string {
     uint8_t id; // 0x10 in msgid NAS_OPERATOR_NAME

@@ -20,8 +20,10 @@
 #include "../inc/logger.h"
 #include "../inc/nas.h"
 #include "../inc/qmi.h"
+#include "../inc/sms.h"
 
 #define DEBUG_NAS 1
+
 struct {
   uint8_t operator_name[32];
   uint8_t mcc[4];
@@ -194,6 +196,7 @@ int nas_get_ims_preference() {
   free(pkt);
   return 0;
 }
+
 void update_operator_name(uint8_t *buf, size_t buf_len) {
   /* TLVS here: 0x10, 0x11, 0x12 (we discard this one since it's the same as
    * 0x10 but encoded in gsm7)*/
@@ -221,6 +224,15 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
     nas_runtime.location_area_code_1 = op_code->lac1;
     nas_runtime.location_area_code_2 = op_code->lac2;
   }
+
+  logger(MSG_INFO,
+         "%s: Report\n"
+         "\tOperator: %s\n"
+         "\tMCC-MNC: %s-%s\n"
+         "\tLACs: %.4x %.4x\n",
+         __func__, nas_runtime.operator_name, (unsigned char *)nas_runtime.mcc,
+         (unsigned char *)nas_runtime.mnc, nas_runtime.location_area_code_1,
+         nas_runtime.location_area_code_2);
 }
 
 void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
@@ -294,15 +306,183 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
     nas_runtime.packet_switch_attached = serving_sys->ps_attached;
     nas_runtime.radio_access = serving_sys->radio_access;
   }
+
+  logger(
+      MSG_INFO,
+      "%s: Capabilities\n"
+      "\tGSM: %s"
+      "\tGPRS: %s"
+      "\tEDGE: %s\n"
+      "\tWCDMA: %s"
+      "\tHSDPA: %s"
+      "\tHSUPA: %s\n"
+      "\tHSDPA+: %s"
+      "\tDC-HSDPA+: %s"
+      "\tLTE: %s\n"
+      "\tCircuit Switch Service Attached: %s\n"
+      "\tPacket Switch Service attached: %s\n",
+      __func__, nas_runtime.current_service_capability.gsm == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.gprs == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.edge == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.wcdma == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsdpa == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsupa == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.hsdpa_plus == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.dc_hsdpa_plus == 1 ? "Yes" : "No",
+      nas_runtime.current_service_capability.lte == 1 ? "Yes" : "No",
+      nas_runtime.circuit_switch_attached == 1 ? "Yes" : "No",
+      nas_runtime.packet_switch_attached == 1 ? "Yes" : "No");
 }
+
+void update_cell_location_information(uint8_t *buf, size_t buf_len) {
+  if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
+    logger(MSG_ERROR, "%s: Baseband returned an error to the request \n",
+           __func__);
+    return;
+  }
+  uint8_t available_tlvs[] = {
+      NAS_CELL_LAC_INFO_UMTS_CELL_INFO,
+      NAS_CELL_LAC_INFO_CDMA_CELL_INFO,
+      NAS_CELL_LAC_INFO_LTE_INTRA_INFO,
+      NAS_CELL_LAC_INFO_LTE_INTER_INFO,
+      NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM,
+      NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA,
+      NAS_CELL_LAC_INFO_UMTS_CELL_ID,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR,
+      NAS_CELL_LAC_INFO_CDMA_RX_INFO,
+      NAS_CELL_LAC_INFO_HDR_RX_INFO,
+      NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED,
+      NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED,
+      NAS_CELL_LAC_INFO_WCDMA_GSM_NEIGHBOUT_CELL_EXTENDED,
+      NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_ACTIVE_SET,
+      NAS_CELL_LAC_INFO_WCDMA_ACTIVE_SET_REF_RADIO_LINK,
+      NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO,
+      NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO,
+      NAS_CELL_LAC_INFO_WCDMA_EXTENDED_INFO_AS,
+      NAS_CELL_LAC_INFO_SCELL_GERAN_CONF,
+      NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT,
+      NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ,
+      NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN,
+      NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN,
+      NAS_CELL_LAC_INFO_NAS_INFO_EMM_STATE,
+      NAS_CELL_LAC_INFO_NAS_RRC_STATE,
+      NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
+  };
+  logger(MSG_INFO, "%s: Found %u information segments in this message\n",
+         __func__, count_tlvs_in_message(buf, buf_len));
+  for (uint8_t i = 0; i < 27; i++) {
+    int offset = get_tlv_offset_by_id(buf, buf_len, available_tlvs[i]);
+    if (offset > 0) {
+      logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+             available_tlvs[i], offset);
+      logger(MSG_WARN, "%s: NOT IMPLEMENTED\n", __func__);
+      switch (available_tlvs[i]) {
+      case NAS_CELL_LAC_INFO_UMTS_CELL_INFO: {
+        struct nas_lac_umts_cell_info *cell_info = (struct nas_lac_umts_cell_info*)(buf+offset);
+        logger(MSG_INFO, "%s: Cell info\n"
+                         "\t Type: UMTS\n"
+                         "\t Cell ID: %.4x\n"
+                         "\t Location Area Code: %.4x\n"
+                         "\t UARFCN: %.4x\n"
+                         "\t RSCP: %.4x\n"
+                         "\t Signal level: %i\n"
+                         "\t ECIO: %i\n"
+                         "\t Monitored cell count: %u\n",
+                         __func__,
+                         cell_info->cell_id,
+                         cell_info->lac,
+                         cell_info->uarfcn,
+                         cell_info->rscp,
+                         cell_info->signal,
+                         cell_info->ecio,
+                         cell_info->instances
+        );
+        for (uint8_t j = 0; j < cell_info->instances; j++) {
+          logger(MSG_INFO, "\t Neighbour %u\n"
+                           "\t\t UARFCN: %.4x\n"
+                           "\t\t PSC: %.4x\n"
+                           "\t\t RSCP: %i\n"
+                           "\t\t ECIO: %i\n",
+                           j,
+                           &cell_info->monitored_cells[j]->uarfcn,
+                           &cell_info->monitored_cells[j]->psc,
+                           &cell_info->monitored_cells[j]->rscp,
+                           &cell_info->monitored_cells[j]->ecio);
+        }
+      }
+        break;
+      case NAS_CELL_LAC_INFO_CDMA_CELL_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INTRA_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INTER_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA:
+        break;
+      case NAS_CELL_LAC_INFO_UMTS_CELL_ID:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR:
+        break;
+      case NAS_CELL_LAC_INFO_CDMA_RX_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_HDR_RX_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_GSM_NEIGHBOUT_CELL_EXTENDED:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_ACTIVE_SET:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_ACTIVE_SET_REF_RADIO_LINK:
+        break;
+      case NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_EXTENDED_INFO_AS:
+        break;
+      case NAS_CELL_LAC_INFO_SCELL_GERAN_CONF:
+        break;
+      case NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT:
+        break;
+      case NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN:
+        break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN:
+        break;
+      case NAS_CELL_LAC_INFO_NAS_INFO_EMM_STATE:
+        break;
+      case NAS_CELL_LAC_INFO_NAS_RRC_STATE:
+        break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE:
+        break;
+      default:
+        logger(MSG_INFO, "%s: Unknown event %.2x\n", __func__,
+               available_tlvs[i]);
+      }
+    }
+  }
+}
+
 /*
  * Reroutes messages from the internal QMI client to the service
  */
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
-  #ifdef DEBUG_NAS
+#ifdef DEBUG_NAS
   pretty_print_qmi_pkt("NAS: Baseband --> Host", buf, buf_len);
-  #endif
+#endif
   switch (get_qmi_message_id(buf, buf_len)) {
   case NAS_SERVICE_PROVIDER_NAME:
     logger(MSG_INFO, "%s: Service Provider Name\n", __func__);
@@ -382,6 +562,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     break;
   case NAS_GET_CELL_LOCATION_INFO:
     logger(MSG_INFO, "%s: Get Cell Location Info\n", __func__);
+    update_cell_location_information(buf, buf_len);
     break;
   case NAS_GET_PLMN_NAME:
     logger(MSG_INFO, "%s: Get PLMN Name\n", __func__);
@@ -397,6 +578,12 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     break;
   case NAS_GET_SIGNAL_INFO:
     logger(MSG_INFO, "%s: Get Signal Info\n", __func__);
+    struct nas_signal_lev *level = (struct nas_signal_lev *)buf;
+    update_network_data(level->signal.id, level->signal.signal_level);
+    if (is_first_boot()) {
+      send_hello_world();
+    }
+    level = NULL;
     break;
   case NAS_CONFIG_SIGNAL_INFO:
     logger(MSG_INFO, "%s: Config Signal Info\n", __func__);
@@ -433,41 +620,6 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
            __func__, get_qmi_message_id(buf, buf_len));
     break;
   }
-
-  logger(MSG_INFO,
-         "%s: Report\n"
-         "\tOperator: %s\n"
-         "\tMCC-MNC: %s-%s\n"
-         "\tLACs: %.4x %.4x\n",
-         __func__, nas_runtime.operator_name, (unsigned char *)nas_runtime.mcc,
-         (unsigned char *)nas_runtime.mnc, nas_runtime.location_area_code_1,
-         nas_runtime.location_area_code_2);
-
-  logger(
-      MSG_INFO,
-      "%s: Capabilities\n"
-      "\tGSM: %s"
-      "\tGPRS: %s"
-      "\tEDGE: %s\n"
-      "\tWCDMA: %s"
-      "\tHSDPA: %s"
-      "\tHSUPA: %s\n"
-      "\tHSDPA+: %s"
-      "\tDC-HSDPA+: %s"
-      "\tLTE: %s\n"
-      "\tCircuit Switch Service Attached: %s\n"
-      "\tPacket Switch Service attached: %s\n",
-      __func__, nas_runtime.current_service_capability.gsm == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.gprs == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.edge == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.wcdma == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.hsdpa == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.hsupa == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.hsdpa_plus == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.dc_hsdpa_plus == 1 ? "Yes" : "No",
-      nas_runtime.current_service_capability.lte == 1 ? "Yes" : "No",
-      nas_runtime.circuit_switch_attached == 1 ? "Yes" : "No",
-      nas_runtime.packet_switch_attached == 1 ? "Yes" : "No");
 
   return 0;
 } // source == FROM_HOST ? "HOST" : "ADSP"
