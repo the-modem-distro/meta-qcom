@@ -209,6 +209,34 @@ struct lte_cell_info {
     int16_t srx_level;
 } __attribute__((packed));
 
+struct lte_inter_freq_instance {
+    uint16_t earfcn;
+    uint8_t srxlev_low_threshold;
+    uint8_t srxlev_high_threshold;
+    uint8_t reselect_priority;
+    uint8_t num_cells;
+    struct lte_cell_info lte_cell_info[0];
+} __attribute__((packed));
+
+struct lte_gsm_cell_neighbour {
+    uint16_t arfcn;
+    uint8_t band;
+    uint8_t is_cell_id_valid;
+    uint8_t bsic;
+    int16_t rssi;
+    int16_t srxlev;
+} __attribute__((packed));
+
+struct lte_gsm_neighbours {
+    uint8_t cell_reselect_priority;
+    uint8_t high_priority_reselect_threshold;
+    uint8_t low_prio_reselect_threshold;
+    uint8_t ncc_mask;
+    uint8_t num_cells;
+    struct lte_gsm_cell_neighbour lte_gsm_cell_neighbour[0];
+} __attribute__((packed));
+
+
 struct cell_id { // 0x10
     uint8_t id;
     uint16_t len;
@@ -220,7 +248,7 @@ struct cell_id { // 0x10
     uint32_t timing_advance;
     uint16_t rx_level;
     uint8_t nmr_instance; //num of elems below
-    struct nmr_cell_data *nmr_data[0];
+    struct nmr_cell_data nmr_data[0];
 } __attribute__((packed));
 
 struct nas_lac_umts_cell_info { // 0x11: NAS_CELL_LAC_INFO_UMTS_CELL_INFO
@@ -234,7 +262,7 @@ struct nas_lac_umts_cell_info { // 0x11: NAS_CELL_LAC_INFO_UMTS_CELL_INFO
     int16_t signal;
     int16_t ecio;
     uint8_t instances; // num of elems below?
-    struct umts_monitored_cells *monitored_cells[0];
+    struct umts_monitored_cells monitored_cells[0];
 } __attribute__((packed));
 
 struct nas_lac_cdma_cell_info { // 0x12: NAS_CELL_LAC_INFO_CDMA_CELL_INFO
@@ -248,7 +276,7 @@ struct nas_lac_cdma_cell_info { // 0x12: NAS_CELL_LAC_INFO_CDMA_CELL_INFO
     uint32_t base_longitude;
 } __attribute__((packed));
 
-struct nas_lac_lte_infra_cell_info { // 0x13: NAS_CELL_LAC_INFO_LTE_INTRA_INFO
+struct nas_lac_lte_intra_cell_info { // 0x13: NAS_CELL_LAC_INFO_LTE_INTRA_INFO
     uint8_t id;
     uint16_t len;
     uint8_t is_idle;
@@ -262,9 +290,24 @@ struct nas_lac_lte_infra_cell_info { // 0x13: NAS_CELL_LAC_INFO_LTE_INTRA_INFO
     uint8_t serving_cell_lower_threshold;
     uint8_t reselect_threshold;
     uint8_t num_of_cells;
-    struct lte_cell_info *lte_cell_info[0];
+    struct lte_cell_info lte_cell_info[0];
 } __attribute__((packed));
 
+struct nas_lac_lte_inter_cell_info { // 0x14
+    uint8_t id;
+    uint16_t len;
+    uint8_t is_idle;
+    uint8_t num_instances;
+    struct lte_inter_freq_instance lte_inter_freq_instance[0];
+} __attribute__((packed));
+
+struct nas_lac_lte_gsm_neighbour_info{ // 0x15
+    uint8_t id;
+    uint16_t len;
+    uint8_t is_idle;
+    uint8_t num_instances;
+    struct lte_gsm_neighbours lte_gsm_neighbours[0];
+} __attribute__((packed));
 /*
 struct ____DEMO___ {
     uint8_t id;
