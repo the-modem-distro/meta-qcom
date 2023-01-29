@@ -60,6 +60,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/voice_client.c \
            file://src/nas_client.c \
            file://init_openqti \
+           file://boot_counter \
            file://external/ring8k.wav \
            file://thankyou/thankyou.txt"
            
@@ -74,16 +75,21 @@ do_install() {
     install -d ${D}${bindir}
     install -d ${D}/etc/init.d
     install -d ${D}/etc/rcS.d
+    install -d ${D}/etc/rc0.d
+    install -d ${D}/etc/rc6.d
     install -d ${D}/usr/share/tones/
     install -d ${D}/usr/share/thank_you/
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
+    install -m 0755 ${S}/boot_counter ${D}/etc/init.d/
 
     # default dialing tone
     install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
     install -m 0644 ${S}/thankyou/thankyou.txt ${D}/usr/share/thank_you/
-
+    
+    ln -sf -r ${D}/etc/init.d/boot_counter ${D}/etc/rc0.d/K01boot_counter
+    ln -sf -r ${D}/etc/init.d/boot_counter ${D}/etc/rc6.d/K01boot_counter
   #  ln -sf -r ${D}/etc/init.d/init_openqti ${D}/etc/rcS.d/S40init_openqti
 }
 
