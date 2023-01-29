@@ -16,6 +16,7 @@
 #include <syscall.h>
 #include <unistd.h>
 
+#define BOOT_FLAG_FILE "/persist/.openqti_boot_done"
 struct config_prototype *settings;
 
 int set_persistent_partition_rw() {
@@ -94,7 +95,7 @@ int parse_line(char *buf) {
     return 1;
   }
 
-  logger(MSG_INFO, "%s: Key %s -> val %s -> toint %i\n", __func__, setting,
+  logger(MSG_DEBUG, "%s: Key %s -> val %s -> toint %i\n", __func__, setting,
          value, atoi(value));
   if (strcmp(setting, "custom_alert_tone") == 0) {
     settings->custom_alert_tone = atoi(value);
@@ -151,12 +152,11 @@ int parse_line(char *buf) {
 
 int write_settings_to_storage() {
   FILE *fp;
-  logger(MSG_INFO, "%s: Start\n", __func__);
   if (set_persistent_partition_rw() < 0) {
     logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
     return -1;
   }
-  logger(MSG_INFO, "%s: Open file\n", __func__);
+  logger(MSG_DEBUG, "%s: Open file\n", __func__);
   fp = fopen(CONFIG_FILE_PATH, "w");
   if (fp == NULL) {
     logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
@@ -174,7 +174,7 @@ int write_settings_to_storage() {
   fprintf(fp, "automatic_call_recording=%i\n", settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
   fprintf(fp, "allow_internal_modem_connectivity=%i\n", settings->allow_internal_modem_connectivity);
-  logger(MSG_INFO, "%s: Close\n", __func__);
+  logger(MSG_DEBUG, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
   if (!settings->persistent_logging) {
@@ -186,12 +186,48 @@ int write_settings_to_storage() {
   }
   return 0;
 }
+int write_boot_counter_file(int failed_boots) {
+  FILE *fp;
+  set_persistent_partition_rw();
+  fp = fopen(BOOT_FLAG_FILE, "w");
+  if (fp == NULL) {
+    logger(MSG_ERROR, "%s: Can't open file for writing!\n", __func__);
+    return -1;
+  }
+  fprintf(fp, "%i", failed_boots);
+  fclose(fp);
+  return 0;
+}
+
+int read_boot_counter_file() {
+  FILE *fp;
+  int val;
+  char buf[4] = {0};
+  logger(MSG_DEBUG, "%s: Read boot counter\n");
+  fp = fopen(BOOT_FLAG_FILE, "r");
+  if (fp == NULL) {
+    logger(MSG_DEBUG, "%s, Creating new boot counter file\n",
+            __func__);
+    write_boot_counter_file(0);
+    return 0;
+  }
+  fgets(buf, 4, fp);
+  fclose(fp);
+  val = atoi(buf);
+  logger(MSG_INFO, "%s: Failed boot counter: %i\n", __func__, val);
+  if (val < 0 ) {
+    val = 0;
+  }
+  write_boot_counter_file(val+1);
+  return val; 
+}
 
 int read_settings_from_file() {
   FILE *fp;
   char buf[1024];
   int line = 0;
   bool recreate_cfg_required = false;
+  int attempted_boots = 0;
   fp = fopen(CONFIG_FILE_PATH, "r");
   if (fp == NULL) {
     logger(MSG_WARN, "%s: Settings file doesn't exist, creating it\n",
@@ -212,6 +248,12 @@ int read_settings_from_file() {
   }
   fclose(fp);
   dump_current_config();
+  attempted_boots = read_boot_counter_file();
+  if (attempted_boots > 3) {
+    logger(MSG_WARN, "%s: Enabling persistent logging due to repeated boot failures\n", __func__);
+    settings->persistent_logging = 1;
+    recreate_cfg_required = true;
+  }
   if (recreate_cfg_required) {
     write_settings_to_storage();
   }
