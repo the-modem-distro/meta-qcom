@@ -487,6 +487,13 @@ struct nas_lac_lte_extended_interfrequency_earfcn {
 
 } __attribute__((packed));
 
+//   NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN = 0x29,
+struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn {
+  uint8_t id;
+  uint16_t len;
+  uint8_t num_instances;
+  uint32_t earfcn[0];
+} __attribute__((packed));
 /* Info structures */
 struct carrier_name_string {
   uint8_t id; // 0x10 in msgid NAS_OPERATOR_NAME

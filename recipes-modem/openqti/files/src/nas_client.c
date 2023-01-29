@@ -799,6 +799,22 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                "\t EARFCN: %.8x\n",
                __func__, cell_info->earfcn);
       } break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN: {
+        struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn *cell_info =
+            (struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn *)(buf +
+                                                                        offset);
+        logger(MSG_INFO,
+               "%s: Cell info\n"
+               "\t Type: WCDMA Extended Info: Neighbour LTE EARFCNs\n"
+               "\t Number of items: %u\n",
+               __func__, cell_info->num_instances);
+        for (uint8_t i = 0; i < cell_info->num_instances; i++) {
+          logger(MSG_INFO,
+                 "\t Type: WCDMA Extended Info: Neighbour LTE EARFCNs\n"
+                 "\t Item #%u\n",
+                 "\t EARFCN: %.8x\n", i, cell_info->earfcn[i]);
+        }
+      } break;
       default:
         logger(MSG_INFO, "%s: Unknown event %.2x\n", __func__,
                available_tlvs[i]);
