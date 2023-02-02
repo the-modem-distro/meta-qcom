@@ -203,7 +203,7 @@ int read_boot_counter_file() {
   FILE *fp;
   int val;
   char buf[4] = {0};
-  logger(MSG_DEBUG, "%s: Read boot counter\n");
+  logger(MSG_DEBUG, "%s: Read boot counter\n", __func__);
   fp = fopen(BOOT_FLAG_FILE, "r");
   if (fp == NULL) {
     logger(MSG_DEBUG, "%s, Creating new boot counter file\n",
@@ -211,9 +211,10 @@ int read_boot_counter_file() {
     write_boot_counter_file(0);
     return 0;
   }
-  fgets(buf, 4, fp);
+  if (fgets(buf, 4, fp)) {
+    val = atoi(buf);
+  }
   fclose(fp);
-  val = atoi(buf);
   logger(MSG_INFO, "%s: Failed boot counter: %i\n", __func__, val);
   if (val < 0 ) {
     val = 0;
