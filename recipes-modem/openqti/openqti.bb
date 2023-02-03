@@ -21,7 +21,6 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/proxy.h \
            file://inc/command.h \
            file://inc/call.h \
-           file://inc/cell.h \
            file://inc/timesync.h \
            file://inc/scheduler.h \
            file://inc/config.h \
@@ -48,7 +47,6 @@ SRC_URI = "file://inc/openqti.h \
            file://src/proxy.c \
            file://src/command.c \
            file://src/call.c \
-           file://src/cell.c \
            file://src/timesync.c \
            file://src/pico2aud.c \
            file://src/scheduler.c \
@@ -68,7 +66,7 @@ S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 FILES:${PN} += "/usr/share/thank_you/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/cell.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
+    ${CC} ${LDFLAGS} -O2 src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
 
 do_install() {
