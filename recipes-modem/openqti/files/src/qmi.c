@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "../inc/qmi.h"
 #include "../inc/call.h"
-#include "../inc/cell.h"
 #include "../inc/devices.h"
 #include "../inc/dms.h"
 #include "../inc/ipc.h"

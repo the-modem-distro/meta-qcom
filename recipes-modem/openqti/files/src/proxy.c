@@ -4,7 +4,6 @@
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
 #include "../inc/call.h"
-#include "../inc/cell.h"
 #include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
@@ -15,6 +14,7 @@
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
 #include "../inc/nas.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>

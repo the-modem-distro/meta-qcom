@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "../inc/scheduler.h"
 #include "../inc/call.h"
-#include "../inc/cell.h"
 #include "../inc/config.h"
 #include "../inc/helpers.h"
 #include "../inc/logger.h"
