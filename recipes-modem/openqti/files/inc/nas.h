@@ -260,8 +260,8 @@ struct nas_lac_umts_cell_info {
   uint8_t plmn[3];
   uint16_t lac;
   uint16_t uarfcn;
-  uint16_t rscp;
-  int16_t signal;
+  uint16_t psc;
+  int16_t rscp;
   int16_t ecio;
   uint8_t instances; // num of elems below?
   struct umts_monitored_cells monitored_cells[0];
@@ -591,7 +591,7 @@ struct nas_report {
   uint16_t rx_level_min;
   uint16_t rx_level_max;
   uint16_t rx_level_avg;
-  uint8_t is_checked;
+  uint8_t opencellid_verified;
 };
 
 struct network_status_reports {
