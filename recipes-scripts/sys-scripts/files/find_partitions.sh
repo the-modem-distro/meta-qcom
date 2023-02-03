@@ -27,13 +27,41 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-mount -t ubifs -o ro /dev/ubi1_0 /firmware
+if [[ -c "/dev/ubi1_0" ]]; then
+    echo "Mounting the baseband firmware partition specified by the bootloader"
+    mount -t ubifs -o ro /dev/ubi1_0 /firmware
+else
+    echo "Bootloader didn't pass the modem partition number, trying to find it"
+    modem_partition_id=`cat /proc/mtd | grep -i modem | sed 's/^mtd//' | awk -F ':' '{print $1}'`
+    if [[ $modem_partition_id -ge 1 ]]; then 
+        echo "Attaching and mounting"
+        ubiattach -m $user_data_partition_id -d 1 /dev/ubi_ctrl 
+        mount -t ubifs -o ro /dev/ubi1_0 /firmware
+    else
+        echo "Can't mount the baseband firmware partition!"
+    fi
+fi
+
 # Tell the Hexagon it can boot once the firmware is in place
-echo 1 > /sys/kernel/boot_adsp/boot
+if [ -f "/sys/kernel/boot_adsp/boot" ]; then
+    echo "Booting ADSP on the downstream kernel"
+    echo 1 > /sys/kernel/boot_adsp/boot
+fi
+
 # For Mainline: Tell remoteproc0 to boot once the partition has been mounted
-# echo start > /sys/class/remoteproc/remoteproc0/state
+if [ -f "/sys/class/remoteproc/remoteproc0/state" ]; then
+    echo "We're booting a mainline kernel!"
+    echo start > /sys/class/remoteproc/remoteproc0/state
+fi
 
 # We have 10 seconds of spare time between adsp boot signal to actually
 # ready, so after telling it to boot we mount persistent storage
-ubiattach -m 14 -d 2 /dev/ubi_ctrl 
-mount -t ubifs -o rw /dev/ubi2_0 /persist
+user_data_partition_id=`cat /proc/mtd | grep -i usr_data | sed 's/^mtd//' | awk -F ':' '{print $1}'`
+if [[ $user_data_partition_id -ge 1 ]]; then 
+    echo "Mounting user data partition"
+    ubiattach -m $user_data_partition_id -d 2 /dev/ubi_ctrl 
+    mount -t ubifs -o rw /dev/ubi2_0 /persist
+else
+    echo "Mounting system root partition as RW"
+    mount -o remount,rw /
+fi
