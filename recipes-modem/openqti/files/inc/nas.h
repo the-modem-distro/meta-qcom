@@ -150,24 +150,7 @@ enum {
 };
 
 /* Cell location info */
-/*
-From traced data
-[38.9142] I update_cell_location_information: TLV 11 found at offset 14
-[98.7041] I update_cell_location_information: TLV 13 found at offset 14
-[122.9137] I update_cell_location_information: TLV 16 found at offset 54
-[38.9191] I update_cell_location_information: TLV 17 found at offset 68
-[38.9195] I update_cell_location_information: TLV 18 found at offset 6f
-[93.6948] I update_cell_location_information: TLV 1b found at offset 7e
-[38.9200] I update_cell_location_information: TLV 1c found at offset 77
-[122.9142] I update_cell_location_information: TLV 1e found at offset 69
-[93.6952] I update_cell_location_information: TLV 21 found at offset 85
-[38.9204] I update_cell_location_information: TLV 22 found at offset 84
-[93.6956] I update_cell_location_information: TLV 24 found at offset 14f
-[93.6964] I update_cell_location_information: TLV 25 found at offset 155
-[122.9146] I update_cell_location_information: TLV 26 found at offset 70
-[122.9155] I update_cell_location_information: TLV 27 found at offset 75
-[122.9160] I update_cell_location_information: TLV 28 found at offset 7c
-*/
+
 enum {
   NAS_CELL_LAC_INFO_CELL_ID = 0x10,
   NAS_CELL_LAC_INFO_UMTS_CELL_INFO = 0x11,
@@ -539,6 +522,94 @@ struct nas_serving_system_state {
                                 // 3 AMPS, 4 GSM, 5 UMTS, 6-7 unknown, 8 LTE
 } __attribute__((packed));
 
+/* Tracking data*/
+/* 
+ * What do we need:
+ |-> PLMN (Public Land Mobile Network ID)
+ |-> Type of service (GSM - WCDMA - LTE)
+ |-> Cell Identifier
+ |---> Physical Cell ID
+ |---> Current Cell ID
+ |---> BSIC (Base station Identity Code) (GSM)
+ |---> BCCH (GSM)
+ |---> PSC (Primary Scrambing Code) (UMTS)
+ |-> Location for that cell ID
+ |---> Current Location Area Code (GSM/WCDMA)
+ |---> Current Tracking Area Code (LTE)
+ |-> Channel
+ |---> ARFCN (Absolute Radio Frequency Channel Number) (GSM/WCDMA)
+ |---> EARFCN (E-UTRA Absolute Frequency Channel Number) (LTE)
+ |-> TX / RX Levels
+ |---> Min SRX Level
+ |---> Max SRX Level
+ |---> Avg. SRX Level
+ |-> Min TX Power (dB)(UMTS)
+ |-> Max TX Power (dB)(UMTS)
+ |-> Avg. TX Power (dB)(UMTS)
+ |---> Squal (LTE only)
+ |---> Timestamp of last indication for this cell
+*/
+
+/* OpenCellid */
+enum ocid_radio_type {
+  OCID_RADIO_GSM = 0x01,
+  OCID_RADIO_CDMA,
+  OCID_RADIO_UMTS = 0x05,
+  OCID_RADIO_LTE = 0x0b,
+  OCID_RADIO_NR = 0x0e,
+} __attribute__((__packed__));
+
+struct ocid_cell_slim {
+  uint8_t radio;
+  uint32_t area;
+  uint32_t cell;
+  uint32_t range;
+  uint32_t updated;
+  int16_t average_signal;
+} __attribute__ ((__packed__));
+
+struct nas_report {
+  uint16_t mcc;
+  uint16_t mnc;
+  uint8_t type_of_service; // GSM...LTE
+
+  uint16_t lac;
+
+  uint16_t phy_cell_id;
+  uint32_t cell_id;
+
+  uint8_t bsic;
+  uint16_t bcch;
+  uint16_t psc;
+
+  uint16_t arfcn;
+
+  int16_t srx_level_min;
+  int16_t srx_level_max;
+  int16_t srx_level_avg;
+
+  uint16_t rx_level_min;
+  uint16_t rx_level_max;
+  uint16_t rx_level_avg;
+  uint8_t is_checked;
+};
+
+struct network_status_reports {
+  uint8_t filled;
+  uint16_t location_area_code_1;
+  uint16_t location_area_code_2;
+  struct service_capability service_capability;
+  struct nas_report report;
+};
+
+/* Functions */
+uint8_t is_cellid_data_missing();
+void set_cellid_data_missing_as_requested();
+uint8_t *get_current_mcc();
+uint8_t *get_current_mnc();
+  
+uint8_t get_network_type();
+uint8_t get_signal_strength();
 uint8_t nas_is_network_in_service();
 const char *get_nas_command(uint16_t msgid);
 
