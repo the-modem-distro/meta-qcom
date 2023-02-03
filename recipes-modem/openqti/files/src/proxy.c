@@ -257,15 +257,6 @@ uint8_t process_wms_packet(void *bytes, size_t len, int adspfd, int usbfd) {
   return needs_rerouting;
 }
 
-void send_hello_world() {
-  char message[160];
-  snprintf(message, 160,
-           "Hi!\nWelcome to your (nearly) free modem\nSend \"help\" in this "
-           "chat to get a list of commands you can run");
-  clear_ifrst_boot_flag();
-  add_message_to_queue((uint8_t *)message, strlen(message));
-}
-
 /* Node1 -> RMNET , Node2 -> SMD */
 /*
  *  process_packet()
@@ -339,18 +330,10 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
     break;
   case 3:
     logger(MSG_DEBUG, "%s: Network Access Service\n", __func__);
-    if (get_qmi_message_id(pkt, pkt_size) == NAS_GET_SIGNAL_INFO) { // 0x004f == GET_SIGNAL_REPORT
-      struct nas_signal_lev *level = (struct nas_signal_lev *)pkt;
-      update_network_data(level->signal.id, level->signal.signal_level);
-      if (is_first_boot()) {
-        send_hello_world();
-      }
-      if (get_call_simulation_mode()) {
+    if (get_call_simulation_mode() && get_qmi_message_id(pkt, pkt_size) == NAS_GET_SIGNAL_INFO) { // 0x004f == GET_SIGNAL_REPORT
         logger(MSG_INFO, "%s: Skip signal level reporting while in call\n",
                __func__);
         action = PACKET_BYPASS;
-      }
-      level = NULL;
     }
     break;
   /* Here we'll trap messages to the Modem */
