@@ -24,6 +24,7 @@
 #include "../inc/openqti.h"
 #include "../inc/proxy.h"
 #include "../inc/sms.h"
+#include "../inc/nas.h"
 
 struct {
   bool adb_enabled;
@@ -611,6 +612,45 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
   return 0;
 }
 
+/* Send URC asking for data */
+int at_send_missing_cellid_data(struct qmi_device *qmidev) {
+  int sckret;
+  struct at_command_respnse *response;
+  int pkt_size;
+  int bytes_in_reply = 0;
+
+  /* Build initial response data */
+  response = calloc(1, sizeof(struct at_command_respnse));
+  response->qmipkt.ctlid = 0x00;
+  response->qmipkt.transaction_id = htole16(qmidev->transaction_id);
+  qmidev->transaction_id++;
+  response->qmipkt.msgid = AT_CMD_RES;
+
+  response->meta.client_handle = 0x01; // 0x01000801;
+  response->handle = 0x0000000b;
+  response->result = 1;   // result OK
+  response->response = 3; // completed
+
+  /* Set default sizes for the response packet
+   *  If we don't write an extended response, the char array will be empty
+   */
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+
+  bytes_in_reply = sprintf(response->reply, "\r\n+MISSINGOCID: %s-%s\r\n", (char*)get_current_mcc(), (char*)get_current_mnc());
+  response->replysz = htole16(bytes_in_reply);
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+  sckret = send_pkt(qmidev, response, pkt_size);
+  if (sckret < 0) {
+    logger(MSG_ERROR, "%s: Send pkt failed!\n", __func__);
+  }
+
+//  qmidev->transaction_id++;
+  free(response);
+  response = NULL;
+  return 0;
+}
 /* Register AT commands into the DSP */
 int init_atfwd(struct qmi_device *qmidev) {
   int j, ret;
@@ -712,6 +752,12 @@ void *start_atfwd_thread() {
       logger(MSG_DEBUG, "%s: We just woke up, send CMTI\n", __func__);
       at_send_cmti_urc(at_qmi_dev);
       set_sms_notification_pending_state(false);
+    }
+
+    if (is_cellid_data_missing() == 0) {
+      logger(MSG_INFO, "%s: Fire the pending cell id notification!\n", __func__);
+      at_send_missing_cellid_data(at_qmi_dev);
+      set_cellid_data_missing_as_requested();
     }
   }
   // Close AT socket

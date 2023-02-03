@@ -13,7 +13,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/cell.h"
+#include "../inc/nas.h"
 #include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/ipc.h"

@@ -13,6 +13,7 @@
 #include "../inc/sms.h"
 #include "../inc/tracking.h"
 #include "../inc/wds.h"
+#include "../inc/nas.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
