@@ -33,7 +33,6 @@ const char *get_voice_command(uint16_t msgid) {
 
 
 int voice_register_to_events() {
-    logger(MSG_INFO, "********* VOICE START\n");
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
                    (19 * sizeof(struct qmi_generic_uint8_t_tlv));
   uint8_t *pkt = malloc(pkt_len);
@@ -80,10 +79,8 @@ int voice_register_to_events() {
     }
     curr_offset += sizeof(struct qmi_generic_uint8_t_tlv);
   }
-    logger(MSG_INFO, "********* VOICE ADD REQUEST\n");
 
   add_pending_message(QMI_SERVICE_VOICE, (uint8_t *)pkt, pkt_len);
-    logger(MSG_INFO, "********* VOICE END\n");
 
   free(pkt);
   return 0;
