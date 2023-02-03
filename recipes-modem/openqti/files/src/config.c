@@ -201,7 +201,7 @@ int write_boot_counter_file(int failed_boots) {
 
 int read_boot_counter_file() {
   FILE *fp;
-  int val;
+  int val = 0;
   char buf[4] = {0};
   logger(MSG_DEBUG, "%s: Read boot counter\n", __func__);
   fp = fopen(BOOT_FLAG_FILE, "r");
