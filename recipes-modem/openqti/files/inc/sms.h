@@ -732,4 +732,5 @@ int check_wms_indication_message(void *bytes, size_t len, int adspfd,
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);
 
 int retrieve_and_delete(int adspfd, int usbfd);
+void send_hello_world();
 #endif
