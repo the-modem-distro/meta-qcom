@@ -182,7 +182,14 @@ enum {
   NAS_CELL_LAC_INFO_NAS_RRC_STATE = 0x2c,
   NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE = 0x2d,
 };
-
+/* Inherited from cell.h*/
+enum {
+  NAS_SIGNAL_REPORT_TYPE_CDMA = 0x10,
+  NAS_SIGNAL_REPORT_TYPE_CDMA_HDR = 0x11,
+  NAS_SIGNAL_REPORT_TYPE_GSM = 0x12,
+  NAS_SIGNAL_REPORT_TYPE_WCDMA = 0x13,
+  NAS_SIGNAL_REPORT_TYPE_LTE = 0x14,
+};
 /* Cell LAC structures */
 
 struct nmr_cell_data {
@@ -594,6 +601,12 @@ struct nas_report {
   uint8_t opencellid_verified;
 };
 
+
+struct network_state {
+  uint8_t network_type; // LTE / WCDMA / GSM / ??
+  uint8_t signal_level; // in dB
+};
+
 struct network_status_reports {
   uint8_t filled;
   uint16_t location_area_code_1;
@@ -607,8 +620,9 @@ uint8_t is_cellid_data_missing();
 void set_cellid_data_missing_as_requested();
 uint8_t *get_current_mcc();
 uint8_t *get_current_mnc();
-  
 uint8_t get_network_type();
+struct nas_report get_current_cell_report();
+struct network_state get_network_status();
 uint8_t get_signal_strength();
 uint8_t nas_is_network_in_service();
 const char *get_nas_command(uint16_t msgid);

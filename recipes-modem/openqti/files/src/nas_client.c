@@ -14,7 +14,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/cell.h"
 #include "../inc/config.h"
 #include "../inc/devices.h"
 #include "../inc/helpers.h"
@@ -101,6 +100,10 @@ void get_opencellid_data() {
     memcpy(nas_runtime.open_cellid_mcc, nas_runtime.current_state.mcc, 4);
     memcpy(nas_runtime.open_cellid_mnc, nas_runtime.current_state.mnc, 3);
     nas_runtime.cellid_data_missing = 1;
+    uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                            "OpenCellid database is ready!");
+    add_message_to_queue(reply, strsz);
   }
   logger(MSG_INFO, "%s: End\n", __func__);
   fclose(fp);
@@ -126,10 +129,18 @@ int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
   return 0;
 }
 
-uint8_t is_cellid_data_missing() { return nas_runtime.cellid_data_missing; }
+uint8_t is_cellid_data_missing() {
+  if (nas_is_network_in_service())
+    return nas_runtime.cellid_data_missing; 
+  return 2;
+  }
 
 void set_cellid_data_missing_as_requested() {
   nas_runtime.cellid_data_missing = 2;
+      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                            "OpenCellID database is not available. Please check https://cid.themodemdistro.com for more info");
+    add_message_to_queue(reply, strsz);
 }
 
 uint8_t *get_current_mcc() { return nas_runtime.current_state.mcc; }
@@ -138,10 +149,21 @@ uint8_t get_network_type() {
   return nas_runtime.current_network_state.network_type;
 }
 
+
+struct network_state get_network_status() {
+  return nas_runtime.current_network_state;
+}
+
+/* Used in command.c */
+struct nas_report get_current_cell_report() {
+  return nas_runtime.data[nas_runtime.current_report].report;
+}
+
 /* Returns last reported signal in %, based on signal bars */
 uint8_t get_signal_strength() {
   return nas_runtime.current_network_state.signal_level;
 }
+
 uint8_t nas_is_network_in_service() {
   if (nas_runtime.current_state.service_capability.gprs ||
       nas_runtime.current_state.service_capability.edge ||
@@ -560,9 +582,10 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     if (nas_runtime.current_report > MAX_REPORT_NUM) {
       logger(MSG_INFO, "%s: Rotating log...\n", __func__);
       for (int k = 1; k < MAX_REPORT_NUM; k++) {
-        nas_runtime.data[k-1] = nas_runtime.data[k];
+        nas_runtime.data[k - 1] = nas_runtime.data[k];
       }
     }
+    logger(MSG_INFO, "%s: Storing report with ID %i\n", __func__, nas_runtime.current_report);
     report_id = nas_runtime.current_report;
     nas_runtime.data[report_id].report.mcc = mcc;
     nas_runtime.data[report_id].report.mnc = mnc;
@@ -584,12 +607,18 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
   if (!nas_runtime.data[report_id].report.opencellid_verified) {
     if (is_cell_id_in_db(cell_id, lac) == 1) {
       nas_runtime.data[report_id].report.opencellid_verified = 1;
-    uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf(
-        (char *)reply, MAX_MESSAGE_SIZE,
-        "Nettrack: Verified Cell ID %.8x with LAC %.4x",cell_id, lac);
-    add_message_to_queue(reply, strsz);
-
+      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+      size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                              "Nettrack: Verified Cell ID %.8x with LAC %.4x",
+                              cell_id, lac);
+      add_message_to_queue(reply, strsz);
+    } else if (is_cell_id_in_db(cell_id, lac) == 0) {
+      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+      size_t strsz =
+          snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "Nettrack: WARNING: Can't verify Cell ID %.8x with LAC %.4x",
+                   cell_id, lac);
+      add_message_to_queue(reply, strsz);
     }
   }
 
@@ -664,7 +693,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
             (struct nas_lac_umts_cell_info *)(buf + offset);
         logger(MSG_INFO,
                "%s: NAS_CELL_LAC_INFO_UMTS_CELL_INFO\n"
-               "\t Cell ID: %.4x\n" // this one is odd
+               "Cell ID: %.4x\n" // this one is odd
                "\t Location Area Code: %.4x\n"
                "\t UARFCN: %.4x\n"
                "\t PSC: %.4x\n"
@@ -685,7 +714,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 
         for (uint8_t j = 0; j < cell_info->instances; j++) {
           logger(MSG_INFO,
-                 "\t Neighbour %u\n"
+                 "Neighbour %u\n"
                  "\t\t UARFCN: %.4x\n"
                  "\t\t PSC: %.4x\n"
                  "\t\t RSCP: %i\n"
@@ -728,7 +757,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 
         for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
           logger(MSG_INFO,
-                 "\t Neighbour %u\n"
+                 "Neighbour %u\n"
                  "\t\t PHY Cell ID: %.4x\n"
                  "\t\t RSRQ: %.4x\n"
                  "\t\t RSRP: %i\n"
@@ -756,7 +785,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(MSG_INFO,
-                 "\t Instance %u\n"
+                 "Instance %u\n"
                  "\t\t EARFCN: %.4x\n"
                  "\t\t SRX Level Low Threshold: %.2x\n"
                  "\t\t SRX Level High Threshold: %.2x\n"
@@ -819,7 +848,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                k++) {
             logger(
                 MSG_INFO,
-                "\t Cell count %u\n"
+                "Cell count %u\n"
                 "\t\t ARFCN: %.4x\n"
                 "\t\t Band: %.2x\n"
                 "\t\t Is cell ID valid? %.2x\n"
@@ -856,7 +885,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(MSG_INFO,
-                 "\t Instance %u\n"
+                 "Instance %u\n"
                  "\t\t Cell Reselect Priority: %.2x\n"
                  "\t\t Reselect threshold (hi): %.4x\n"
                  "\t\t Reselect threshold (low): %.4x\n"
@@ -974,7 +1003,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         //        bcch = cell_info->bcch;
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(MSG_INFO,
-                 "\t Cell %u\n"
+                 "Cell %u\n"
                  "\t\t Cell ID: %.8x\n"
                  "\t\t LAC: %.4x\n"
                  "\t\t ARFCN: %.4x\n"
