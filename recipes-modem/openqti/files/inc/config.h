@@ -17,12 +17,21 @@ struct config_prototype {
   char user_name[MAX_NAME_SZ];
   char modem_name[MAX_NAME_SZ];
   uint8_t signal_tracking;
+  uint8_t signal_tracking_mode; 
   uint8_t sms_logging;
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
   uint8_t allow_internal_modem_connectivity;
   bool first_boot;
+
 };
+/* 
+signal_tracking_operating mode (requires signal_tracking ON and PERSIST)
+0: Standalone + info (learning mode)
+1: Standalone + hardened (autoreject)
+2: Standalone + OpenCellid: Info (learning mode)
+3: Standalone + OpenCellID + Hardened (autoreject)
+*/
 
 /* Set mount as readwrite or readonly */
 int set_persistent_partition_rw();
@@ -34,7 +43,9 @@ int read_settings_from_file();
 
 /* Signal tracking */
 int is_signal_tracking_enabled();
+uint8_t get_signal_tracking_mode();
 void enable_signal_tracking(bool en);
+void set_signal_tracking_mode(uint8_t mode);
 
 /* Custom alert tone */
 int use_custom_alert_tone();

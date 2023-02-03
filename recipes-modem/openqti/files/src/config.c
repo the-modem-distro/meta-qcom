@@ -46,6 +46,7 @@ int set_initial_config() {
   settings->custom_alert_tone = 0;
   settings->persistent_logging = 0;
   settings->signal_tracking = 0;
+  settings->signal_tracking_mode = 0;
   settings->sms_logging = 0;
   settings->callwait_autohangup = 0;
   settings->automatic_call_recording = 0;
@@ -114,6 +115,11 @@ int parse_line(char *buf) {
     return 1;
   }
 
+  if (strcmp(setting, "signal_tracking_mode") == 0) {
+    settings->signal_tracking_mode = atoi(value);
+    return 1;
+  }
+
   if (strcmp(setting, "callwait_autohangup") == 0) {
     settings->callwait_autohangup = atoi(value);
     return 1;
@@ -170,6 +176,7 @@ int write_settings_to_storage() {
   fprintf(fp, "user_name=%s\n", settings->user_name);
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
+  fprintf(fp, "signal_tracking_mode=%i\n", settings->signal_tracking_mode);
   fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
   fprintf(fp, "automatic_call_recording=%i\n", settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
@@ -280,6 +287,8 @@ int use_custom_alert_tone() { return settings->custom_alert_tone; }
 
 int is_signal_tracking_enabled() { return settings->signal_tracking; }
 
+uint8_t get_signal_tracking_mode() { return settings->signal_tracking_mode; }
+
 int is_sms_logging_enabled() { return settings->sms_logging; }
 
 int is_internal_connect_enabled() { return settings->allow_internal_modem_connectivity; }
@@ -386,6 +395,34 @@ void enable_signal_tracking(bool en) {
   write_settings_to_storage();
 }
 
+void set_signal_tracking_mode(uint8_t mode) {
+  if (mode > 3) {
+    logger(MSG_ERROR, "%s: Invalid mode: %u\n", __func__, mode);
+    return;
+  }
+  switch(mode) {
+    case 0:
+    logger(MSG_INFO, "%s: Mode: Standalone: learn and notify changes \n", __func__);
+    break;
+
+    case 1:
+    logger(MSG_INFO, "%s: Mode: Standalone: Automatically disconnect \n", __func__);
+    break;
+
+    case 2:
+    logger(MSG_INFO, "%s: Mode: Standalone + OpenCellID: learn and notify changes \n", __func__);
+    break;
+
+    case 3:
+    logger(MSG_INFO, "%s: Mode: Standalone + OpenCellID: Automatically disconnect \n", __func__);
+    break;
+
+
+
+  }
+  settings->signal_tracking_mode = mode;
+  write_settings_to_storage();
+}
 void enable_call_waiting_autohangup(uint8_t en) {
   if (en == 2) {
     logger(MSG_WARN, "Enabling Automatic hang up of calls in waiting state\n");
