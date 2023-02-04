@@ -30,6 +30,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+
 struct {
   bool is_unlocked;
   uint32_t unlock_time;
@@ -176,7 +177,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
   offset = (uint8_t *)strstr((char *)command, partial_commands[7].cmd);
   if (offset == NULL) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
-                     "Error setting my new name\n");
+                     "Error trying to find a matching ID\n");
   } else {
     int ofs = (int)(offset - command) + strlen(partial_commands[7].cmd);
     if (strlen((char *)command) > ofs) {
@@ -185,6 +186,37 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
                        "Enabling debugging of service id %u (%s)\n", service_id,
                        (command + ofs));
       enable_service_debugging(service_id);
+    }
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}
+
+void set_new_signal_tracking_mode(uint8_t *command) {
+  int strsz = 0;
+  uint8_t *offset;
+  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t mode = 0;
+  offset = (uint8_t *)strstr((char *)command, partial_commands[8].cmd);
+  if (offset == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Error setting my new name\n");
+  } else {
+    int ofs = (int)(offset - command) + strlen(partial_commands[8].cmd);
+    if (strlen((char *)command) > ofs) {
+      mode = atoi((char *)(command + ofs));
+      if (mode < 4) {
+
+        strsz =
+            snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Signal tracking mode: %u (%s)\n", mode, (command + ofs));
+        set_signal_tracking_mode(mode);
+      } else {
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Signal tracking mode is out of bounds! %u (%s)\n",
+                         mode, (command + ofs));
+      }
     }
   }
   add_message_to_queue(reply, strsz);
@@ -1696,6 +1728,9 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 107:
     enable_service_debugging_for_service_id(command);
+    break;
+  case 108:
+    set_new_signal_tracking_mode(command);
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,

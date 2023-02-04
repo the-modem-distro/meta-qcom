@@ -91,6 +91,7 @@ static const struct {
     {106, "enable dnd for ", "Silencing calls for  ",
      "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "},
     {107, "enable debugging of service ", "Enabling debugging of service ", "Enables extensive logging of a defined QMI service"},
+    {108, "signal tracking mode ", "Set signal tracking mode", "Set the paranoia level for signal tracking functions"},
 };
 
 static const struct {
