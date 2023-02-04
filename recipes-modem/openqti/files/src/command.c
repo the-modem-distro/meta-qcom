@@ -183,8 +183,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
     if (strlen((char *)command) > ofs) {
       service_id = atoi((char *)(command + ofs));
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                       "Enabling debugging of service id %u (%s)\n", service_id,
-                       (command + ofs));
+                       "Enabling debugging of service id %u \n", service_id);
       enable_service_debugging(service_id);
     }
   }
@@ -201,21 +200,20 @@ void set_new_signal_tracking_mode(uint8_t *command) {
   offset = (uint8_t *)strstr((char *)command, partial_commands[8].cmd);
   if (offset == NULL) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
-                     "Error setting my new name\n");
+                     "Error processing the command\n");
   } else {
     int ofs = (int)(offset - command) + strlen(partial_commands[8].cmd);
     if (strlen((char *)command) > ofs) {
       mode = atoi((char *)(command + ofs));
       if (mode < 4) {
-
         strsz =
             snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      "Signal tracking mode: %u (%s)\n", mode, (command + ofs));
         set_signal_tracking_mode(mode);
       } else {
         strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         "Signal tracking mode is out of bounds! %u (%s)\n",
-                         mode, (command + ofs));
+                         "Available modes for signal tracking:\n0:Standalone learn\n1:Standalone enforce\n2:OpenCellID learn\n3:OpenCellID enforce\nYour selection: %u\n",
+                         mode);
       }
     }
   }
@@ -399,8 +397,7 @@ void debug_ucs2_cb_message(uint8_t *command) {
       0x00, 0x20, 0x04, 0x42, 0x04, 0x40, 0x04, 0x38, 0x04, 0x32, 0x04, 0x3e,
       0x04, 0x33, 0x04, 0x30, 0x00, 0x22, 0x00, 0x2e, 0x00, 0x0d, 0x00, 0x0d,
       0x00, 0x0d, 0x00, 0x16, 0x01, 0x00, 0x00};
-  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "UCS2 Test DISABLED\n");
-  add_message_to_queue(reply, strsz);
+
   check_cb_message(pkt1, sizeof(pkt1), 0, 0);
   check_cb_message(pkt2, sizeof(pkt2), 0, 0);
   check_cb_message(pkt3, sizeof(pkt3), 0, 0);
