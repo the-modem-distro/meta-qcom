@@ -598,6 +598,8 @@ struct nas_report {
   uint16_t rx_level_min;
   uint16_t rx_level_max;
   uint16_t rx_level_avg;
+
+  uint8_t found_in_network;
   uint8_t opencellid_verified;
 };
 

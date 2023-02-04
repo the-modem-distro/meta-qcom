@@ -43,6 +43,7 @@ struct basic_network_status {
 struct {
   /* Basic state */
   struct basic_network_status current_state;
+
   /* from cell.h */
   struct network_state current_network_state;
 
@@ -131,16 +132,17 @@ int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
 
 uint8_t is_cellid_data_missing() {
   if (nas_is_network_in_service())
-    return nas_runtime.cellid_data_missing; 
+    return nas_runtime.cellid_data_missing;
   return 2;
-  }
+}
 
 void set_cellid_data_missing_as_requested() {
   nas_runtime.cellid_data_missing = 2;
-      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "OpenCellID database is not available. Please check https://cid.themodemdistro.com for more info");
-    add_message_to_queue(reply, strsz);
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                          "OpenCellID database is not available. Please check "
+                          "https://cid.themodemdistro.com for more info");
+  add_message_to_queue(reply, strsz);
 }
 
 uint8_t *get_current_mcc() { return nas_runtime.current_state.mcc; }
@@ -148,7 +150,6 @@ uint8_t *get_current_mnc() { return nas_runtime.current_state.mnc; }
 uint8_t get_network_type() {
   return nas_runtime.current_network_state.network_type;
 }
-
 
 struct network_state get_network_status() {
   return nas_runtime.current_network_state;
@@ -177,6 +178,13 @@ uint8_t nas_is_network_in_service() {
     return 1;
 
   return 0;
+}
+
+uint8_t has_capability_changed() {
+  if (memcmp(&nas_runtime.current_state.service_capability, &nas_runtime.previous_state.service_capability, sizeof(struct service_capability)) == 0)
+    return 0;
+
+  return 1;
 }
 const char *get_nas_command(uint16_t msgid) {
   for (uint16_t i = 0;
@@ -439,34 +447,6 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
     nas_runtime.current_state.packet_switch_attached = serving_sys->ps_attached;
     nas_runtime.current_state.radio_access = serving_sys->radio_access;
   }
-  logger(
-      MSG_INFO,
-      "%s: Previous capabilities\n"
-      "\tGSM: %s"
-      "\tGPRS: %s"
-      "\tEDGE: %s\n"
-      "\tWCDMA: %s"
-      "\tHSDPA: %s"
-      "\tHSUPA: %s\n"
-      "\tHSDPA+: %s"
-      "\tDC-HSDPA+: %s"
-      "\tLTE: %s\n"
-      "\tCircuit Switch Service Attached: %s\n"
-      "\tPacket Switch Service attached: %s\n",
-      __func__,
-      nas_runtime.previous_state.service_capability.gsm == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.gprs == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.edge == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.wcdma == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.hsdpa == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.hsupa == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.service_capability.hsdpa_plus == 1 ? "Yes"
-                                                                    : "No",
-      nas_runtime.previous_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
-                                                                       : "No",
-      nas_runtime.previous_state.service_capability.lte == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.circuit_switch_attached == 1 ? "Yes" : "No",
-      nas_runtime.previous_state.packet_switch_attached == 1 ? "Yes" : "No");
 
   logger(MSG_INFO,
          "%s: Capabilities\n"
@@ -499,23 +479,20 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
   if (nas_runtime.previous_state.packet_switch_attached &&
       !nas_runtime.previous_state.packet_switch_attached) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "NASdbg: Packet switch detached!");
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Warning: Packet switch detached!");
     add_message_to_queue(reply, strsz);
   }
   if (nas_runtime.previous_state.circuit_switch_attached &&
       !nas_runtime.previous_state.circuit_switch_attached) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "NASdbg: Circuit switch detached!");
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Warning: Circuit switch detached!");
     add_message_to_queue(reply, strsz);
   }
-  if (nas_runtime.previous_state.service_capability.lte &&
-      !nas_runtime.previous_state.service_capability.lte) {
+  if (has_capability_changed()) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
     size_t strsz = snprintf(
         (char *)reply, MAX_MESSAGE_SIZE,
-        "Service Capability changed:\n"
+        "Service Capability\n"
         "GSM:%s\n"
         "GPRS:%s\n"
         "EDGE:%s\n"
@@ -550,21 +527,23 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
                                   uint8_t bsic, uint16_t bcch, uint16_t psc,
                                   uint16_t arfcn, int16_t srx_lev,
                                   uint16_t rx_lev) {
+  uint8_t lac_is_known = 0;
+  uint8_t cell_is_known = 0;
+  int report_id = 0;
 
   logger(MSG_INFO, "%s: Start\n", __func__);
+
   if (lac == 0 || cell_id == 0) {
     logger(MSG_WARN, "%s: Not enough data to process\n", __func__);
     return;
   }
-  /* Do stuff here */
-  uint8_t lac_is_known = 0;
-  uint8_t cell_is_known = 0;
-  int report_id = 0;
+
   for (int i = 0; i < MAX_REPORT_NUM; i++) {
     if (nas_runtime.data[i].report.lac == lac) {
       lac_is_known = 1;
     }
   }
+
   if (!lac_is_known) {
     // check if lac is in db, add lac to known dbs
   }
@@ -576,17 +555,35 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
       report_id = i;
     }
   }
+
+  /* Update signal levels, bcch etc.*/
+  if (cell_is_known) {
+    if (srx_lev < nas_runtime.data[report_id].report.srx_level_min) {
+      nas_runtime.data[report_id].report.srx_level_min = srx_lev;
+    } else if (srx_lev > nas_runtime.data[report_id].report.srx_level_max) {
+      nas_runtime.data[report_id].report.srx_level_max = srx_lev;
+    }
+    nas_runtime.data[report_id].report.phy_cell_id = phy_cell_id;
+    nas_runtime.data[report_id].report.bsic = bsic;
+    nas_runtime.data[report_id].report.bcch = bcch;
+    nas_runtime.data[report_id].report.psc = psc;
+    nas_runtime.data[report_id].report.arfcn = arfcn;
+  }
+
   // Check against opencellid
   if (!cell_is_known) {
-    nas_runtime.current_report++;
-    if (nas_runtime.current_report > MAX_REPORT_NUM) {
+    if (nas_runtime.current_report >= (MAX_REPORT_NUM - 1)) {
       logger(MSG_INFO, "%s: Rotating log...\n", __func__);
       for (int k = 1; k < MAX_REPORT_NUM; k++) {
         nas_runtime.data[k - 1] = nas_runtime.data[k];
       }
+    } else {
+      nas_runtime.current_report++;
     }
-    logger(MSG_INFO, "%s: Storing report with ID %i\n", __func__, nas_runtime.current_report);
+    logger(MSG_INFO, "%s: Storing report with ID %i\n", __func__,
+           nas_runtime.current_report);
     report_id = nas_runtime.current_report;
+    nas_runtime.data[report_id].report.found_in_network = 1;
     nas_runtime.data[report_id].report.mcc = mcc;
     nas_runtime.data[report_id].report.mnc = mnc;
     nas_runtime.data[report_id].report.type_of_service = type_of_service;
@@ -604,24 +601,42 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     nas_runtime.data[report_id].report.opencellid_verified = 0;
   }
 
-  if (!nas_runtime.data[report_id].report.opencellid_verified) {
-    if (is_cell_id_in_db(cell_id, lac) == 1) {
-      nas_runtime.data[report_id].report.opencellid_verified = 1;
-      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-      size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                              "Nettrack: Verified Cell ID %.8x with LAC %.4x",
-                              cell_id, lac);
-      add_message_to_queue(reply, strsz);
-    } else if (is_cell_id_in_db(cell_id, lac) == 0) {
-      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-      size_t strsz =
-          snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                   "Nettrack: WARNING: Can't verify Cell ID %.8x with LAC %.4x",
-                   cell_id, lac);
-      add_message_to_queue(reply, strsz);
+  if (get_signal_tracking_mode() > 1) { // need to test this
+    if (!nas_runtime.data[report_id].report.opencellid_verified) {
+      if (is_cell_id_in_db(cell_id, lac) == 1) {
+        nas_runtime.data[report_id].report.opencellid_verified = 1;
+        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+        size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                                "Nettrack: Verified Cell ID %.8x with LAC %.4x",
+                                cell_id, lac);
+        add_message_to_queue(reply, strsz);
+      } else if (is_cell_id_in_db(cell_id, lac) == 0) {
+        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+        size_t strsz = snprintf(
+            (char *)reply, MAX_MESSAGE_SIZE,
+            "Nettrack: WARNING: Can't verify Cell ID %.8x with LAC %.4x",
+            cell_id, lac);
+        add_message_to_queue(reply, strsz);
+      }
     }
   }
 
+  if (get_signal_tracking_mode() == 3 && !nas_runtime.data[report_id].report.opencellid_verified) {
+        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+        size_t strsz = snprintf(
+            (char *)reply, MAX_MESSAGE_SIZE,
+            "Emergency: I connected to an unknown Cell ID and will lock myself up\n"
+            "Reboot me to use me again\n"
+            "Cell ID: %.8x\nLAC: %.4x",
+            cell_id, lac);
+        add_message_to_queue(reply, strsz);
+        sleep(10);
+        if (write_to(ADSP_BOOT_HANDLER, "0", O_WRONLY) < 0) {
+            logger(MSG_ERROR, "%s: Error shutting down the ADSP\n",
+                  __func__);
+  }
+
+  }
   logger(MSG_INFO, "%s: End\n", __func__);
 }
 
@@ -635,18 +650,20 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
            __func__);
     return;
   }
-  nas_runtime.current_report++;
-  if (nas_runtime.current_report > MAX_REPORT_NUM) {
-    nas_runtime.current_report = 0;
+
+  if (!is_signal_tracking_enabled()) {
+    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
+    return;
   }
-  // Not sure if this will change fast enough
-  if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
-          0 ||
-      memcmp(nas_runtime.current_state.mnc, nas_runtime.open_cellid_mnc, 3) !=
-          0) {
-    logger(MSG_INFO, "%s: Needs OpenCellid data refresh!\n", __func__);
-    get_opencellid_data();
+
+  if (get_signal_tracking_mode() > 1) {
+    if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) != 0 ||
+        memcmp(nas_runtime.current_state.mnc, nas_runtime.open_cellid_mnc, 3) != 0) {
+      logger(MSG_INFO, "%s: Needs OpenCellid data refresh!\n", __func__);
+      get_opencellid_data();
+    }
   }
+
   mcc = atoi((char *)nas_runtime.current_state.mcc);
   mnc = atoi((char *)nas_runtime.current_state.mnc);
 
@@ -680,6 +697,8 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       NAS_CELL_LAC_INFO_NAS_RRC_STATE,
       NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
   };
+
+
   logger(MSG_INFO, "%s: Found %u information segments in this message\n",
          __func__, count_tlvs_in_message(buf, buf_len));
   for (uint8_t i = 0; i < 27; i++) {
@@ -1164,37 +1183,14 @@ void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   if (signal_level > 0)
     nas_runtime.current_network_state.signal_level = signal_level / 2;
 
-  if (nas_runtime.current_network_state.network_type <
-      nas_runtime.previous_network_state.network_type) {
-    uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf(
-        (char *)reply, MAX_MESSAGE_SIZE,
-        "NASdbg: Service downgraded!\nService Capability:\n"
-        "\tGSM: %s"
-        "\tGPRS: %s"
-        "\tEDGE: %s\n"
-        "\tWCDMA: %s"
-        "\tHSDPA: %s"
-        "\tHSUPA: %s\n"
-        "\tHSDPA+: %s"
-        "\tDC-HSDPA+: %s"
-        "\tLTE: %s\n"
-        "\tCS Attached: %s\n"
-        "\tPS attached: %s\n",
-        nas_runtime.current_state.service_capability.gsm == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.gprs == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.edge == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.wcdma == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsdpa == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsupa == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsdpa_plus == 1 ? "Yes"
-                                                                     : "No",
-        nas_runtime.current_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
-                                                                        : "No",
-        nas_runtime.current_state.service_capability.lte == 1 ? "Yes" : "No",
-        nas_runtime.current_state.circuit_switch_attached == 1 ? "Yes" : "No",
-        nas_runtime.current_state.packet_switch_attached == 1 ? "Yes" : "No");
-    add_message_to_queue(reply, strsz);
+  if (is_signal_tracking_enabled()) {
+    if (nas_runtime.current_network_state.network_type <
+        nas_runtime.previous_network_state.network_type) {
+      uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+      size_t strsz = snprintf(
+          (char *)reply, MAX_MESSAGE_SIZE,  "Warning: Network service has been downgraded!\n");
+      add_message_to_queue(reply, strsz);
+    }
   }
 }
 /*
@@ -1346,9 +1342,3 @@ void *register_to_nas_service() {
   logger(MSG_INFO, "%s finished!\n", __func__);
   return NULL;
 }
-
-/*
-We need a thread to keep track of these...
-get signal info should be triggered every few seconds, and cell location info
-too
-*/
