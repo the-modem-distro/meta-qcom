@@ -60,7 +60,8 @@ struct {
   uint64_t open_cellid_num_items;
   uint8_t open_cellid_mcc[4];
   uint8_t open_cellid_mnc[3];
-
+  uint32_t current_cell_id;
+  uint16_t current_lac;
 } nas_runtime;
 
 void get_opencellid_data() {
@@ -130,6 +131,28 @@ int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
   return 0;
 }
 
+struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
+  struct ocid_cell_slim cell = {0};
+
+  if (nas_runtime.cellid_data_missing != 1) {
+    logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
+    return cell;
+  }
+  logger(MSG_INFO, "%s Looking for the cell id\n", __func__);
+  for (uint64_t i = 0; i < nas_runtime.open_cellid_num_items; i++) {
+    struct ocid_cell_slim *ocid =
+        (nas_runtime.open_cellid_import + (i * sizeof(struct ocid_cell_slim)));
+    if (cell_id == ocid->cell && ocid->area == lac) {
+      logger(MSG_INFO, "%s: Found %u %u (OpenCellID: %u %u)\n", __func__,
+             cell_id, lac, ocid->cell, ocid->area);
+      cell = *ocid;
+      return cell;
+    } 
+  }
+  logger(MSG_INFO, "%s: Didn't find it... :(\n ", __func__);
+  return cell;
+}
+
 uint8_t is_cellid_data_missing() {
   if (nas_is_network_in_service())
     return nas_runtime.cellid_data_missing;
@@ -181,7 +204,9 @@ uint8_t nas_is_network_in_service() {
 }
 
 uint8_t has_capability_changed() {
-  if (memcmp(&nas_runtime.current_state.service_capability, &nas_runtime.previous_state.service_capability, sizeof(struct service_capability)) == 0)
+  if (memcmp(&nas_runtime.current_state.service_capability,
+             &nas_runtime.previous_state.service_capability,
+             sizeof(struct service_capability)) == 0)
     return 0;
 
   return 1;
@@ -479,13 +504,15 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
   if (nas_runtime.previous_state.packet_switch_attached &&
       !nas_runtime.previous_state.packet_switch_attached) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,  "Warning: Packet switch detached!");
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                            "Warning: Packet switch detached!");
     add_message_to_queue(reply, strsz);
   }
   if (nas_runtime.previous_state.circuit_switch_attached &&
       !nas_runtime.previous_state.circuit_switch_attached) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Warning: Circuit switch detached!");
+    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                            "Warning: Circuit switch detached!");
     add_message_to_queue(reply, strsz);
   }
   if (has_capability_changed()) {
@@ -520,6 +547,121 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
     add_message_to_queue(reply, strsz);
   }
 }
+/*
+ *  Operating Modes:
+ *    0 -> Retrieved network info only: learn and notify
+ *    1 -> Retrieved network info only: strict (don't learn, shutdown
+ * automatically) 2 -> Retrieved network info + opencellid: learn and notify 3
+ * -> Retrieved network info + opencellid: strict (don't learn, shutdown
+ * automatically)
+ *
+ *
+ *  Pending tasks:
+ *    * Save & Retrieve report dumpfile
+ *    * Automatically back up from mode 1 to 0 if report doesn't exist
+ *    * Stop nagging all the time. Once is enough (notification spam on unknown
+ * cells)
+ *    * Try to gather neighbour cell ids
+ *    * Location?
+ */
+
+void notify_cellid_change(uint32_t cell_id, uint16_t lac) {
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                          "Network status changed:\n"
+                          "Location Area / Cell ID changed:\n"
+                          "Cell ID: %.8x\nLAC: %.4x",
+                          cell_id, lac);
+  if (get_signal_tracking_mode() > 1 && is_cell_id_in_db(cell_id, lac) == 1) {
+    struct ocid_cell_slim cell = get_opencellid_cell_info(cell_id, lac);
+        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                      "OpenCellid:"
+                      "Cell ID: %.8x\nLAC: %.4x\n"
+                      "Lat: %f\nLon: %f\n",
+                        cell.cell, cell.area,
+                        cell.lat, cell.lon  );
+  }
+  add_message_to_queue(reply, strsz);
+}
+
+void emergency_baseband_pwoerdown(uint32_t cell_id, uint16_t lac,
+                                  int opencellid_res) {
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+
+  size_t strsz = snprintf(
+      (char *)reply, MAX_MESSAGE_SIZE,
+      "Emergency: I connected to an unknown Cell ID and will lock myself up\n"
+      "Reboot me to use me again\n"
+      "Cell ID: %.8x\nLAC: %.4x\n",
+      cell_id, lac);
+  if (opencellid_res == 1) {
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                      "OpenCellid DB check: Found in db");
+  } else if (opencellid_res == 0) {
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                      "OpenCellid DB check: Not found in db!");
+  } else {
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                      "OpenCellid DB check: Database not loaded!");
+  }
+  add_message_to_queue(reply, strsz);
+  /*  sleep(10);
+    if (write_to(ADSP_BOOT_HANDLER, "0", O_WRONLY) < 0) {
+      logger(MSG_ERROR, "%s: Error shutting down the ADSP\n", __func__);
+    }*/
+}
+int add_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
+               uint16_t lac, uint16_t phy_cell_id, uint32_t cell_id,
+               uint8_t bsic, uint16_t bcch, uint16_t psc, uint16_t arfcn,
+               int16_t srx_lev, uint16_t rx_lev) {
+  int report_id = 0;
+  if (nas_runtime.current_report >= (MAX_REPORT_NUM - 1)) {
+    logger(MSG_INFO, "%s: Rotating log...\n", __func__);
+    for (int k = 1; k < MAX_REPORT_NUM; k++) {
+      nas_runtime.data[k - 1] = nas_runtime.data[k];
+    }
+  } else {
+    nas_runtime.current_report++;
+  }
+  logger(MSG_INFO, "%s: Report ID %i\n", __func__, nas_runtime.current_report);
+  report_id = nas_runtime.current_report;
+  nas_runtime.data[report_id].report.found_in_network = 1;
+  nas_runtime.data[report_id].report.mcc = mcc;
+  nas_runtime.data[report_id].report.mnc = mnc;
+  nas_runtime.data[report_id].report.type_of_service = type_of_service;
+  nas_runtime.data[report_id].report.lac = lac;
+  nas_runtime.data[report_id].report.phy_cell_id = phy_cell_id;
+  nas_runtime.data[report_id].report.cell_id = cell_id;
+  nas_runtime.data[report_id].report.bsic = bsic;
+  nas_runtime.data[report_id].report.bcch = bcch;
+  nas_runtime.data[report_id].report.psc = psc;
+  nas_runtime.data[report_id].report.arfcn = arfcn;
+  nas_runtime.data[report_id].report.srx_level_min = srx_lev;
+  nas_runtime.data[report_id].report.srx_level_max = srx_lev;
+  nas_runtime.data[report_id].report.rx_level_min = rx_lev;
+  nas_runtime.data[report_id].report.rx_level_max = rx_lev;
+  nas_runtime.data[report_id].report.opencellid_verified = 0;
+
+  return report_id;
+}
+int is_in_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
+                 uint32_t cell_id, uint16_t lac) {
+  int report_id = -1;
+  for (int i = 0; i < nas_runtime.current_report; i++) {
+    if (nas_runtime.data[i].report.mcc == mcc &&
+        nas_runtime.data[i].report.mnc == mnc &&
+        nas_runtime.data[i].report.type_of_service == type_of_service &&
+        nas_runtime.data[i].report.cell_id == cell_id &&
+        nas_runtime.data[i].report.lac == lac) {
+      logger(MSG_INFO, "%s: Cell found in report %i\n", __func__, i);
+      report_id = i;
+    }
+  }
+  if (report_id < 0) {
+    logger(MSG_WARN, "%s: Cell not found!\n", __func__);
+  }
+  return report_id;
+}
 
 void process_current_network_data(uint16_t mcc, uint16_t mnc,
                                   uint8_t type_of_service, uint16_t lac,
@@ -527,9 +669,11 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
                                   uint8_t bsic, uint16_t bcch, uint16_t psc,
                                   uint16_t arfcn, int16_t srx_lev,
                                   uint16_t rx_lev) {
-  uint8_t lac_is_known = 0;
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
   uint8_t cell_is_known = 0;
-  int report_id = 0;
+  size_t strsz;
+  int report_id = -1;
+  int opencellid_res = -1;
 
   logger(MSG_INFO, "%s: Start\n", __func__);
 
@@ -537,27 +681,11 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     logger(MSG_WARN, "%s: Not enough data to process\n", __func__);
     return;
   }
-
-  for (int i = 0; i < MAX_REPORT_NUM; i++) {
-    if (nas_runtime.data[i].report.lac == lac) {
-      lac_is_known = 1;
-    }
-  }
-
-  if (!lac_is_known) {
-    // check if lac is in db, add lac to known dbs
-  }
-
-  for (int i = 0; i < MAX_REPORT_NUM; i++) {
-    if (nas_runtime.data[i].report.cell_id == cell_id &&
-        nas_runtime.data[i].report.lac == lac) {
-      cell_is_known = 1;
-      report_id = i;
-    }
-  }
+  report_id = is_in_report(mcc, mnc, type_of_service, cell_id, lac);
 
   /* Update signal levels, bcch etc.*/
-  if (cell_is_known) {
+  if (report_id >= 0) {
+    cell_is_known = 1;
     if (srx_lev < nas_runtime.data[report_id].report.srx_level_min) {
       nas_runtime.data[report_id].report.srx_level_min = srx_lev;
     } else if (srx_lev > nas_runtime.data[report_id].report.srx_level_max) {
@@ -570,74 +698,59 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     nas_runtime.data[report_id].report.arfcn = arfcn;
   }
 
-  // Check against opencellid
-  if (!cell_is_known) {
-    if (nas_runtime.current_report >= (MAX_REPORT_NUM - 1)) {
-      logger(MSG_INFO, "%s: Rotating log...\n", __func__);
-      for (int k = 1; k < MAX_REPORT_NUM; k++) {
-        nas_runtime.data[k - 1] = nas_runtime.data[k];
-      }
-    } else {
-      nas_runtime.current_report++;
+  switch (get_signal_tracking_mode()) {
+  case 0:
+    logger(MSG_INFO, "%s: Learning mode: standalone\n", __func__);
+    if (!cell_is_known) {
+      report_id = add_report(mcc, mnc, type_of_service, lac, phy_cell_id,
+                             cell_id, bsic, bcch, psc, arfcn, srx_lev, rx_lev);
     }
-    logger(MSG_INFO, "%s: Storing report with ID %i\n", __func__,
-           nas_runtime.current_report);
-    report_id = nas_runtime.current_report;
-    nas_runtime.data[report_id].report.found_in_network = 1;
-    nas_runtime.data[report_id].report.mcc = mcc;
-    nas_runtime.data[report_id].report.mnc = mnc;
-    nas_runtime.data[report_id].report.type_of_service = type_of_service;
-    nas_runtime.data[report_id].report.lac = lac;
-    nas_runtime.data[report_id].report.phy_cell_id = phy_cell_id;
-    nas_runtime.data[report_id].report.cell_id = cell_id;
-    nas_runtime.data[report_id].report.bsic = bsic;
-    nas_runtime.data[report_id].report.bcch = bcch;
-    nas_runtime.data[report_id].report.psc = psc;
-    nas_runtime.data[report_id].report.arfcn = arfcn;
-    nas_runtime.data[report_id].report.srx_level_min = srx_lev;
-    nas_runtime.data[report_id].report.srx_level_max = srx_lev;
-    nas_runtime.data[report_id].report.rx_level_min = rx_lev;
-    nas_runtime.data[report_id].report.rx_level_max = rx_lev;
-    nas_runtime.data[report_id].report.opencellid_verified = 0;
-  }
+    break;
+  case 1:
+    logger(MSG_INFO, "%s: Strict mode: standalone\n", __func__);
+    if (!cell_is_known) {
+      emergency_baseband_pwoerdown(cell_id, lac, opencellid_res);
+    }
+    break;
+  case 2:
+    logger(MSG_INFO, "%s: Learning mode: OpenCellid + standalone\n", __func__);
+    opencellid_res = is_cell_id_in_db(cell_id, lac);
 
-  if (get_signal_tracking_mode() > 1) { // need to test this
-    if (!nas_runtime.data[report_id].report.opencellid_verified) {
-      if (is_cell_id_in_db(cell_id, lac) == 1) {
+    if (!cell_is_known) {
+      report_id = add_report(mcc, mnc, type_of_service, lac, phy_cell_id,
+                             cell_id, bsic, bcch, psc, arfcn, srx_lev, rx_lev);
+      if (opencellid_res == 1) {
         nas_runtime.data[report_id].report.opencellid_verified = 1;
-        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-        size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                                "Nettrack: Verified Cell ID %.8x with LAC %.4x",
-                                cell_id, lac);
-        add_message_to_queue(reply, strsz);
-      } else if (is_cell_id_in_db(cell_id, lac) == 0) {
-        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-        size_t strsz = snprintf(
-            (char *)reply, MAX_MESSAGE_SIZE,
-            "Nettrack: WARNING: Can't verify Cell ID %.8x with LAC %.4x",
-            cell_id, lac);
-        add_message_to_queue(reply, strsz);
       }
     }
+    break;
+  case 3:
+    opencellid_res = is_cell_id_in_db(cell_id, lac);
+    if (opencellid_res == 1 && !cell_is_known) {
+      report_id = add_report(mcc, mnc, type_of_service, lac, phy_cell_id,
+                             cell_id, bsic, bcch, psc, arfcn, srx_lev, rx_lev);
+      nas_runtime.data[report_id].report.opencellid_verified = 1;
+    } else if (!cell_is_known) {
+      emergency_baseband_pwoerdown(cell_id, lac, opencellid_res);
+    } else {
+      logger(MSG_WARN, "%s: Don't know what to do! Cell is known: %u | opencellid_res: %i\n", __func__, cell_is_known, opencellid_res);
+    }
+    logger(MSG_INFO, "%s: Strict mode: OpenCellid + standalone\n", __func__);
+    break;
+
+  default:
+    logger(MSG_ERROR,
+           "%s: Fatal: Unknown signal tracking mode set up in config\n",
+           __func__);
+    break;
   }
 
-  if (get_signal_tracking_mode() == 3 && !nas_runtime.data[report_id].report.opencellid_verified) {
-        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-        size_t strsz = snprintf(
-            (char *)reply, MAX_MESSAGE_SIZE,
-            "Emergency: I connected to an unknown Cell ID and will lock myself up\n"
-            "Reboot me to use me again\n"
-            "Cell ID: %.8x\nLAC: %.4x",
-            cell_id, lac);
-        add_message_to_queue(reply, strsz);
-        sleep(10);
-        if (write_to(ADSP_BOOT_HANDLER, "0", O_WRONLY) < 0) {
-            logger(MSG_ERROR, "%s: Error shutting down the ADSP\n",
-                  __func__);
+  if (cell_id != nas_runtime.current_cell_id || lac != nas_runtime.current_lac) {
+    notify_cellid_change(cell_id, lac);
+    nas_runtime.current_cell_id = cell_id;
+    nas_runtime.current_lac = lac;
   }
 
-  }
-  logger(MSG_INFO, "%s: End\n", __func__);
 }
 
 void update_cell_location_information(uint8_t *buf, size_t buf_len) {
@@ -657,8 +770,10 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
   }
 
   if (get_signal_tracking_mode() > 1) {
-    if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) != 0 ||
-        memcmp(nas_runtime.current_state.mnc, nas_runtime.open_cellid_mnc, 3) != 0) {
+    if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
+            0 ||
+        memcmp(nas_runtime.current_state.mnc, nas_runtime.open_cellid_mnc, 3) !=
+            0) {
       logger(MSG_INFO, "%s: Needs OpenCellid data refresh!\n", __func__);
       get_opencellid_data();
     }
@@ -697,7 +812,6 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       NAS_CELL_LAC_INFO_NAS_RRC_STATE,
       NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
   };
-
 
   logger(MSG_INFO, "%s: Found %u information segments in this message\n",
          __func__, count_tlvs_in_message(buf, buf_len));
@@ -1187,8 +1301,9 @@ void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
     if (nas_runtime.current_network_state.network_type <
         nas_runtime.previous_network_state.network_type) {
       uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-      size_t strsz = snprintf(
-          (char *)reply, MAX_MESSAGE_SIZE,  "Warning: Network service has been downgraded!\n");
+      size_t strsz =
+          snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "Warning: Network service has been downgraded!\n");
       add_message_to_queue(reply, strsz);
     }
   }

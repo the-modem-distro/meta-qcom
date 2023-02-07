@@ -570,6 +570,8 @@ struct ocid_cell_slim {
   uint8_t radio;
   uint32_t area;
   uint32_t cell;
+  float lon;
+  float lat;
   uint32_t range;
   uint32_t updated;
   int16_t average_signal;
