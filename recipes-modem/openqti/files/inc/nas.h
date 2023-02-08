@@ -6,6 +6,10 @@
 #include "../inc/qmi.h"
 #include <stdbool.h>
 #include <stdio.h>
+
+
+
+#define INTERNAL_CELLID_INFO_PATH "/persist/cellid_data.raw"
 /*
  * Headers for the Network Access Service
  *

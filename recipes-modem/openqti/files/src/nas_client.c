@@ -63,7 +63,83 @@ struct {
   uint32_t current_cell_id;
   uint16_t current_lac;
 } nas_runtime;
+/*
+  Save & retrieve previous reports
 
+*/
+int store_report_data() {
+  FILE *fp;
+  int ret;
+  logger(MSG_DEBUG, "%s: Start\n", __func__);
+  if (set_persistent_partition_rw() < 0) {
+    logger(MSG_ERROR, "%s: Can't set persist partition in RW mode\n", __func__);
+    return -1;
+  }
+  logger(MSG_DEBUG, "%s: Open file\n", __func__);
+  fp = fopen(INTERNAL_CELLID_INFO_PATH, "w");
+  if (fp == NULL) {
+    logger(MSG_ERROR, "%s: Can't open config file for writing\n", __func__);
+    return -1;
+  }
+  logger(MSG_DEBUG, "%s: Store\n", __func__);
+  ret = fwrite(nas_runtime.data, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
+  logger(MSG_DEBUG, "%s: Close (%i bytes written)\n", __func__, ret);
+  fclose(fp);
+  do_sync_fs();
+  if (!use_persistent_logging()) {
+    if (set_persistent_partition_ro() < 0) {
+      logger(MSG_ERROR, "%s: Can't set persist partition in RO mode\n",
+             __func__);
+      return -1;
+    }
+  }
+  return 0;
+}
+
+void fallback_notify() {
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                          "Signal Tracking warning! I can't load any previous cell data report, I'm switching to learning mode\n");
+  add_message_to_queue(reply, strsz);
+}
+
+
+int load_report_data() {
+  FILE *fp;
+  int ret;
+  struct network_status_reports reports[MAX_REPORT_NUM];
+  logger(MSG_DEBUG, "%s: Start, open file\n", __func__);
+  fp = fopen(SCHEDULER_DATA_FILE_PATH, "r");
+  if (fp == NULL) {
+    logger(MSG_DEBUG, "%s: Can't open config file for reading\n", __func__);
+    if (get_signal_tracking_mode() == 1 || get_signal_tracking_mode() == 3) {
+      logger(MSG_ERROR, "%s: Error: There's no cell id data to use, mode falling back to learning mode\n", __func__);
+      fallback_notify();
+      if (get_signal_tracking_mode() == 1) {
+        set_signal_tracking_mode(0);
+      } else if (get_signal_tracking_mode() == 3) {
+        set_signal_tracking_mode(2);
+      }
+    }
+    return -1;
+  }
+  ret = fread(reports, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
+  logger(MSG_DEBUG, "%s: Close (%i bytes read)\n", __func__, ret);
+  if (ret >= sizeof(struct network_status_reports)) {
+    logger(MSG_DEBUG, "%s: Recovering tasks\n ", __func__);
+    for (int i = 0; i < MAX_REPORT_NUM; i++) {
+      nas_runtime.data[i] = reports[i];
+    }
+  }
+  fclose(fp);
+  return 0;
+}
+
+/* 
+
+
+
+*/
 void get_opencellid_data() {
   FILE *fp;
   char filename[256];
@@ -570,12 +646,12 @@ void notify_cellid_change(uint32_t cell_id, uint16_t lac) {
   size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                           "Network status changed:\n"
                           "Location Area / Cell ID changed:\n"
-                          "Cell ID: %.8x\nLAC: %.4x",
+                          "Cell ID: %.8x\nLAC: %.4x\n",
                           cell_id, lac);
   if (get_signal_tracking_mode() > 1 && is_cell_id_in_db(cell_id, lac) == 1) {
     struct ocid_cell_slim cell = get_opencellid_cell_info(cell_id, lac);
         strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                      "OpenCellid:"
+                      "OpenCellid Verified:"
                       "Cell ID: %.8x\nLAC: %.4x\n"
                       "Lat: %f\nLon: %f\n",
                         cell.cell, cell.area,
@@ -605,11 +681,13 @@ void emergency_baseband_pwoerdown(uint32_t cell_id, uint16_t lac,
                       "OpenCellid DB check: Database not loaded!");
   }
   add_message_to_queue(reply, strsz);
+
   /*  sleep(10);
     if (write_to(ADSP_BOOT_HANDLER, "0", O_WRONLY) < 0) {
       logger(MSG_ERROR, "%s: Error shutting down the ADSP\n", __func__);
     }*/
 }
+
 int add_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
                uint16_t lac, uint16_t phy_cell_id, uint32_t cell_id,
                uint8_t bsic, uint16_t bcch, uint16_t psc, uint16_t arfcn,
@@ -660,6 +738,8 @@ int is_in_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
   if (report_id < 0) {
     logger(MSG_WARN, "%s: Cell not found!\n", __func__);
   }
+
+  store_report_data();
   return report_id;
 }
 
@@ -669,9 +749,7 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
                                   uint8_t bsic, uint16_t bcch, uint16_t psc,
                                   uint16_t arfcn, int16_t srx_lev,
                                   uint16_t rx_lev) {
-  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
   uint8_t cell_is_known = 0;
-  size_t strsz;
   int report_id = -1;
   int opencellid_res = -1;
 
@@ -696,6 +774,7 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     nas_runtime.data[report_id].report.bcch = bcch;
     nas_runtime.data[report_id].report.psc = psc;
     nas_runtime.data[report_id].report.arfcn = arfcn;
+    store_report_data();
   }
 
   switch (get_signal_tracking_mode()) {
@@ -754,8 +833,8 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
 }
 
 void update_cell_location_information(uint8_t *buf, size_t buf_len) {
-  uint16_t mcc, mnc, lac, phy_cell_id, bcch, psc, arfcn, srx_lev, rx_lev = 0;
-  uint8_t type_of_service, bsic = 0;
+  uint16_t mcc = 0, mnc = 0, lac = 0, phy_cell_id = 0, bcch = 0, psc = 0, arfcn = 0, srx_lev = 0, rx_lev = 0;
+  uint8_t type_of_service = 0, bsic = 0;
   uint32_t cell_id = 0;
 
   if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
@@ -1452,6 +1531,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
 }
 
 void *register_to_nas_service() {
+  load_report_data();
   nas_register_to_events();
   nas_get_ims_preference();
   logger(MSG_INFO, "%s finished!\n", __func__);
