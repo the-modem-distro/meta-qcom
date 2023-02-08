@@ -351,7 +351,6 @@ void debug_gsm7_cb_message(uint8_t *command) {
 }
 
 void debug_ucs2_cb_message(uint8_t *command) {
-  int strsz = 0;
   uint8_t *reply = calloc(256, sizeof(unsigned char));
   uint8_t pkt1[] = {
       0x01, 0x73, 0x00, 0x80, 0x05, 0x01, 0x04, 0x03, 0x00, 0x01, 0x00, 0x67,
