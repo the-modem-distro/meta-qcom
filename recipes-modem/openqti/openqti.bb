@@ -2,8 +2,8 @@ SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspac
 LICENSE = "MIT"
 MY_PN = "openqti"
 RPROVIDES_${PN} = "openqti"
-DEPENDS+="libttspico"
-RDEPENDS:${PN} = "libttspico"
+DEPENDS+="libttspico libpocketsphinx "
+RDEPENDS:${PN} = "libttspico libpocketsphinx "
 PR = "r8"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -26,6 +26,7 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/config.h \
            file://inc/thermal.h \
            file://inc/space_mon.h \
+           file://inc/audio2text.h \
            file://inc/wds.h \
            file://inc/dms.h \
            file://inc/voice.h \
@@ -57,6 +58,7 @@ SRC_URI = "file://inc/openqti.h \
            file://src/dms_client.c \
            file://src/voice_client.c \
            file://src/nas_client.c \
+           file://src/audio2text.c \
            file://init_openqti \
            file://boot_counter \
            file://external/ring8k.wav \
@@ -66,7 +68,7 @@ S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 FILES:${PN} += "/usr/share/thank_you/*"
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
+    ${CC} ${LDFLAGS} -O2 src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico -lpocketsphinx
 }
 
 do_install() {
