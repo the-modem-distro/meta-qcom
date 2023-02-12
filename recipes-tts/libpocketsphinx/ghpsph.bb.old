@@ -1,0 +1,23 @@
+DESCRIPTION = "This is PocketSphinx, one of Carnegie Mellon University's open source \
+large vocabulary, speaker-independent continuous speech recognition engine."
+LICENSE = "Apache-2.0"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/\
+${LICENSE};md5=89aea4e17d99a7cacdbeed46a0096b10"
+
+inherit autotools pkgconfig cmake
+
+SRC_URI = "https://github.com/cmusphinx/pocketsphinx/archive/refs/tags/v5.0.0.tar.gz"
+SRC_URI[sha256sum] = "90eda44c016da7979bd59b2c1a0ae4a2753b8eba75f1917b2b201eadc045514c"
+
+SRCREV = "${AUTOREV}"
+
+do_install () {
+    #remove egg-info
+    install -d ${D}/usr/share/lang/
+    install -d ${D}/usr/lib
+    install -d ${D}${includedir}
+    install -m 0755  ${S}/pocketsphinx.so.0 ${D}${libdir}/
+
+}
+
+
