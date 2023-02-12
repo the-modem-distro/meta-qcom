@@ -846,16 +846,17 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
   uint8_t type_of_service = 0, bsic = 0;
   uint32_t cell_id = 0;
 
+  if (!is_signal_tracking_enabled()) {
+    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
+    return;
+  }
+  
   if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
     logger(MSG_ERROR, "%s: Baseband returned an error to the request \n",
            __func__);
     return;
   }
 
-  if (!is_signal_tracking_enabled()) {
-    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
-    return;
-  }
 
   if (get_signal_tracking_mode() > 1) {
     if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
@@ -1359,14 +1360,14 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 }
 
 void log_cell_location_information(uint8_t *buf, size_t buf_len) {
-  if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
-    logger(MSG_ERROR, "%s: Baseband returned an error to the request \n",
-           __func__);
+  if (!is_signal_tracking_enabled()) {
+    logger(MSG_DEBUG, "%s: Tracking is disabled\n", __func__);
     return;
   }
 
-  if (!is_signal_tracking_enabled()) {
-    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
+  if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
+    logger(MSG_ERROR, "%s: Baseband returned an error to the request \n",
+           __func__);
     return;
   }
 
@@ -1401,12 +1402,12 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
       NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
   };
 
-  logger(MSG_INFO, "%s: Found %u information segments in this message\n",
+  logger(MSG_DEBUG, "%s: Found %u information segments in this message\n",
          __func__, count_tlvs_in_message(buf, buf_len));
   for (uint8_t i = 0; i < 27; i++) {
     int offset = get_tlv_offset_by_id(buf, buf_len, available_tlvs[i]);
     if (offset > 0) {
-      logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+      logger(MSG_DEBUG, "%s: TLV %.2x found at offset %.2x\n", __func__,
              available_tlvs[i], offset);
       switch (available_tlvs[i]) {
       case NAS_CELL_LAC_INFO_UMTS_CELL_INFO: {
@@ -1533,9 +1534,7 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
           // add neighbours too?
         }
       } break;
-      case NAS_CELL_LAC_INFO_LTE_INTER_INFO:
-
-      {
+      case NAS_CELL_LAC_INFO_LTE_INTER_INFO: {
         char header[] = "Is Idle?,"
                         "Instances,"
                         "Instance,"
@@ -1942,6 +1941,8 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
     }
   }
 }
+
+
 void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   logger(MSG_DEBUG, "%s: update network data\n", __func__);
   nas_runtime.previous_network_state = nas_runtime.current_network_state;
