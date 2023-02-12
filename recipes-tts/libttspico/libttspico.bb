@@ -121,21 +121,21 @@ do_install() {
    #   install -m 0644 ${S}/lang/it-IT_ta.bin ${D}/usr/share/lang/
 
 # Copy headers into bitbake's include directory so other binaries can have them
-      install -m 0755 ${WORKDIR}/picoapi.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picoapid.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picoos.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picodefs.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picopal.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picopltf.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picoknow.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picorsrc.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picoctrl.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picodata.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picotrns.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picokfst.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picodbg.h  ${D}${includedir}/
-      install -m 0755 ${WORKDIR}/picoktab.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoapi.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoapid.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoos.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picodefs.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picopal.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picopltf.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoknow.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picorsrc.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoctrl.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picodata.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picotrns.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picokfst.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picodbg.h  ${D}${includedir}/
+      install -m 0644 ${WORKDIR}/picoktab.h  ${D}${includedir}/
 
 # We need the symlink so other recipes can find the library
-      ln -sf -r ${D}/usr/lib/libttspico.so.0 ${D}/usr/lib//libttspico.so
+      ln -sf -r ${D}/usr/lib/libttspico.so.0 ${D}/usr/lib/libttspico.so
 }
