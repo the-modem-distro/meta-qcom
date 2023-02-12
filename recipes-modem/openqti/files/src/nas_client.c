@@ -82,7 +82,8 @@ int store_report_data() {
     return -1;
   }
   logger(MSG_DEBUG, "%s: Store\n", __func__);
-  ret = fwrite(nas_runtime.data, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
+  ret = fwrite(nas_runtime.data, sizeof(struct network_status_reports),
+               MAX_REPORT_NUM, fp);
   logger(MSG_DEBUG, "%s: Close (%i bytes written)\n", __func__, ret);
   fclose(fp);
   do_sync_fs();
@@ -99,10 +100,10 @@ int store_report_data() {
 void fallback_notify() {
   uint8_t reply[MAX_MESSAGE_SIZE] = {0};
   size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                          "Signal Tracking warning! I can't load any previous cell data report, I'm switching to learning mode\n");
+                          "Signal Tracking warning! I can't load any previous "
+                          "cell data report, I'm switching to learning mode\n");
   add_message_to_queue(reply, strsz);
 }
-
 
 int load_report_data() {
   FILE *fp;
@@ -113,7 +114,10 @@ int load_report_data() {
   if (fp == NULL) {
     logger(MSG_DEBUG, "%s: Can't open config file for reading\n", __func__);
     if (get_signal_tracking_mode() == 1 || get_signal_tracking_mode() == 3) {
-      logger(MSG_ERROR, "%s: Error: There's no cell id data to use, mode falling back to learning mode\n", __func__);
+      logger(MSG_ERROR,
+             "%s: Error: There's no cell id data to use, mode falling back to "
+             "learning mode\n",
+             __func__);
       fallback_notify();
       if (get_signal_tracking_mode() == 1) {
         set_signal_tracking_mode(0);
@@ -123,7 +127,8 @@ int load_report_data() {
     }
     return -1;
   }
-  ret = fread(reports, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
+  ret =
+      fread(reports, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
   logger(MSG_DEBUG, "%s: Close (%i bytes read)\n", __func__, ret);
   if (ret >= sizeof(struct network_status_reports)) {
     logger(MSG_DEBUG, "%s: Recovering tasks\n ", __func__);
@@ -135,7 +140,7 @@ int load_report_data() {
   return 0;
 }
 
-/* 
+/*
 
 
 
@@ -223,7 +228,7 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
              cell_id, lac, ocid->cell, ocid->area);
       cell = *ocid;
       return cell;
-    } 
+    }
   }
   logger(MSG_INFO, "%s: Didn't find it... :(\n ", __func__);
   return cell;
@@ -238,9 +243,10 @@ uint8_t is_cellid_data_missing() {
 void set_cellid_data_missing_as_requested() {
   nas_runtime.cellid_data_missing = 2;
   uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-  size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                          "OpenCellID database is not available. Please check "
-                          "https://cid.themodemdistro.com for more info");
+  size_t strsz =
+      snprintf((char *)reply, MAX_MESSAGE_SIZE,
+               "OpenCellID database is not available. Please check "
+               "https://opencellid.themodemdistro.com for more info");
   add_message_to_queue(reply, strsz);
 }
 
@@ -650,12 +656,11 @@ void notify_cellid_change(uint32_t cell_id, uint16_t lac) {
                           cell_id, lac);
   if (get_signal_tracking_mode() > 1 && is_cell_id_in_db(cell_id, lac) == 1) {
     struct ocid_cell_slim cell = get_opencellid_cell_info(cell_id, lac);
-        strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                       "OpenCellid Verified:"
                       "Cell ID: %.8x\nLAC: %.4x\n"
                       "Lat: %f\nLon: %f\n",
-                        cell.cell, cell.area,
-                        cell.lat, cell.lon  );
+                      cell.cell, cell.area, cell.lat, cell.lon);
   }
   add_message_to_queue(reply, strsz);
 }
@@ -812,7 +817,10 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     } else if (!cell_is_known) {
       emergency_baseband_pwoerdown(cell_id, lac, opencellid_res);
     } else {
-      logger(MSG_WARN, "%s: Don't know what to do! Cell is known: %u | opencellid_res: %i\n", __func__, cell_is_known, opencellid_res);
+      logger(
+          MSG_WARN,
+          "%s: Don't know what to do! Cell is known: %u | opencellid_res: %i\n",
+          __func__, cell_is_known, opencellid_res);
     }
     logger(MSG_INFO, "%s: Strict mode: OpenCellid + standalone\n", __func__);
     break;
@@ -824,16 +832,17 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     break;
   }
 
-  if (cell_id != nas_runtime.current_cell_id || lac != nas_runtime.current_lac) {
+  if (cell_id != nas_runtime.current_cell_id ||
+      lac != nas_runtime.current_lac) {
     notify_cellid_change(cell_id, lac);
     nas_runtime.current_cell_id = cell_id;
     nas_runtime.current_lac = lac;
   }
-
 }
 
 void update_cell_location_information(uint8_t *buf, size_t buf_len) {
-  uint16_t mcc = 0, mnc = 0, lac = 0, phy_cell_id = 0, bcch = 0, psc = 0, arfcn = 0, srx_lev = 0, rx_lev = 0;
+  uint16_t mcc = 0, mnc = 0, lac = 0, phy_cell_id = 0, bcch = 0, psc = 0,
+           arfcn = 0, srx_lev = 0, rx_lev = 0;
   uint8_t type_of_service = 0, bsic = 0;
   uint32_t cell_id = 0;
 
@@ -892,18 +901,18 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
   };
 
-  logger(MSG_INFO, "%s: Found %u information segments in this message\n",
+  logger(MSG_DEBUG, "%s: Found %u information segments in this message\n",
          __func__, count_tlvs_in_message(buf, buf_len));
   for (uint8_t i = 0; i < 27; i++) {
     int offset = get_tlv_offset_by_id(buf, buf_len, available_tlvs[i]);
     if (offset > 0) {
-      logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+      logger(MSG_DEBUG, "%s: TLV %.2x found at offset %.2x\n", __func__,
              available_tlvs[i], offset);
       switch (available_tlvs[i]) {
       case NAS_CELL_LAC_INFO_UMTS_CELL_INFO: {
         struct nas_lac_umts_cell_info *cell_info =
             (struct nas_lac_umts_cell_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_UMTS_CELL_INFO\n"
                "Cell ID: %.4x\n" // this one is odd
                "\t Location Area Code: %.4x\n"
@@ -925,7 +934,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         psc = cell_info->psc;
 
         for (uint8_t j = 0; j < cell_info->instances; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "Neighbour %u\n"
                  "\t\t UARFCN: %.4x\n"
                  "\t\t PSC: %.4x\n"
@@ -940,7 +949,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INTRA_INFO: {
         struct nas_lac_lte_intra_cell_info *cell_info =
             (struct nas_lac_lte_intra_cell_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INTRA_INFO\n"
                "\t Is Idle?: %s\n"
                "\t Cell ID: %.4x\n"
@@ -968,7 +977,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         // u32 values...
 
         for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "Neighbour %u\n"
                  "\t\t PHY Cell ID: %.4x\n"
                  "\t\t RSRQ: %.4x\n"
@@ -988,7 +997,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       {
         struct nas_lac_lte_inter_cell_info *cell_info =
             (struct nas_lac_lte_inter_cell_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INTER_INFO\n"
                "\t Is Idle?: %s\n"
                "\t Instances: %u\n",
@@ -996,7 +1005,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                cell_info->num_instances);
 
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "Instance %u\n"
                  "\t\t EARFCN: %.4x\n"
                  "\t\t SRX Level Low Threshold: %.2x\n"
@@ -1010,7 +1019,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                  cell_info->lte_inter_freq_instance[j].num_cells);
           for (uint8_t k = 0;
                k < cell_info->lte_inter_freq_instance[j].num_cells; k++) {
-            logger(MSG_INFO,
+            logger(MSG_DEBUG,
                    "\t Cell count %u\n"
                    "\t\t PHY Cell ID: %.4x\n"
                    "\t\t RSRQ: %.4x\n"
@@ -1035,7 +1044,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM: {
         struct nas_lac_lte_gsm_neighbour_info *cell_info =
             (struct nas_lac_lte_gsm_neighbour_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM\n"
                "\t Is Idle?: %s\n"
                "\t Instances: %u\n",
@@ -1044,7 +1053,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
 
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(
-              MSG_INFO,
+              MSG_DEBUG,
               "\t Instance %u\n"
               "\t\t Cell Reselect Priority: %.2x\n"
               "\t\t Reselect threshold (hi): %.2x\n"
@@ -1059,7 +1068,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
           for (uint8_t k = 0; k < cell_info->lte_gsm_neighbours[j].num_cells;
                k++) {
             logger(
-                MSG_INFO,
+                MSG_DEBUG,
                 "Cell count %u\n"
                 "\t\t ARFCN: %.4x\n"
                 "\t\t Band: %.2x\n"
@@ -1088,7 +1097,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA: {
         struct nas_lac_lte_wcdma_neighbour_info *cell_info =
             (struct nas_lac_lte_wcdma_neighbour_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA\n"
                "\t Is Idle?: %s\n"
                "\t Instances: %u\n",
@@ -1096,7 +1105,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                cell_info->num_instances);
 
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "Instance %u\n"
                  "\t\t Cell Reselect Priority: %.2x\n"
                  "\t\t Reselect threshold (hi): %.4x\n"
@@ -1111,7 +1120,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                  cell_info->lte_wcdma_neighbours[j].num_cells);
           for (uint8_t k = 0; k < cell_info->lte_wcdma_neighbours[j].num_cells;
                k++) {
-            logger(MSG_INFO,
+            logger(MSG_DEBUG,
                    "\t Cell count %u\n"
                    "\t\t PSC: %.4x\n"
                    "\t\t CPICH_RSCP: %.2x\n"
@@ -1129,7 +1138,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_UMTS_CELL_ID: {
         struct nas_lac_umts_cell_id *cell_info =
             (struct nas_lac_umts_cell_id *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: Cell ID\n"
                "\t Type: UMTS\n"
                "\t Cell ID: %.4x\n",
@@ -1139,14 +1148,14 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR: {
         struct nas_lac_wcdma_lte_neighbour_info *cell_info =
             (struct nas_lac_wcdma_lte_neighbour_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR\n"
                "\t RRC State: %.4x\n"
                "\t Number of cells: %u\n",
                __func__, cell_info->rrc_state, cell_info->num_cells);
 
         for (uint8_t j = 0; j < cell_info->num_cells; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "\t Cell %u\n"
                  "\t\t EARFCN %.4x\n"
                  "\t\t Physical Cell ID: %.4x\n"
@@ -1165,7 +1174,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED: {
         struct nas_lac_extended_gsm_cell_info *cell_info =
             (struct nas_lac_extended_gsm_cell_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED\n"
                "\t Timing Advance: %.4x\n"
                "\t Channel Freq.: %.4x\n",
@@ -1175,7 +1184,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED: {
         struct nas_lac_extended_wcdma_cell_info *cell_info =
             (struct nas_lac_extended_wcdma_cell_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED\n"
                "\t WCDMA Power (dB): %.4x\n"
                "\t WCDMA TX Power (dB): %.4x\n"
@@ -1187,7 +1196,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV: {
         struct nas_lac_lte_timing_advance_info *cell_info =
             (struct nas_lac_lte_timing_advance_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV\n"
                "\t Timing advance: %i\n",
                __func__, cell_info->timing_advance);
@@ -1195,7 +1204,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO: {
         struct nas_lac_extended_geran_info *cell_info =
             (struct nas_lac_extended_geran_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO\n"
                "\t Cell ID: %.8x\n"
                "\t LAC: %.4x\n"
@@ -1214,7 +1223,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         arfcn = cell_info->arfcn;
         //        bcch = cell_info->bcch;
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "Cell %u\n"
                  "\t\t Cell ID: %.8x\n"
                  "\t\t LAC: %.4x\n"
@@ -1231,7 +1240,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO: {
         struct nas_lac_umts_extended_info *cell_info =
             (struct nas_lac_umts_extended_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO\n"
                "\t Cell ID: %.4x\n"
                "\t LAC: %.4x\n"
@@ -1255,7 +1264,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         psc = cell_info->psc;
         //        bcch = cell_info->bcch;
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "\t Cell %u\n"
                  "\t\t UARFCN %.8x\n"
                  "\t\t PSC: %.4x\n"
@@ -1278,7 +1287,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_SCELL_GERAN_CONF: {
         struct nas_lac_scell_geran_config *cell_info =
             (struct nas_lac_scell_geran_config *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_SCELL_GERAN_CONF\n"
                "\t is PCCH present?: %u\n"
                "\t GPRS Minimum RX Access level: %.2x\n"
@@ -1290,7 +1299,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT: {
         struct nas_lac_current_l1_timeslot *cell_info =
             (struct nas_lac_current_l1_timeslot *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT\n"
                "\t Timeslot: %.2x\n",
                __func__, cell_info->timeslot_num);
@@ -1298,7 +1307,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ: {
         struct nas_lac_doppler_measurement *cell_info =
             (struct nas_lac_doppler_measurement *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ\n"
                "\t Doppler: %.2x\n",
                __func__, cell_info->doppler_measurement_hz);
@@ -1306,7 +1315,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN: {
         struct nas_lac_lte_extended_intra_earfcn_info *cell_info =
             (struct nas_lac_lte_extended_intra_earfcn_info *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN\n"
                "\t EARFCN: %.8x\n",
                __func__, cell_info->earfcn);
@@ -1315,7 +1324,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
       case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN: {
         struct nas_lac_lte_extended_interfrequency_earfcn *cell_info =
             (struct nas_lac_lte_extended_interfrequency_earfcn *)(buf + offset);
-        logger(MSG_INFO,
+        logger(MSG_DEBUG,
                "%s: NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN\n"
                "\t EARFCN: %.8x\n",
                __func__, cell_info->earfcn);
@@ -1326,7 +1335,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
             (struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn *)(buf +
                                                                         offset);
         logger(
-            MSG_INFO,
+            MSG_DEBUG,
             "%s: NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN\n"
             "\t Number of items: %u\n",
             __func__, cell_info->num_instances);
@@ -1349,6 +1358,590 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                                rx_lev);
 }
 
+void log_cell_location_information(uint8_t *buf, size_t buf_len) {
+  if (did_qmi_op_fail(buf, buf_len) != QMI_RESULT_SUCCESS) {
+    logger(MSG_ERROR, "%s: Baseband returned an error to the request \n",
+           __func__);
+    return;
+  }
+
+  if (!is_signal_tracking_enabled()) {
+    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
+    return;
+  }
+
+  uint8_t available_tlvs[] = {
+      NAS_CELL_LAC_INFO_UMTS_CELL_INFO,
+      NAS_CELL_LAC_INFO_CDMA_CELL_INFO,
+      NAS_CELL_LAC_INFO_LTE_INTRA_INFO,
+      NAS_CELL_LAC_INFO_LTE_INTER_INFO,
+      NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM,
+      NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA,
+      NAS_CELL_LAC_INFO_UMTS_CELL_ID,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR,
+      NAS_CELL_LAC_INFO_CDMA_RX_INFO,
+      NAS_CELL_LAC_INFO_HDR_RX_INFO,
+      NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED,
+      NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED,
+      NAS_CELL_LAC_INFO_WCDMA_GSM_NEIGHBOUT_CELL_EXTENDED,
+      NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_ACTIVE_SET,
+      NAS_CELL_LAC_INFO_WCDMA_ACTIVE_SET_REF_RADIO_LINK,
+      NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO,
+      NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO,
+      NAS_CELL_LAC_INFO_WCDMA_EXTENDED_INFO_AS,
+      NAS_CELL_LAC_INFO_SCELL_GERAN_CONF,
+      NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT,
+      NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ,
+      NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN,
+      NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN,
+      NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN,
+      NAS_CELL_LAC_INFO_NAS_INFO_EMM_STATE,
+      NAS_CELL_LAC_INFO_NAS_RRC_STATE,
+      NAS_CELL_LAC_INFO_LTE_INFO_RRC_STATE,
+  };
+
+  logger(MSG_INFO, "%s: Found %u information segments in this message\n",
+         __func__, count_tlvs_in_message(buf, buf_len));
+  for (uint8_t i = 0; i < 27; i++) {
+    int offset = get_tlv_offset_by_id(buf, buf_len, available_tlvs[i]);
+    if (offset > 0) {
+      logger(MSG_INFO, "%s: TLV %.2x found at offset %.2x\n", __func__,
+             available_tlvs[i], offset);
+      switch (available_tlvs[i]) {
+      case NAS_CELL_LAC_INFO_UMTS_CELL_INFO: {
+        char header[] = "Cell ID,"
+                        "Location Area Code,"
+                        "UARFCN,"
+                        "PSC,"
+                        "RSCP,"
+                        "Signal level,"
+                        "ECIO,"
+                        "Monitored cell count,"
+                        "Neighbour,"
+                        "UARFCN,"
+                        "PSC,"
+                        "RSCP,"
+                        "ECIO\n";
+        struct nas_lac_umts_cell_info *cell_info =
+            (struct nas_lac_umts_cell_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_UMTS_CELL_INFO", header,
+                     "%.4x," // this one is odd
+                     "%.4x,"
+                     "%.4x,"
+                     "%.4x,"
+                     "%i,"
+                     "%i,"
+                     "%i,"
+                     "%u\n",
+                     cell_info->cell_id, cell_info->lac, cell_info->uarfcn,
+                     cell_info->psc, cell_info->rscp, cell_info->ecio,
+                     cell_info->instances);
+
+        for (uint8_t j = 0; j < cell_info->instances; j++) {
+          dump_to_file("NAS_CELL_LAC_INFO_UMTS_CELL_INFO", header,
+                       "%.4x," // this one is odd
+                       "%.4x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%i,"
+                       "%i,"
+                       "%i,"
+                       "%u,",
+                       "%u,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%i,"
+                       "%i\n",
+                       cell_info->cell_id, cell_info->lac, cell_info->uarfcn,
+                       cell_info->psc, cell_info->rscp, cell_info->ecio,
+                       cell_info->instances, j,
+                       cell_info->monitored_cells[j].uarfcn,
+                       cell_info->monitored_cells[j].psc,
+                       cell_info->monitored_cells[j].rscp,
+                       cell_info->monitored_cells[j].ecio);
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INTRA_INFO: {
+        char header[] = "Is Idle,"
+                        "Cell ID,"
+                        "Tracking Area Code,"
+                        "EARFCN,"
+                        "Serving Cell ID,"
+                        "Serving Frequency Priority,"
+                        "Interfrequency search threshold,"
+                        "Serving cell lower threshold,"
+                        "Reselect threshold,"
+                        "Neighbour Cell count,"
+                        "Neighbour,"
+                        "PHY Cell ID,"
+                        "RSRQ,"
+                        "RSRP,"
+                        "RSSI Lev,"
+                        "SRX Lev\n";
+        struct nas_lac_lte_intra_cell_info *cell_info =
+            (struct nas_lac_lte_intra_cell_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_LTE_INTRA_INFO", header,
+                     "%s,"
+                     "%.4x,"
+                     "%.4x,"
+                     "%.4x,"
+                     "%.4x,"
+                     "%.2x,"
+                     "%.2x,"
+                     "%.2x,"
+                     "%.2x,"
+                     "%u,",
+                     "%u\n", (cell_info->is_idle == 1) ? "Yes" : "No",
+                     cell_info->cell_id, cell_info->tracking_area_code,
+                     cell_info->earfcn, cell_info->serv_cell_id,
+                     cell_info->serving_freq_prio,
+                     cell_info->inter_frequency_search_threshold,
+                     cell_info->serving_cell_lower_threshold,
+                     cell_info->reselect_threshold, cell_info->num_of_cells);
+
+        for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
+          dump_to_file("NAS_CELL_LAC_INFO_LTE_INTRA_INFO", header,
+                       "%s,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.2x,"
+                       "%.2x,"
+                       "%.2x,"
+                       "%.2x,"
+                       "%u,",
+                       "%u,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%i,"
+                       "%i,"
+                       "%i\n",
+                       (cell_info->is_idle == 1) ? "Yes" : "No",
+                       cell_info->cell_id, cell_info->tracking_area_code,
+                       cell_info->earfcn, cell_info->serv_cell_id,
+                       cell_info->serving_freq_prio,
+                       cell_info->inter_frequency_search_threshold,
+                       cell_info->serving_cell_lower_threshold,
+                       cell_info->reselect_threshold, cell_info->num_of_cells,
+                       j, cell_info->lte_cell_info[j].phy_cell_id,
+                       cell_info->lte_cell_info[j].rsrq,
+                       cell_info->lte_cell_info[j].rsrp,
+                       cell_info->lte_cell_info[j].srx_level,
+                       cell_info->lte_cell_info[j].rssi_level);
+          // add neighbours too?
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INTER_INFO:
+
+      {
+        char header[] = "Is Idle?,"
+                        "Instances,"
+                        "Instance,"
+                        "EARFCN,"
+                        "SRX Level Low Threshold,"
+                        "SRX Level High Threshold,"
+                        "Reselect Priority,"
+                        "Number of cells:\n"
+                        "Cell count,"
+                        "PHY Cell ID,"
+                        "RSRQ,"
+                        "RSRP,"
+                        "RSSI Lev,"
+                        "SRX Lev\n";
+        struct nas_lac_lte_inter_cell_info *cell_info =
+            (struct nas_lac_lte_inter_cell_info *)(buf + offset);
+
+        for (uint8_t j = 0; j < cell_info->num_instances; j++) {
+          for (uint8_t k = 0;
+               k < cell_info->lte_inter_freq_instance[j].num_cells; k++) {
+            dump_to_file(
+                "NAS_CELL_LAC_INFO_LTE_INTER_INFO", header,
+                "%s,"
+                "%u,"
+                "%u,"
+                "%.4x,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x,"
+                "%i,"
+                "%u,"
+                "%.4x,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x,"
+                "%i,"
+                "%u,"
+                "%.4x,"
+                "%.4x,"
+                "%i,"
+                "%i,"
+                "%i\n",
+                k, (cell_info->is_idle == 1) ? "Yes" : "No",
+                cell_info->num_instances, j,
+                cell_info->lte_inter_freq_instance[j].earfcn,
+                cell_info->lte_inter_freq_instance[j].srxlev_low_threshold,
+                cell_info->lte_inter_freq_instance[j].srxlev_high_threshold,
+                cell_info->lte_inter_freq_instance[j].reselect_priority,
+                cell_info->lte_inter_freq_instance[j].num_cells,
+                cell_info->lte_inter_freq_instance[j]
+                    .lte_cell_info[k]
+                    .phy_cell_id,
+                cell_info->lte_inter_freq_instance[j].lte_cell_info[k].rsrq,
+                cell_info->lte_inter_freq_instance[j].lte_cell_info[k].rsrp,
+                cell_info->lte_inter_freq_instance[j]
+                    .lte_cell_info[k]
+                    .srx_level,
+                cell_info->lte_inter_freq_instance[j]
+                    .lte_cell_info[k]
+                    .rssi_level);
+          }
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM: {
+        char header[] = "Is Idle?,"
+                        "Instances,"
+                        "Instance,"
+                        "Cell Reselect Priority,"
+                        "Reselect threshold (hi),"
+                        "Reselect threshold (low),"
+                        "NCC mask,"
+                        "Number of cells,"
+                        "Cell count,"
+                        "ARFCN,"
+                        "Band,"
+                        "Is cell ID valid?,"
+                        "BSIC,"
+                        "RSSI,"
+                        "SRX Lev\n";
+        struct nas_lac_lte_gsm_neighbour_info *cell_info =
+            (struct nas_lac_lte_gsm_neighbour_info *)(buf + offset);
+        for (uint8_t j = 0; j < cell_info->num_instances; j++) {
+          for (uint8_t k = 0; k < cell_info->lte_gsm_neighbours[j].num_cells;
+               k++) {
+            dump_to_file(
+                "NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_GSM", header,
+                "%s,"
+                "%u,"
+                "%u,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x,"
+                "%i,"
+                "%u,"
+                "%.4x,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x,"
+                "%i,"
+                "%i\n",
+                (cell_info->is_idle == 1) ? "Yes" : "No",
+                cell_info->num_instances, j,
+                cell_info->lte_gsm_neighbours[j].cell_reselect_priority,
+                cell_info->lte_gsm_neighbours[j]
+                    .high_priority_reselect_threshold,
+                cell_info->lte_gsm_neighbours[j].low_prio_reselect_threshold,
+                cell_info->lte_gsm_neighbours[j].ncc_mask,
+                cell_info->lte_gsm_neighbours[j].num_cells, k,
+                cell_info->lte_gsm_neighbours[j]
+                    .lte_gsm_cell_neighbour[k]
+                    .arfcn,
+                cell_info->lte_gsm_neighbours[j].lte_gsm_cell_neighbour[k].band,
+                cell_info->lte_gsm_neighbours[j]
+                    .lte_gsm_cell_neighbour[k]
+                    .is_cell_id_valid,
+                cell_info->lte_gsm_neighbours[j].lte_gsm_cell_neighbour[k].bsic,
+                cell_info->lte_gsm_neighbours[j].lte_gsm_cell_neighbour[k].rssi,
+                cell_info->lte_gsm_neighbours[j]
+                    .lte_gsm_cell_neighbour[k]
+                    .srxlev
+
+            );
+          }
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA: {
+        char header[] = "Is Idle?,"
+                        "Instances,"
+                        "Instance,"
+                        "Cell Reselect Priority,"
+                        "Reselect threshold (hi),"
+                        "Reselect threshold (low),"
+                        "UARFCN,"
+                        "Number of cells,"
+                        "Cell count,"
+                        "PSC,"
+                        "CPICH_RSCP,"
+                        "CPICH_ECNO,"
+                        "SRX Level\n";
+        struct nas_lac_lte_wcdma_neighbour_info *cell_info =
+            (struct nas_lac_lte_wcdma_neighbour_info *)(buf + offset);
+        for (uint8_t j = 0; j < cell_info->num_instances; j++) {
+          for (uint8_t k = 0; k < cell_info->lte_wcdma_neighbours[j].num_cells;
+               k++) {
+            dump_to_file(
+                "NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA", header,
+                "%s,"
+                "%u,"
+                "%u,"
+                "%.2x,"
+                "%.4x,"
+                "%.4x,"
+                "%.4x,"
+                "%i,"
+                "%u,"
+                "%.4x,"
+                "%.2x,"
+                "%.2x,"
+                "%.2x\n",
+                (cell_info->is_idle == 1) ? "Yes" : "No",
+                cell_info->num_instances, j,
+                cell_info->lte_wcdma_neighbours[j].cell_reselect_priority,
+                cell_info->lte_wcdma_neighbours[j]
+                    .high_priority_reselect_threshold,
+                cell_info->lte_wcdma_neighbours[j].low_prio_reselect_threshold,
+                cell_info->lte_wcdma_neighbours[j].uarfcn,
+                cell_info->lte_wcdma_neighbours[j].num_cells, k,
+                cell_info->lte_wcdma_neighbours[j].wcdma_cells[k].psc,
+                cell_info->lte_wcdma_neighbours[j].wcdma_cells[k].cpich_rscp,
+                cell_info->lte_wcdma_neighbours[j].wcdma_cells[k].cpich_ecno,
+                cell_info->lte_wcdma_neighbours[j].wcdma_cells[k].srx_level);
+          }
+        }
+      }
+
+      break;
+      case NAS_CELL_LAC_INFO_UMTS_CELL_ID: {
+        char header[] = "Type, Cell ID\n";
+        struct nas_lac_umts_cell_id *cell_info =
+            (struct nas_lac_umts_cell_id *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_UMTS_CELL_ID", header,
+                     "UMTS,"
+                     "%.4x\n",
+                     cell_info->cell_id);
+      } break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR: {
+        char header[] = "RRC State,"
+                        "Number of cells,"
+                        "Cell,"
+                        "EARFCN,"
+                        "Physical Cell ID,"
+                        "RSRP,"
+                        "RSRQ,"
+                        "SRX Level,"
+                        "Is cell TDD?\n";
+        struct nas_lac_wcdma_lte_neighbour_info *cell_info =
+            (struct nas_lac_wcdma_lte_neighbour_info *)(buf + offset);
+        for (uint8_t j = 0; j < cell_info->num_cells; j++) {
+          dump_to_file("NAS_CELL_LAC_INFO_WCDMA_INFO_LTE_NEIGHBOUR", header,
+                       "%.4x,"
+                       "%u,"
+                       "%u,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%i,"
+                       "%i\n",
+                       cell_info->rrc_state, cell_info->num_cells, j,
+                       cell_info->wcdma_lte_neighbour[j].earfcn,
+                       cell_info->wcdma_lte_neighbour[j].phy_cell_id,
+                       cell_info->wcdma_lte_neighbour[j].rsrp,
+                       cell_info->wcdma_lte_neighbour[j].rsrq,
+                       cell_info->wcdma_lte_neighbour[j].srx_level,
+                       cell_info->wcdma_lte_neighbour[j].is_cell_tdd);
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED: {
+        char header[] = "Timing Advance, Channel Freq.\n";
+        struct nas_lac_extended_gsm_cell_info *cell_info =
+            (struct nas_lac_extended_gsm_cell_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_GSM_CELL_INFO_EXTENDED", header,
+                     "%.4x,"
+                     "%.4x\n",
+                     cell_info->timing_advance, cell_info->bcch);
+      } break;
+      case NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED: {
+        char header[] = "WCDMA Power (dB),"
+                        "WCDMA TX Power (dB),"
+                        "Downlink Error rate\n";
+        struct nas_lac_extended_wcdma_cell_info *cell_info =
+            (struct nas_lac_extended_wcdma_cell_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_WCDMA_CELL_INFO_EXTENDED", header,
+                     "%.4x,"
+                     "%.4x,"
+                     "%i %%\n",
+                     cell_info->wcdma_power_db, cell_info->wcdma_tx_power_db,
+                     cell_info->downlink_error_rate);
+
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV: {
+        struct nas_lac_lte_timing_advance_info *cell_info =
+            (struct nas_lac_lte_timing_advance_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_LTE_INFO_TIMING_ADV",
+                     "Timing advance\n", "%i\n", cell_info->timing_advance);
+      } break;
+      case NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO: {
+        char header[] = "Cell ID,"
+                        "LAC,"
+                        "ARFCN,"
+                        "BSIC,"
+                        "Timing advance,"
+                        "RX Level,"
+                        "Number of instances,"
+                        "Cell,"
+                        "Cell ID,"
+                        "LAC,"
+                        "ARFCN,"
+                        "BSIC,"
+                        "RX Level\n";
+        struct nas_lac_extended_geran_info *cell_info =
+            (struct nas_lac_extended_geran_info *)(buf + offset);
+        for (uint8_t j = 0; j < cell_info->num_instances; j++) {
+          dump_to_file("NAS_CELL_LAC_INFO_EXTENDED_GERAN_INFO", header,
+                       "%.8x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.2x,"
+                       "%i,"
+                       "%.4x,"
+                       "%u,"
+                       "%u,"
+                       "%.8x,"
+                       "%.4x,"
+                       "%.4x,"
+                       "%.2x,"
+                       "%.4x\n",
+                       cell_info->cell_id, cell_info->lac, cell_info->arfcn,
+                       cell_info->bsic, cell_info->timing_advance,
+                       cell_info->rx_level, cell_info->num_instances, j,
+                       cell_info->nmr_cell_data[j].cell_id,
+                       cell_info->nmr_cell_data[j].lac,
+                       cell_info->nmr_cell_data[j].arfcn,
+                       cell_info->nmr_cell_data[j].bsic,
+                       cell_info->nmr_cell_data[j].rx_level);
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO: {
+        char header[] = "Cell ID,"
+                        "LAC,"
+                        "UARFCN,"
+                        "PSC,"
+                        "RSCP,"
+                        "ECIO,"
+                        "SQUAL,"
+                        "SRX Level,"
+                        "Instances,"
+                        "Cell,"
+                        "UARFCN,"
+                        "PSC,"
+                        "RSCP,"
+                        "ECIO,"
+                        "SQUAL,"
+                        "SRX Level,"
+                        "Rank,"
+                        "Cell Set\n";
+        struct nas_lac_umts_extended_info *cell_info =
+            (struct nas_lac_umts_extended_info *)(buf + offset);
+        for (uint8_t j = 0; j < cell_info->num_instances; j++) {
+          dump_to_file(
+              "NAS_CELL_LAC_INFO_UMTS_EXTENDED_INFO", header,
+              "%.4x,"
+              "%.4x,"
+              "%.4x,"
+              "%.4x,"
+              "%i,"
+              "%i,"
+              "%i,"
+              "%i,"
+              "%u,"
+              "%u,"
+              "%.8x,"
+              "%.4x,"
+              "%i,"
+              "%i,"
+              "%i,"
+              "%i,"
+              "%i,"
+              "%.2x\n",
+              cell_info->cell_id, cell_info->lac, cell_info->uarfcn,
+              cell_info->psc, cell_info->rscp, cell_info->ecio,
+              cell_info->squal, cell_info->srx_level, cell_info->num_instances,
+              j, cell_info->umts_monitored_cell_extended_info[j].uarfcn,
+              cell_info->umts_monitored_cell_extended_info[j].psc,
+              cell_info->umts_monitored_cell_extended_info[j].rscp,
+              cell_info->umts_monitored_cell_extended_info[j].ecio,
+              cell_info->umts_monitored_cell_extended_info[j].squal,
+              cell_info->umts_monitored_cell_extended_info[j].srx_level,
+              cell_info->umts_monitored_cell_extended_info[j].rank,
+              cell_info->umts_monitored_cell_extended_info[j].cell_set);
+        }
+      } break;
+      case NAS_CELL_LAC_INFO_SCELL_GERAN_CONF: {
+        char header[] = "is PCCH present?,"
+                        "GPRS Minimum RX Access level,"
+                        "MAX TX Power CCH\n,";
+        struct nas_lac_scell_geran_config *cell_info =
+            (struct nas_lac_scell_geran_config *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_SCELL_GERAN_CONF", header,
+                     "%u,"
+                     "%.2x,"
+                     "%.2x\n",
+                     cell_info->is_pbcch_present,
+                     cell_info->gprs_min_rx_level_access,
+                     cell_info->max_tx_power_cch);
+      } break;
+      case NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT: {
+        struct nas_lac_current_l1_timeslot *cell_info =
+            (struct nas_lac_current_l1_timeslot *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_CURRENT_L1_TIMESLOT", "Timeslot\n",
+                     "%.2x\n", cell_info->timeslot_num);
+      } break;
+      case NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ: {
+        struct nas_lac_doppler_measurement *cell_info =
+            (struct nas_lac_doppler_measurement *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_DOPPLER_MEASUREMENT_HZ",
+                     "Doppler measur.(hz)\n", "%.2x\n",
+                     cell_info->doppler_measurement_hz);
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN: {
+        struct nas_lac_lte_extended_intra_earfcn_info *cell_info =
+            (struct nas_lac_lte_extended_intra_earfcn_info *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTRA_EARFCN",
+                     "EARFCN\n", "%.8x\n", cell_info->earfcn);
+      } break;
+      case NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN: {
+        struct nas_lac_lte_extended_interfrequency_earfcn *cell_info =
+            (struct nas_lac_lte_extended_interfrequency_earfcn *)(buf + offset);
+        dump_to_file("NAS_CELL_LAC_INFO_LTE_INFO_EXTENDED_INTER_EARFCN",
+                     "EARFCN\n", "%.8x\n", cell_info->earfcn);
+      } break;
+      case NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN: {
+        char header[] = "Number of items,"
+                        "Item #,"
+                        "EARFCN: %.8x\n";
+        struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn *cell_info =
+            (struct nas_lac_wcdma_extended_lte_neighbour_info_earfcn *)(buf +
+                                                                        offset);
+
+        for (uint8_t i = 0; i < cell_info->num_instances; i++) {
+          dump_to_file(
+              "NAS_CELL_LAC_INFO_WCDMA_INFO_EXTENDED_LTE_NEIGHBOUR_EARFCN",
+              "%u,"
+              "%u,",
+              "%.8x\n", cell_info->num_instances, i, cell_info->earfcn[i]);
+        }
+      } break;
+      default:
+        logger(MSG_INFO, "%s: Unknown event %.2x\n", __func__,
+               available_tlvs[i]);
+        break;
+      }
+    }
+  }
+}
 void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   logger(MSG_DEBUG, "%s: update network data\n", __func__);
   nas_runtime.previous_network_state = nas_runtime.current_network_state;
@@ -1469,6 +2062,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   case NAS_GET_CELL_LOCATION_INFO:
     logger(MSG_INFO, "%s: Get Cell Location Info\n", __func__);
     update_cell_location_information(buf, buf_len);
+    log_cell_location_information(buf, buf_len);
     break;
   case NAS_GET_PLMN_NAME:
     logger(MSG_INFO, "%s: Get PLMN Name\n", __func__);
