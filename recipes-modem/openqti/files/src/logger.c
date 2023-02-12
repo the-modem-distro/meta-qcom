@@ -5,18 +5,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "../inc/call.h"
 #include "../inc/config.h"
+#include "../inc/dms.h"
 #include "../inc/helpers.h"
 #include "../inc/ipc.h"
 #include "../inc/logger.h"
+#include "../inc/nas.h"
 #include "../inc/openqti.h"
 #include "../inc/tracking.h"
-#include "../inc/wds.h"
-#include "../inc/dms.h"
 #include "../inc/voice.h"
-#include "../inc/nas.h"
+#include "../inc/wds.h"
 
 bool log_to_file = true;
 uint8_t log_level = 0;
@@ -90,6 +91,37 @@ void logger(uint8_t level, char *format, ...) {
     if (fd != stdout) {
       fclose(fd);
     }
+  }
+}
+
+void dump_to_file(char *filename, char *header, char *format, ...) {
+  FILE *fd;
+  char bpath[255] = {0};
+  va_list args;
+  double elapsed_time;
+  struct timespec current_time;
+  bool write_header = false;
+  clock_gettime(CLOCK_MONOTONIC, &current_time);
+  elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
+                  (current_time.tv_nsec - startup_time.tv_nsec)) /
+                 1e9; // in seconds
+  snprintf(bpath, 254, "/tmp/%s.csv", filename);
+  if (access(bpath, F_OK) != 0) {
+    write_header = true;
+  }
+  fd = fopen(bpath, "a");
+  if (fd == NULL) {
+    return;
+  }
+  if (write_header) {
+    fwrite(header, strlen(header), 1, fd);
+  }
+  va_start(args, format);
+  vfprintf(fd, format, args);
+  va_end(args);
+  fflush(fd);
+  if (fd != stdout) {
+    fclose(fd);
   }
 }
 

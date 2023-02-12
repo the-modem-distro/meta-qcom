@@ -16,6 +16,7 @@
 void reset_logtime();
 double get_elapsed_time();
 void logger(uint8_t level, char *format, ...);
+void dump_to_file(char *filename, char *header, char *format, ...);
 void log_thermal_status(uint8_t level, char *format, ...);
 void dump_packet(char *direction, uint8_t *buf, int pktsize);
 void dump_pkt_raw(uint8_t *buf, int pktsize);
