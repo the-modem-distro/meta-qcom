@@ -189,7 +189,7 @@ void *callaudio_stt_continuous()
             speech = ps_endpointer_process(ep, frame);
         }
         if (speech != NULL) {
-            logget(MSG_INFO, "%s: Speech is not null\n", __func__);
+            logger(MSG_INFO, "%s: Speech is not null\n", __func__);
             const char *hyp;
             if (!prev_in_speech) {
                 logger(MSG_ERROR, "%s: Speech start at %.2f\n", __func__,
