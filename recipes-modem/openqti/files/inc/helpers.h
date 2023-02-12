@@ -15,6 +15,10 @@
 
 #define MSG_DELETE_PARTIAL_CMD "AT+CMGD="
 
+#define CPUFREQ_PATH "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+#define CPUFREQ_PERF "performance"
+#define CPUFREQ_PS "powersave"
+
 int write_to(const char *path, const char *val, int flags);
 uint32_t get_curr_timestamp();
 void store_adb_setting(bool en);
@@ -37,5 +41,5 @@ int read_adsp_version();
 int wipe_message_storage();
 void add_message_to_queue(uint8_t *message, size_t len);
 int send_at_command(char *at_command, size_t cmdlen, char *response, size_t response_sz);
-
+void enable_cpufreq_performance_mode(bool enable);
 #endif

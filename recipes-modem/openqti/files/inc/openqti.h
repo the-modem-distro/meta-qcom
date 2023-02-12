@@ -15,9 +15,6 @@
 #define MAX_FD 50
 
 #define LOCKFILE "/tmp/openqti.lock"
-#define CPUFREQ_PATH "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
-#define CPUFREQ_PERF "performance"
-#define CPUFREQ_PS "powersave"
 
 #define CALL_STATUS_IDLE 0
 #define CALL_STATUS_CS 1
