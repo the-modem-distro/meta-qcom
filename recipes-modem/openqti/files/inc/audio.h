@@ -37,7 +37,8 @@
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
 
-#define MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
+#define HIFI_RX_MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
+#define HIFI_TX_MULTIMEDIA_MIXER "MultiMedia1 Mixer SEC_AUX_PCM_UL_TX"
 #define AUDIO_MODE_I2S 0 // SEC_AUX_PCM_RX Audio Mixer
 #define AUDIO_MODE_USB 1
 

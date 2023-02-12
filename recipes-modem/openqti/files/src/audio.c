@@ -132,10 +132,14 @@ void set_multimedia_mixer() {
     set_mixer_ctl(mixer, SEC_AUXPCM_MODE, 1);
     set_mixer_ctl(mixer, AUX_PCM_SAMPLERATE, 0);
   }
-  set_mixer_ctl(mixer, MULTIMEDIA_MIXER, 1);
+  set_mixer_ctl(mixer, HIFI_RX_MULTIMEDIA_MIXER, 1);
+  set_mixer_ctl(mixer, HIFI_TX_MULTIMEDIA_MIXER, 1);
 }
 
-void stop_multimedia_mixer() { set_mixer_ctl(mixer, MULTIMEDIA_MIXER, 1); }
+void stop_multimedia_mixer() { 
+  set_mixer_ctl(mixer, HIFI_RX_MULTIMEDIA_MIXER, 0); 
+  set_mixer_ctl(mixer, HIFI_TX_MULTIMEDIA_MIXER, 0); 
+  }
 
 void *play_alerting_tone() {
   char *buffer;
@@ -225,7 +229,7 @@ void *play_alerting_tone() {
       logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
       return NULL;
     }
-    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
+    set_mixer_ctl(mymixer, HIFI_RX_MULTIMEDIA_MIXER, 0);
   }
 
   return NULL;

@@ -3,6 +3,7 @@
 #include "../inc/call.h"
 #include "../inc/atfwd.h"
 #include "../inc/audio.h"
+#include "../inc/audio2text.h"
 #include "../inc/command.h"
 #include "../inc/config.h"
 #include "../inc/devices.h"
@@ -21,6 +22,8 @@
 #include <sys/poll.h>
 #include <sys/time.h>
 #include <unistd.h>
+
+#define USE_POCKETSPHINX
 
 /*
  * Simulated calls
@@ -390,6 +393,9 @@ void *simulated_call_tts_handler() {
   int i;
   bool handled;
   char *phrase; //[MAX_TTS_TEXT_SIZE];
+  pthread_t incoming_audio_thread;
+  int ret;
+
   /*
    * Open PCM if we're in call simulation mode,
    * Then leave it open until we're finished
@@ -400,6 +406,14 @@ void *simulated_call_tts_handler() {
     /* Initial set up of the audio codec */
 
     set_multimedia_mixer();
+#ifdef USE_POCKETSPHINX
+
+    speech_to_text_stay_running(1);
+    if ((ret = pthread_create(&incoming_audio_thread, NULL,
+                              &callaudio_stt_continuous, NULL))) {
+      logger(MSG_ERROR, "%s: Error creating input thread\n", __func__);
+    }
+#endif
 
     pcm0 = pcm_open((PCM_OUT | PCM_MONO), PCM_DEV_HIFI);
     if (pcm0 == NULL) {
@@ -426,6 +440,8 @@ void *simulated_call_tts_handler() {
       return NULL;
     }
   }
+  /* Set cpu governor to performance to speed it up a bit */
+  enable_cpufreq_performance_mode(true);
 
   while (get_call_simulation_mode()) {
     handled = false;
@@ -456,6 +472,7 @@ void *simulated_call_tts_handler() {
     if (file == NULL) {
       logger(MSG_ERROR, "%s: Unable to open file\n", __func__);
       pcm_close(pcm0);
+      speech_to_text_stay_running(0);
       return NULL;
     }
 
@@ -467,6 +484,7 @@ void *simulated_call_tts_handler() {
       logger(MSG_ERROR, "Unable to allocate %d bytes\n", size);
       free(buffer);
       buffer = NULL;
+      speech_to_text_stay_running(0);
       return NULL;
     }
 
@@ -482,11 +500,19 @@ void *simulated_call_tts_handler() {
     } while (num_read > 0 && get_call_simulation_mode());
     fclose(file);
     free(buffer);
+
+#ifdef USE_POCKETSPHINX
+/* Demo: Transcript whatever the modem said last run */
+/* callaudio_stt_demo("/tmp/wave.wav"); */
+#endif
   }
+  /* Set cpu governor to performance to speed it up a bit */
+  enable_cpufreq_performance_mode(false);
 
   logger(MSG_INFO, "%s: Cleaning up\n", __func__);
   pcm_close(pcm0);
 
+  speech_to_text_stay_running(0);
   stop_multimedia_mixer();
 
   for (i = 0; i < QUEUE_SIZE; i++) {
@@ -496,7 +522,7 @@ void *simulated_call_tts_handler() {
 }
 
 void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
-  pthread_t dummy_echo_thread;
+  pthread_t tts_thread;
   int ret;
   logger(MSG_INFO, "%s: Accepting simulated call \n", __func__);
   accept_simulated_call(usbfd, transaction_id);
@@ -504,8 +530,8 @@ void process_incoming_call_accept(int usbfd, uint16_t transaction_id) {
   send_voice_call_status_event(usbfd, transaction_id + 1,
                                CALL_DIRECTION_INCOMING, CALL_STATE_ESTABLISHED);
   usleep(100000);
-  if ((ret = pthread_create(&dummy_echo_thread, NULL,
-                            &simulated_call_tts_handler, NULL))) {
+  if ((ret = pthread_create(&tts_thread, NULL, &simulated_call_tts_handler,
+                            NULL))) {
     logger(MSG_ERROR, "%s: Error creating echo thread\n", __func__);
   }
 }
@@ -841,17 +867,25 @@ uint8_t handle_voice_service_all_call_status_info(uint8_t source, void *bytes,
   case FROM_DSP:
     logger(MSG_INFO, "%s DSP is sending a all call info response\n", __func__);
     if (call_rt.do_not_disturb) {
-      size_t response_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof (struct qmi_generic_result_ind);
+      size_t response_len = sizeof(struct qmux_packet) +
+                            sizeof(struct qmi_packet) +
+                            sizeof(struct qmi_generic_result_ind);
       uint8_t *fake_response = malloc(response_len);
       logger(MSG_INFO, "Killing this packet\n");
-      if (build_qmux_header(fake_response, response_len, 0x80, get_qmux_service_id(bytes, len), get_qmux_instance_id(bytes, len)) < 0) {
+      if (build_qmux_header(fake_response, response_len, 0x80,
+                            get_qmux_service_id(bytes, len),
+                            get_qmux_instance_id(bytes, len)) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
       }
-      if (build_qmi_header(fake_response, response_len, 0x02, get_qmi_transaction_id(bytes, len),
-                            VO_SVC_GET_ALL_CALL_INFO) < 0) {
+      if (build_qmi_header(fake_response, response_len, 0x02,
+                           get_qmi_transaction_id(bytes, len),
+                           VO_SVC_GET_ALL_CALL_INFO) < 0) {
         logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
       }
-      struct qmi_generic_result_ind* indication = (struct qmi_generic_result_ind*) (fake_response + response_len - sizeof(struct qmi_generic_result_ind));
+      struct qmi_generic_result_ind *indication =
+          (struct qmi_generic_result_ind *)(fake_response + response_len -
+                                            sizeof(
+                                                struct qmi_generic_result_ind));
       indication->result_code_type = TLV_QMI_RESULT;
       indication->generic_result_size = 0x04;
       indication->result = 0x00;
@@ -918,8 +952,8 @@ uint8_t call_service_handler(uint8_t source, void *bytes, size_t len,
     break;
 
   default:
-    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x (let it pass...)\n", __func__,
-           qmi_message_id);
+    logger(MSG_DEBUG, "%s: Unhandled packet: 0x%.4x (let it pass...)\n",
+           __func__, qmi_message_id);
     break;
   }
   return proxy_action;
