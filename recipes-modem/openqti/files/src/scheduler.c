@@ -8,6 +8,7 @@
 #include "../inc/openqti.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
+#include "../inc/space_mon.h"
 
 #include <endian.h>
 #include <errno.h>
