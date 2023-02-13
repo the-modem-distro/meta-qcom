@@ -265,9 +265,9 @@ uint8_t watch_storage(char *filename) {
          __func__, avail_space_persist, avail_space_tmpfs);
   /* AVAILABLE SPACE MONITORING! */
   if (use_persistent_logging()) {
-    if (avail_space_persist != -EINVAL && avail_space_persist < 1) {
+    if (avail_space_persist != -EINVAL && avail_space_persist < 2) {
       kill_recording = 1;
-    } else if (avail_space_persist != -EINVAL && avail_space_persist < 2) {
+    } else if (avail_space_persist != -EINVAL && avail_space_persist < 3) {
       // AGGRESSIVE
       cleanup_storage(1, true, filename);
     } else if (avail_space_persist != -EINVAL && avail_space_persist < 5) {
@@ -278,9 +278,9 @@ uint8_t watch_storage(char *filename) {
       set_log_level(MSG_ERROR);
     }
   } else {
-    if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
+    if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 2) {
       kill_recording = 1;
-    } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 2) {
+    } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 3) {
       // AGGRESSIVE
       cleanup_storage(0, true, filename);
     } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 5) {
