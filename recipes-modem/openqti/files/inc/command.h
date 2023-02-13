@@ -70,7 +70,9 @@ static const struct {
     {47, "disable internal net", "Warning: this doesn't work yet", "Attempts to init modem's internal RMNET port"},
     {48, "disable dnd", "Disabling Do Not Disturb", "Disables Do Not Disturb feature"},
     {49, "disable service debugging", "Done boss!", "Disables extensive logging for a defined service"},
-    {50, "list qmi services", "Available QMI services:", "Shows QMI Service IDs (for service debugging)"}
+    {50, "list qmi services", "Available QMI services:", "Shows QMI Service IDs (for service debugging)"},
+    {51, "dump network data", "Enabling network data logging", "Dumps network data given by the baseband as CSV files"},
+    {52, "disable network data dump", "Disabling network data logging", "Disables network data dump to CSV"},
 };
 
 static const struct {

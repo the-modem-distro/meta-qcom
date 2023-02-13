@@ -1700,6 +1700,18 @@ uint8_t parse_command(uint8_t *command) {
     }
     add_message_to_queue(reply, strsz);
     break;
+  case 51:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_dump_network_tables(true);
+    break;
+  case 52:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_dump_network_tables(false);
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
