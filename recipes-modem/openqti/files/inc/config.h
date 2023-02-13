@@ -9,7 +9,8 @@
 #define PERSIST_CUSTOM_ALERT_TONE "cust_alert_tone"
 #define CONFIG_FILE_PATH "/persist/openqti.conf"
 #define SCHEDULER_DATA_FILE_PATH "/persist/sched.raw"
-#define PERSISTENT_LOGFILE_PATH "/persist/log"
+#define PERSISTENT_PATH "/persist/"
+#define VOLATILE_PATH "/tmp/"
 #define MAX_NAME_SZ 32
 
 struct config_prototype {
@@ -64,7 +65,7 @@ void set_user_name(char *name);
 uint8_t use_persistent_logging();
 void set_persistent_logging(bool en);
 char *get_openqti_logfile();
-
+char *get_default_logpath();
 /* Is first boot? */
 bool is_first_boot();
 void clear_ifrst_boot_flag();

@@ -294,6 +294,13 @@ char *get_openqti_logfile() {
 
   return VOLATILE_LOGPATH;
 }
+
+char *get_default_logpath() {
+  if (settings->persistent_logging)
+    return PERSISTENT_PATH;
+
+  return VOLATILE_PATH;
+}
 uint8_t use_custom_alert_tone() { return settings->custom_alert_tone; }
 
 uint8_t is_signal_tracking_enabled() { return settings->signal_tracking; }

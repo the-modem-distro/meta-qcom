@@ -105,7 +105,7 @@ void dump_to_file(char *filename, char *header, char *format, ...) {
   elapsed_time = (((current_time.tv_sec - startup_time.tv_sec) * 1e9) +
                   (current_time.tv_nsec - startup_time.tv_nsec)) /
                  1e9; // in seconds
-  snprintf(bpath, 254, "/tmp/%s.csv", filename);
+  snprintf(bpath, 254, "%s%s.csv", get_default_logpath(), filename);
   if (access(bpath, F_OK) != 0) {
     write_header = true;
   }
