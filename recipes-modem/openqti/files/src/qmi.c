@@ -294,7 +294,7 @@ uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len) {
  * Signals to the proxy thread that some internal service has a pending message
  */
 void set_pending_message(uint8_t service) {
-  logger(MSG_INFO, "%s: Pending QMI message for service %.2x\n", __func__,
+  logger(MSG_DEBUG, "%s: Pending QMI message for service %.2x\n", __func__,
          service);
   internal_qmi_client.services[service].has_pending_message = 1;
   internal_qmi_client.has_pending_message = 1;
@@ -395,7 +395,7 @@ void clear_message_for_service(uint8_t service) {
   internal_qmi_client.services[service].message = NULL;
   internal_qmi_client.services[service].message_len = 0;
   internal_qmi_client.services[service].has_pending_message = 0;
-  logger(MSG_INFO, "%s: Message for %.2x cleared.\n", __func__, service);
+  logger(MSG_DEBUG, "%s: Message for %.2x cleared.\n", __func__, service);
 }
 
 /*
@@ -595,7 +595,7 @@ int handle_incoming_qmi_control_message(uint8_t *buf, size_t buf_len) {
 }
 
 void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
-  logger(MSG_INFO, "%s: Pending message delivery service\n", __func__);
+  logger(MSG_DEBUG, "%s: Pending message delivery service\n", __func__);
   uint8_t service = get_qmux_service_id(buf, buf_len);
   uint16_t transaction_id = get_transaction_id(buf, buf_len);
 
