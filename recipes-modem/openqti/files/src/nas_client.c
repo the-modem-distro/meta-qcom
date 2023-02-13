@@ -1985,7 +1985,6 @@ void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
  * Reroutes messages from the internal QMI client to the service
  */
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
-  logger(MSG_INFO, "%s: Start\n", __func__);
 #ifdef DEBUG_NAS
   pretty_print_qmi_pkt("NAS: Baseband --> Host", buf, buf_len);
 #endif
@@ -2063,7 +2062,8 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
   case NAS_GET_CELL_LOCATION_INFO:
     logger(MSG_INFO, "%s: Get Cell Location Info\n", __func__);
     update_cell_location_information(buf, buf_len);
-    log_cell_location_information(buf, buf_len);
+    if (get_dump_network_tables_config())
+      log_cell_location_information(buf, buf_len);
     break;
   case NAS_GET_PLMN_NAME:
     logger(MSG_INFO, "%s: Get PLMN Name\n", __func__);
@@ -2078,7 +2078,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     logger(MSG_INFO, "%s: System Info\n", __func__);
     break;
   case NAS_GET_SIGNAL_INFO:
-    logger(MSG_INFO, "%s: Get Signal Info\n", __func__);
+    logger(MSG_DEBUG, "%s: Get Signal Info\n", __func__);
     struct nas_signal_lev *level = (struct nas_signal_lev *)buf;
     nas_update_network_data(level->signal.id, level->signal.signal_level);
     if (is_first_boot()) {
