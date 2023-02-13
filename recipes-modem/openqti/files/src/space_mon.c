@@ -74,7 +74,7 @@ int cleanup_storage(int storage_id, bool aggressive, char *exclude_file) {
             logger(MSG_ERROR, " [AGG] %s\n", ep->d_name);
             remove(tmpfile);
           }
-        } else if (strstr(ep->d_name, "log") != NULL) {
+        } else if (strstr(ep->d_name, "log") != NULL || strstr(ep->d_name, "csv") != NULL) {
           logger(MSG_ERROR, " DEL %s\n", ep->d_name);
           remove(tmpfile);
         }
