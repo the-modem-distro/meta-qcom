@@ -2,6 +2,7 @@
 
 #include "../inc/config.h"
 #include "../inc/logger.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
@@ -51,6 +52,7 @@ int set_initial_config() {
   settings->callwait_autohangup = 0;
   settings->automatic_call_recording = 0;
   settings->allow_internal_modem_connectivity = 0;
+  settings->dump_network_tables = 0;
   settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
@@ -120,6 +122,11 @@ int parse_line(char *buf) {
     return 1;
   }
 
+  if (strcmp(setting, "dump_network_tables") == 0) {
+    settings->dump_network_tables = atoi(value);
+    return 1;
+  }
+
   if (strcmp(setting, "callwait_autohangup") == 0) {
     settings->callwait_autohangup = atoi(value);
     return 1;
@@ -134,18 +141,18 @@ int parse_line(char *buf) {
     settings->allow_internal_modem_connectivity = atoi(value);
     return 1;
   }
-  
+
   if (strcmp(setting, "automatic_call_recording") == 0) {
     settings->automatic_call_recording = atoi(value);
     return 1;
   }
-  
+
   if (strcmp(setting, "user_name") == 0) {
     memcpy(settings->user_name, value, strlen(settings->user_name));
     settings->user_name[(sizeof(settings->user_name) - 1)] = 0;
     return 1;
   }
-  
+
   if (strcmp(setting, "modem_name") == 0) {
     strncpy(settings->modem_name, value, sizeof(settings->modem_name));
     settings->modem_name[(sizeof(settings->modem_name) - 1)] = 0;
@@ -177,10 +184,13 @@ int write_settings_to_storage() {
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
   fprintf(fp, "signal_tracking_mode=%i\n", settings->signal_tracking_mode);
+  fprintf(fp, "dump_network_tables=%i\n", settings->dump_network_tables);
   fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
-  fprintf(fp, "automatic_call_recording=%i\n", settings->automatic_call_recording);
+  fprintf(fp, "automatic_call_recording=%i\n",
+          settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
-  fprintf(fp, "allow_internal_modem_connectivity=%i\n", settings->allow_internal_modem_connectivity);
+  fprintf(fp, "allow_internal_modem_connectivity=%i\n",
+          settings->allow_internal_modem_connectivity);
   logger(MSG_DEBUG, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
@@ -213,8 +223,7 @@ int read_boot_counter_file() {
   logger(MSG_DEBUG, "%s: Read boot counter\n", __func__);
   fp = fopen(BOOT_FLAG_FILE, "r");
   if (fp == NULL) {
-    logger(MSG_DEBUG, "%s, Creating new boot counter file\n",
-            __func__);
+    logger(MSG_DEBUG, "%s, Creating new boot counter file\n", __func__);
     write_boot_counter_file(0);
     return 0;
   }
@@ -223,11 +232,11 @@ int read_boot_counter_file() {
   }
   fclose(fp);
   logger(MSG_INFO, "%s: Failed boot counter: %i\n", __func__, val);
-  if (val < 0 ) {
+  if (val < 0) {
     val = 0;
   }
-  write_boot_counter_file(val+1);
-  return val; 
+  write_boot_counter_file(val + 1);
+  return val;
 }
 
 int read_settings_from_file() {
@@ -258,7 +267,9 @@ int read_settings_from_file() {
   dump_current_config();
   attempted_boots = read_boot_counter_file();
   if (attempted_boots > 3) {
-    logger(MSG_WARN, "%s: Enabling persistent logging due to repeated boot failures\n", __func__);
+    logger(MSG_WARN,
+           "%s: Enabling persistent logging due to repeated boot failures\n",
+           __func__);
     settings->persistent_logging = 1;
     recreate_cfg_required = true;
   }
@@ -275,7 +286,7 @@ bool is_first_boot() { return settings->first_boot; }
 
 void clear_ifrst_boot_flag() { settings->first_boot = false; }
 
-int use_persistent_logging() { return settings->persistent_logging; }
+uint8_t use_persistent_logging() { return settings->persistent_logging; }
 
 char *get_openqti_logfile() {
   if (settings->persistent_logging)
@@ -283,28 +294,36 @@ char *get_openqti_logfile() {
 
   return VOLATILE_LOGPATH;
 }
-int use_custom_alert_tone() { return settings->custom_alert_tone; }
+uint8_t use_custom_alert_tone() { return settings->custom_alert_tone; }
 
-int is_signal_tracking_enabled() { return settings->signal_tracking; }
+uint8_t is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 uint8_t get_signal_tracking_mode() { return settings->signal_tracking_mode; }
 
-int is_sms_logging_enabled() { return settings->sms_logging; }
+uint8_t get_dump_network_tables_config() {
+  return settings->dump_network_tables;
+}
 
-int is_internal_connect_enabled() { return settings->allow_internal_modem_connectivity; }
+uint8_t is_sms_logging_enabled() { return settings->sms_logging; }
 
-int is_automatic_call_recording_enabled() { return settings->automatic_call_recording; }
+uint8_t is_internal_connect_enabled() {
+  return settings->allow_internal_modem_connectivity;
+}
 
-int callwait_auto_hangup_operation_mode() {
+uint8_t is_automatic_call_recording_enabled() {
+  return settings->automatic_call_recording;
+}
+
+uint8_t callwait_auto_hangup_operation_mode() {
   return settings->callwait_autohangup;
 }
 
-int get_modem_name(char *buff) {
+uint8_t get_modem_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->modem_name);
   return 1;
 }
 
-int get_user_name(char *buff) {
+uint8_t get_user_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->user_name);
   return 1;
 }
@@ -322,7 +341,8 @@ void set_custom_alert_tone(bool en) {
 
 void set_automatic_call_recording(uint8_t mode) {
   if (mode == 2) {
-    logger(MSG_WARN, "Enabling Automatic Call Recording (record and recycle)\n");
+    logger(MSG_WARN,
+           "Enabling Automatic Call Recording (record and recycle)\n");
     settings->automatic_call_recording = 2;
   } else if (mode == 1) {
     logger(MSG_WARN, "Enabling Automatic Call Recording\n");
@@ -395,30 +415,44 @@ void enable_signal_tracking(bool en) {
   write_settings_to_storage();
 }
 
+void enable_dump_network_tables(bool en) {
+  if (en) {
+    logger(MSG_WARN, "Enable logging of cell location data as csv\n");
+    settings->dump_network_tables = 1;
+  } else {
+    logger(MSG_WARN, "Disabling  logging of cell location data as csv\n");
+    settings->dump_network_tables = 0;
+  }
+  write_settings_to_storage();
+}
+
 void set_signal_tracking_mode(uint8_t mode) {
   if (mode > 3) {
     logger(MSG_ERROR, "%s: Invalid mode: %u\n", __func__, mode);
     return;
   }
-  switch(mode) {
-    case 0:
-    logger(MSG_INFO, "%s: Mode: Standalone: learn and notify changes \n", __func__);
+  switch (mode) {
+  case 0:
+    logger(MSG_INFO, "%s: Mode: Standalone: learn and notify changes \n",
+           __func__);
     break;
 
-    case 1:
-    logger(MSG_INFO, "%s: Mode: Standalone: Automatically disconnect \n", __func__);
+  case 1:
+    logger(MSG_INFO, "%s: Mode: Standalone: Automatically disconnect \n",
+           __func__);
     break;
 
-    case 2:
-    logger(MSG_INFO, "%s: Mode: Standalone + OpenCellID: learn and notify changes \n", __func__);
+  case 2:
+    logger(MSG_INFO,
+           "%s: Mode: Standalone + OpenCellID: learn and notify changes \n",
+           __func__);
     break;
 
-    case 3:
-    logger(MSG_INFO, "%s: Mode: Standalone + OpenCellID: Automatically disconnect \n", __func__);
+  case 3:
+    logger(MSG_INFO,
+           "%s: Mode: Standalone + OpenCellID: Automatically disconnect \n",
+           __func__);
     break;
-
-
-
   }
   settings->signal_tracking_mode = mode;
   write_settings_to_storage();

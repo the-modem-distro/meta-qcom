@@ -11,6 +11,7 @@
 #define SCHEDULER_DATA_FILE_PATH "/persist/sched.raw"
 #define PERSISTENT_LOGFILE_PATH "/persist/log"
 #define MAX_NAME_SZ 32
+
 struct config_prototype {
   uint8_t custom_alert_tone;
   uint8_t persistent_logging;
@@ -22,6 +23,7 @@ struct config_prototype {
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
   uint8_t allow_internal_modem_connectivity;
+  uint8_t dump_network_tables;
   bool first_boot;
 
 };
@@ -42,24 +44,24 @@ int set_initial_config();
 int read_settings_from_file();
 
 /* Signal tracking */
-int is_signal_tracking_enabled();
+uint8_t is_signal_tracking_enabled();
 uint8_t get_signal_tracking_mode();
 void enable_signal_tracking(bool en);
 void set_signal_tracking_mode(uint8_t mode);
 
 /* Custom alert tone */
-int use_custom_alert_tone();
+uint8_t use_custom_alert_tone();
 void set_custom_alert_tone(bool en);
 
 /* Modem Name */
-int get_modem_name(char *buff);
+uint8_t get_modem_name(char *buff);
 void set_modem_name(char *name);
 /* User name */
-int get_user_name(char *buff);
+uint8_t get_user_name(char *buff);
 void set_user_name(char *name);
 
 /* Persistent logging */
-int use_persistent_logging();
+uint8_t use_persistent_logging();
 void set_persistent_logging(bool en);
 char *get_openqti_logfile();
 
@@ -68,20 +70,22 @@ bool is_first_boot();
 void clear_ifrst_boot_flag();
 
 /* SMS logging */
-int is_sms_logging_enabled();
+uint8_t is_sms_logging_enabled();
 void set_sms_logging(bool en);
 
 /* Automatically hang up call waiting */
-int callwait_auto_hangup_operation_mode();
+uint8_t callwait_auto_hangup_operation_mode();
 void enable_call_waiting_autohangup(uint8_t en);
 
 /* Automatic call recording */
-int is_automatic_call_recording_enabled();
+uint8_t is_automatic_call_recording_enabled();
 void set_automatic_call_recording(uint8_t mode);
 
 /* SMS logging */
-int is_internal_connect_enabled();
+uint8_t is_internal_connect_enabled();
 void set_internal_connectivity(bool en);
 
-
+/* Automatically export cell location data as CSV */
+uint8_t get_dump_network_tables_config();
+void enable_dump_network_tables(bool en);
 #endif
