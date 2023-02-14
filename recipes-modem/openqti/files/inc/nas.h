@@ -10,6 +10,9 @@
 
 
 #define INTERNAL_CELLID_INFO_PATH "/persist/cellid_data.raw"
+#define MAX_REPORT_NUM 4096
+#define MAX_FILE_SIZE 13107200
+
 /*
  * Headers for the Network Access Service
  *
@@ -609,17 +612,24 @@ struct nas_report {
   uint8_t opencellid_verified;
 };
 
-
-struct network_state {
+struct basic_network_status {
+  uint8_t operator_name[32];
+  uint8_t mcc[4];
+  uint8_t mnc[3];
+  uint16_t location_area_code_1;
+  uint16_t location_area_code_2;
+  struct service_capability service_capability;
+  uint8_t network_registration_status;
+  uint8_t circuit_switch_attached;
+  uint8_t packet_switch_attached;
+  uint8_t radio_access;
   uint8_t network_type; // LTE / WCDMA / GSM / ??
   uint8_t signal_level; // in dB
 };
 
+
 struct network_status_reports {
-  uint8_t filled;
-  uint16_t location_area_code_1;
-  uint16_t location_area_code_2;
-  struct service_capability service_capability;
+  uint8_t in_use;
   struct nas_report report;
 };
 
@@ -630,13 +640,13 @@ uint8_t *get_current_mcc();
 uint8_t *get_current_mnc();
 uint8_t get_network_type();
 struct nas_report get_current_cell_report();
-struct network_state get_network_status();
+struct basic_network_status get_network_status();
 uint8_t get_signal_strength();
 uint8_t nas_is_network_in_service();
 const char *get_nas_command(uint16_t msgid);
 
 int nas_request_cell_location_info();
-int nas_get_signal_info();
+int nas_request_signal_info();
 
 void *register_to_nas_service();
 int handle_incoming_nas_message(uint8_t *buf, size_t buf_len);

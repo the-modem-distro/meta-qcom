@@ -271,7 +271,7 @@ void *start_scheduler_thread() {
       logger(MSG_DEBUG, "%s: Tock!\n", __func__);
       tick = 0;
       // Request network update
-      nas_get_signal_info();
+      nas_request_signal_info();
       nas_request_cell_location_info();
       uint32_t avail_space_persist = get_available_space_persist_mb();
       uint32_t avail_space_tmpfs = get_available_space_tmpfs_mb();
@@ -281,7 +281,7 @@ void *start_scheduler_thread() {
             snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      "I'm running out of storage, cleaning /persist\n");
         add_message_to_queue(reply, strsz);
-        cleanup_storage(1, true, "openqti.lock");
+        cleanup_storage(1, false, "openqti.lock");
       }
       if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
         uint8_t reply[MAX_MESSAGE_SIZE] = {0};
