@@ -27,8 +27,8 @@
 
 struct {
   /* Basic state */
-  struct basic_network_status current_state;
-  struct basic_network_status previous_state;
+  struct basic_network_status curr_state;
+  struct basic_network_status prev_state;
 
   /* Network status report history */
   uint16_t current_report;
@@ -56,7 +56,7 @@ int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
     logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
     return -EINVAL;
   }
-  logger(MSG_INFO, "%s Looking for the cell id\n", __func__);
+  logger(MSG_DEBUG, "%s Looking for the cell id\n", __func__);
   for (uint64_t i = 0; i < nas_runtime.open_cellid_num_items; i++) {
     struct ocid_cell_slim *ocid =
         (nas_runtime.open_cellid_import + (i * sizeof(struct ocid_cell_slim)));
@@ -64,8 +64,7 @@ int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
       logger(MSG_INFO, "%s: Found %u %u (OpenCellID: %u %u)\n", __func__,
              cell_id, lac, ocid->cell, ocid->area);
       return 1;
-    } else if (ocid->area == lac) {
-    }
+    } 
   }
   logger(MSG_INFO, "%s: Didn't find it... :(\n ", __func__);
   return 0;
@@ -78,7 +77,7 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
     logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
     return cell;
   }
-  logger(MSG_INFO, "%s Looking for the cell id\n", __func__);
+
   for (uint64_t i = 0; i < nas_runtime.open_cellid_num_items; i++) {
     struct ocid_cell_slim *ocid =
         (nas_runtime.open_cellid_import + (i * sizeof(struct ocid_cell_slim)));
@@ -89,8 +88,8 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
       return cell;
     }
   }
-  logger(MSG_INFO, "%s: Didn't find it... :(\n ", __func__);
-  return cell;
+  logger(MSG_INFO, "%s: Couldn't find cid %u with lac %u \n", __func__, cell_id, lac);
+      return cell;
 }
 
 uint8_t is_cellid_data_missing() {
@@ -104,14 +103,14 @@ void get_opencellid_data() {
   char filename[256];
   size_t filesize = 0;
   snprintf(filename, 255, "/tmp/%s-%s.bin",
-           (char *)nas_runtime.current_state.mcc,
-           (char *)nas_runtime.current_state.mnc);
+           (char *)nas_runtime.curr_state.mcc,
+           (char *)nas_runtime.curr_state.mnc);
   fp = fopen(filename, "r");
   if (fp == NULL) {
     logger(
         MSG_WARN,
         "%s: Can't find OpenCellid database for the current carrier: %s-%s\n",
-        __func__, nas_runtime.current_state.mcc, nas_runtime.current_state.mnc);
+        __func__, nas_runtime.curr_state.mcc, nas_runtime.curr_state.mnc);
     return;
   }
 
@@ -134,8 +133,8 @@ void get_opencellid_data() {
       free(nas_runtime.open_cellid_import);
       return;
     }
-    memcpy(nas_runtime.open_cellid_mcc, nas_runtime.current_state.mcc, 4);
-    memcpy(nas_runtime.open_cellid_mnc, nas_runtime.current_state.mnc, 3);
+    memcpy(nas_runtime.open_cellid_mcc, nas_runtime.curr_state.mcc, 4);
+    memcpy(nas_runtime.open_cellid_mnc, nas_runtime.curr_state.mnc, 3);
     nas_runtime.cellid_data_missing = 1;
 
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
@@ -291,14 +290,14 @@ int load_report_data() {
 */
 
 
-uint8_t *get_current_mcc() { return nas_runtime.current_state.mcc; }
-uint8_t *get_current_mnc() { return nas_runtime.current_state.mnc; }
+uint8_t *get_current_mcc() { return nas_runtime.curr_state.mcc; }
+uint8_t *get_current_mnc() { return nas_runtime.curr_state.mnc; }
 uint8_t get_network_type() {
-  return nas_runtime.current_state.network_type;
+  return nas_runtime.curr_state.network_type;
 }
 
 struct basic_network_status get_network_status() {
-  return nas_runtime.current_state;
+  return nas_runtime.curr_state;
 }
 
 /* Used in command.c */
@@ -307,27 +306,27 @@ struct nas_report get_current_cell_report() {
 }
 
 uint8_t get_signal_strength() {
-  return nas_runtime.current_state.signal_level;
+  return nas_runtime.curr_state.signal_level;
 }
 
 uint8_t nas_is_network_in_service() {
-  if (nas_runtime.current_state.service_capability.gprs ||
-      nas_runtime.current_state.service_capability.edge ||
-      nas_runtime.current_state.service_capability.hsdpa ||
-      nas_runtime.current_state.service_capability.hsupa ||
-      nas_runtime.current_state.service_capability.wcdma ||
-      nas_runtime.current_state.service_capability.gsm ||
-      nas_runtime.current_state.service_capability.lte ||
-      nas_runtime.current_state.service_capability.hsdpa_plus ||
-      nas_runtime.current_state.service_capability.dc_hsdpa_plus)
+  if (nas_runtime.curr_state.service_capability.gprs ||
+      nas_runtime.curr_state.service_capability.edge ||
+      nas_runtime.curr_state.service_capability.hsdpa ||
+      nas_runtime.curr_state.service_capability.hsupa ||
+      nas_runtime.curr_state.service_capability.wcdma ||
+      nas_runtime.curr_state.service_capability.gsm ||
+      nas_runtime.curr_state.service_capability.lte ||
+      nas_runtime.curr_state.service_capability.hsdpa_plus ||
+      nas_runtime.curr_state.service_capability.dc_hsdpa_plus)
     return 1;
 
   return 0;
 }
 
 uint8_t has_capability_changed() {
-  if (memcmp(&nas_runtime.current_state.service_capability,
-             &nas_runtime.previous_state.service_capability,
+  if (memcmp(&nas_runtime.curr_state.service_capability,
+             &nas_runtime.prev_state.service_capability,
              sizeof(struct service_capability)) == 0)
     return 0;
 
@@ -489,7 +488,7 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
              __func__);
       return;
     }
-    memcpy(nas_runtime.current_state.operator_name, name->operator_name,
+    memcpy(nas_runtime.curr_state.operator_name, name->operator_name,
            name->len - (sizeof(uint16_t)));
   }
   offset = get_tlv_offset_by_id(buf, buf_len, 0x11);
@@ -499,21 +498,21 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
       logger(MSG_ERROR, "%s: Message is shorter than carrier data\n", __func__);
       return;
     }
-    memcpy(nas_runtime.current_state.mcc, op_code->mcc, 3);
-    memcpy(nas_runtime.current_state.mnc, op_code->mnc, 2);
-    nas_runtime.current_state.location_area_code_1 = op_code->lac1;
-    nas_runtime.current_state.location_area_code_2 = op_code->lac2;
+    memcpy(nas_runtime.curr_state.mcc, op_code->mcc, 3);
+    memcpy(nas_runtime.curr_state.mnc, op_code->mnc, 2);
+    nas_runtime.curr_state.location_area_code_1 = op_code->lac1;
+    nas_runtime.curr_state.location_area_code_2 = op_code->lac2;
   }
 
   logger(MSG_INFO,
          "%s: Operator: %s | "
          "MCC-MNC: %s-%s | "
          "LACs: %.4x %.4x\n",
-         __func__, nas_runtime.current_state.operator_name,
-         (unsigned char *)nas_runtime.current_state.mcc,
-         (unsigned char *)nas_runtime.current_state.mnc,
-         nas_runtime.current_state.location_area_code_1,
-         nas_runtime.current_state.location_area_code_2);
+         __func__, nas_runtime.curr_state.operator_name,
+         (unsigned char *)nas_runtime.curr_state.mcc,
+         (unsigned char *)nas_runtime.curr_state.mnc,
+         nas_runtime.curr_state.location_area_code_1,
+         nas_runtime.curr_state.location_area_code_2);
 }
 
 void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
@@ -527,18 +526,18 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
              __func__);
       return;
     }
-    nas_runtime.previous_state = nas_runtime.current_state;
+    nas_runtime.prev_state = nas_runtime.curr_state;
 
     // Set everything to 0, then repopulate
-    nas_runtime.current_state.service_capability.gprs = 0;
-    nas_runtime.current_state.service_capability.edge = 0;
-    nas_runtime.current_state.service_capability.hsdpa = 0;
-    nas_runtime.current_state.service_capability.hsupa = 0;
-    nas_runtime.current_state.service_capability.wcdma = 0;
-    nas_runtime.current_state.service_capability.gsm = 0;
-    nas_runtime.current_state.service_capability.lte = 0;
-    nas_runtime.current_state.service_capability.hsdpa_plus = 0;
-    nas_runtime.current_state.service_capability.dc_hsdpa_plus = 0;
+    nas_runtime.curr_state.service_capability.gprs = 0;
+    nas_runtime.curr_state.service_capability.edge = 0;
+    nas_runtime.curr_state.service_capability.hsdpa = 0;
+    nas_runtime.curr_state.service_capability.hsupa = 0;
+    nas_runtime.curr_state.service_capability.wcdma = 0;
+    nas_runtime.curr_state.service_capability.gsm = 0;
+    nas_runtime.curr_state.service_capability.lte = 0;
+    nas_runtime.curr_state.service_capability.hsdpa_plus = 0;
+    nas_runtime.curr_state.service_capability.dc_hsdpa_plus = 0;
 
     for (uint16_t i = 0; i < capability_arr->len; i++) {
       switch (capability_arr->data[i]) {
@@ -546,31 +545,31 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
         logger(MSG_INFO, "%s: No service\n", __func__);
         break;
       case 0x01:
-        nas_runtime.current_state.service_capability.gprs = 1;
+        nas_runtime.curr_state.service_capability.gprs = 1;
         break;
       case 0x02:
-        nas_runtime.current_state.service_capability.edge = 1;
+        nas_runtime.curr_state.service_capability.edge = 1;
         break;
       case 0x03:
-        nas_runtime.current_state.service_capability.hsdpa = 1;
+        nas_runtime.curr_state.service_capability.hsdpa = 1;
         break;
       case 0x04:
-        nas_runtime.current_state.service_capability.hsupa = 1;
+        nas_runtime.curr_state.service_capability.hsupa = 1;
         break;
       case 0x05:
-        nas_runtime.current_state.service_capability.wcdma = 1;
+        nas_runtime.curr_state.service_capability.wcdma = 1;
         break;
       case 0x0a:
-        nas_runtime.current_state.service_capability.gsm = 1;
+        nas_runtime.curr_state.service_capability.gsm = 1;
         break;
       case 0x0b:
-        nas_runtime.current_state.service_capability.lte = 1;
+        nas_runtime.curr_state.service_capability.lte = 1;
         break;
       case 0x0c:
-        nas_runtime.current_state.service_capability.hsdpa_plus = 1;
+        nas_runtime.curr_state.service_capability.hsdpa_plus = 1;
         break;
       case 0x0d:
-        nas_runtime.current_state.service_capability.dc_hsdpa_plus = 1;
+        nas_runtime.curr_state.service_capability.dc_hsdpa_plus = 1;
         break;
       default:
         logger(MSG_WARN, "%s: Unknown service capability: %.2x\n", __func__,
@@ -587,12 +586,12 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
       logger(MSG_ERROR, "%s: Message is shorter than carrier data\n", __func__);
       return;
     }
-    nas_runtime.current_state.network_registration_status =
+    nas_runtime.curr_state.network_registration_status =
         serving_sys->registration_status;
-    nas_runtime.current_state.circuit_switch_attached =
+    nas_runtime.curr_state.circuit_switch_attached =
         serving_sys->cs_attached;
-    nas_runtime.current_state.packet_switch_attached = serving_sys->ps_attached;
-    nas_runtime.current_state.radio_access = serving_sys->radio_access;
+    nas_runtime.curr_state.packet_switch_attached = serving_sys->ps_attached;
+    nas_runtime.curr_state.radio_access = serving_sys->radio_access;
   }
 
   logger(MSG_DEBUG,
@@ -609,30 +608,30 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
          "\tCircuit Switch Service Attached: %s\n"
          "\tPacket Switch Service attached: %s\n",
          __func__,
-         nas_runtime.current_state.service_capability.gsm == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.gprs == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.edge == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.wcdma == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.hsdpa == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.hsupa == 1 ? "Yes" : "No",
-         nas_runtime.current_state.service_capability.hsdpa_plus == 1 ? "Yes"
+         nas_runtime.curr_state.service_capability.gsm == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.gprs == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.edge == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.wcdma == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.hsdpa == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.hsupa == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.service_capability.hsdpa_plus == 1 ? "Yes"
                                                                       : "No",
-         nas_runtime.current_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
+         nas_runtime.curr_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
                                                                          : "No",
-         nas_runtime.current_state.service_capability.lte == 1 ? "Yes" : "No",
-         nas_runtime.current_state.circuit_switch_attached == 1 ? "Yes" : "No",
-         nas_runtime.current_state.packet_switch_attached == 1 ? "Yes" : "No");
+         nas_runtime.curr_state.service_capability.lte == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.circuit_switch_attached == 1 ? "Yes" : "No",
+         nas_runtime.curr_state.packet_switch_attached == 1 ? "Yes" : "No");
 
-  if (nas_runtime.previous_state.packet_switch_attached &&
-      !nas_runtime.previous_state.packet_switch_attached &&
+  if (nas_runtime.prev_state.packet_switch_attached &&
+      !nas_runtime.prev_state.packet_switch_attached &&
       is_signal_tracking_enabled()) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
     size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                             "Warning: Packet switch detached!");
     add_message_to_queue(reply, strsz);
   }
-  if (nas_runtime.previous_state.circuit_switch_attached &&
-      !nas_runtime.previous_state.circuit_switch_attached) {
+  if (nas_runtime.prev_state.circuit_switch_attached &&
+      !nas_runtime.prev_state.circuit_switch_attached) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
     size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                             "Warning: Circuit switch detached!");
@@ -654,19 +653,19 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
         "LTE:%s\n"
         "CS Attached:%s\n"
         "PS Attached:%s\n",
-        nas_runtime.current_state.service_capability.gsm == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.gprs == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.edge == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.wcdma == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsdpa == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsupa == 1 ? "Yes" : "No",
-        nas_runtime.current_state.service_capability.hsdpa_plus == 1 ? "Yes"
+        nas_runtime.curr_state.service_capability.gsm == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.gprs == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.edge == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.wcdma == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.hsdpa == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.hsupa == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.service_capability.hsdpa_plus == 1 ? "Yes"
                                                                      : "No",
-        nas_runtime.current_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
+        nas_runtime.curr_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
                                                                         : "No",
-        nas_runtime.current_state.service_capability.lte == 1 ? "Yes" : "No",
-        nas_runtime.current_state.circuit_switch_attached == 1 ? "Yes" : "No",
-        nas_runtime.current_state.packet_switch_attached == 1 ? "Yes" : "No");
+        nas_runtime.curr_state.service_capability.lte == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.circuit_switch_attached == 1 ? "Yes" : "No",
+        nas_runtime.curr_state.packet_switch_attached == 1 ? "Yes" : "No");
     add_message_to_queue(reply, strsz);
   }
 }
@@ -753,7 +752,6 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
   int report_id = -1;
   int opencellid_res = -1;
 
-  logger(MSG_INFO, "%s: Start\n", __func__);
 
   if (lac == 0 || cell_id == 0) {
     logger(MSG_WARN, "%s: Not enough data to process\n", __func__);
@@ -853,17 +851,17 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
   }
 
   if (get_signal_tracking_mode() > 1) {
-    if (memcmp(nas_runtime.current_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
+    if (memcmp(nas_runtime.curr_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
             0 ||
-        memcmp(nas_runtime.current_state.mnc, nas_runtime.open_cellid_mnc, 3) !=
+        memcmp(nas_runtime.curr_state.mnc, nas_runtime.open_cellid_mnc, 3) !=
             0) {
       logger(MSG_INFO, "%s: Needs OpenCellid data refresh!\n", __func__);
       get_opencellid_data();
     }
   }
 
-  mcc = atoi((char *)nas_runtime.current_state.mcc);
-  mnc = atoi((char *)nas_runtime.current_state.mnc);
+  mcc = atoi((char *)nas_runtime.curr_state.mcc);
+  mnc = atoi((char *)nas_runtime.curr_state.mnc);
 
   uint8_t available_tlvs[] = {
       NAS_CELL_LAC_INFO_UMTS_CELL_INFO,
@@ -1978,34 +1976,34 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
 
 void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   logger(MSG_DEBUG, "%s: update network data\n", __func__);
-  nas_runtime.previous_state = nas_runtime.current_state;
-  nas_runtime.current_state.signal_level = 0;
+  nas_runtime.prev_state = nas_runtime.curr_state;
+  nas_runtime.curr_state.signal_level = 0;
   switch (network_type) {
   case NAS_SIGNAL_REPORT_TYPE_CDMA:     // CDMA
   case NAS_SIGNAL_REPORT_TYPE_CDMA_HDR: // QCOM HDR CDMA
-    nas_runtime.current_state.network_type = 1;
+    nas_runtime.curr_state.network_type = 1;
     break;
   case NAS_SIGNAL_REPORT_TYPE_GSM: // GSM
-    nas_runtime.current_state.network_type = 4;
+    nas_runtime.curr_state.network_type = 4;
     break;
   case NAS_SIGNAL_REPORT_TYPE_WCDMA: // WCDMA
-    nas_runtime.current_state.network_type = 5;
+    nas_runtime.curr_state.network_type = 5;
     break;
   case NAS_SIGNAL_REPORT_TYPE_LTE: // LTE
-    nas_runtime.current_state.network_type = 8;
+    nas_runtime.curr_state.network_type = 8;
     break;
   default:
     logger(MSG_DEBUG, "Unknown signal report: %u\n", network_type);
-    nas_runtime.current_state.network_type = 0;
+    nas_runtime.curr_state.network_type = 0;
     break;
   }
 
   if (signal_level > 0)
-    nas_runtime.current_state.signal_level = signal_level / 2;
+    nas_runtime.curr_state.signal_level = signal_level / 2;
 
   if (is_signal_tracking_enabled()) {
-    if (nas_runtime.current_state.network_type <
-        nas_runtime.previous_state.network_type) {
+    if (nas_runtime.curr_state.network_type <
+        nas_runtime.prev_state.network_type) {
       uint8_t reply[MAX_MESSAGE_SIZE] = {0};
       size_t strsz =
           snprintf((char *)reply, MAX_MESSAGE_SIZE,
@@ -2093,7 +2091,7 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     update_operator_name(buf, buf_len);
     break;
   case NAS_GET_CELL_LOCATION_INFO:
-    logger(MSG_INFO, "%s: Get Cell Location Info\n", __func__);
+    logger(MSG_DEBUG, "%s: Get Cell Location Info\n", __func__);
     update_cell_location_information(buf, buf_len);
     if (get_dump_network_tables_config())
       log_cell_location_information(buf, buf_len);
