@@ -634,8 +634,10 @@ struct network_status_reports {
 };
 
 /* Functions */
+void notify_database_unavailable();
 uint8_t is_cellid_data_missing();
 void set_cellid_data_missing_as_requested();
+void get_opencellid_data();
 uint8_t *get_current_mcc();
 uint8_t *get_current_mnc();
 uint8_t get_network_type();
