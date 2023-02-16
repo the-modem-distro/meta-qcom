@@ -242,9 +242,9 @@ int run_task(int taskID) {
 
 void *start_scheduler_thread() {
   int tick = 0;
+  logger(MSG_INFO, "%s: Waiting for network...\n", __func__);
   do {
     sleep(5);
-    logger(MSG_INFO, "%s: Waiting for network...\n", __func__);
   } while (!nas_is_network_in_service());
   /*
     We should check here if time is synced by now...

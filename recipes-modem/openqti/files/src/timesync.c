@@ -48,9 +48,9 @@ void *time_sync() {
   int retries = 0;
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
+  logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
   do {
     sleep(5);
-    logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
   } while(!nas_is_network_in_service());
 
   while (!sync_completed) {
