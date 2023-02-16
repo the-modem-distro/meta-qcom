@@ -178,7 +178,7 @@ uint16_t did_qmi_op_fail(uint8_t *bytes, size_t len) {
         logger(MSG_ERROR, "** QMI OP Failed: Code 0x%.4x (%s)\n",
                this_tlv->response, get_qmi_error_string(this_tlv->response));
       } else {
-        logger(MSG_INFO, "** QMI OP Succeeded: Code 0x%.4x (%s)\n",
+        logger(MSG_DEBUG, "** QMI OP Succeeded: Code 0x%.4x (%s)\n",
                this_tlv->response, get_qmi_error_string(this_tlv->response));
       }
       arr = NULL;
@@ -266,7 +266,6 @@ uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len) {
   uint8_t *arr = (uint8_t *)bytes;
   uint16_t num_tlvs = 0;
   struct empty_tlv *this_tlv;
-  logger(MSG_INFO, "%s: start\n", __func__);
   if (len < sizeof(struct encapsulated_qmi_packet) + 4) {
     logger(MSG_ERROR, "%s: Packet is too small \n", __func__);
     return 0;
@@ -288,6 +287,7 @@ uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len) {
   this_tlv = NULL;
   return num_tlvs;
 }
+
 /* INTERNAL QMI CLIENT */
 
 /*
@@ -369,7 +369,7 @@ int allocate_qmi_client(uint8_t service) {
  */
 uint8_t is_internal_qmi_message_pending() {
   if (internal_qmi_client.has_pending_message) {
-    logger(MSG_INFO, "%s: Pending messages found\n", __func__);
+    logger(MSG_DEBUG, "%s: Pending messages found\n", __func__);
     return 1;
   }
   return 0;
@@ -471,7 +471,7 @@ int send_pending_internal_qmi_messages() {
           break;
 
         case QMI_SERVICE_DMS: // Device Management Service
-          logger(MSG_INFO, "%s: Pending message for DMS\n", __func__);
+          logger(MSG_DEBUG, "%s: Pending message for DMS\n", __func__);
           prepare_internal_pkt(internal_qmi_client.services[i].message,
                                internal_qmi_client.services[i].message_len);
           write_to_qmi_port(internal_qmi_client.services[i].message,
@@ -489,7 +489,7 @@ int send_pending_internal_qmi_messages() {
           break;
 
         case QMI_SERVICE_NAS: // Network Access Service
-          logger(MSG_INFO, "%s: Pending message for NAS\n", __func__);
+          logger(MSG_DEBUG, "%s: Pending message for NAS\n", __func__);
           prepare_internal_pkt(internal_qmi_client.services[i].message,
                                internal_qmi_client.services[i].message_len);
           write_to_qmi_port(internal_qmi_client.services[i].message,
@@ -514,7 +514,7 @@ int send_pending_internal_qmi_messages() {
   }
   if (clear_pending_flag) {
     internal_qmi_client.has_pending_message = 0;
-    logger(MSG_INFO, "%s: Pending flag cleared\n", __func__);
+    logger(MSG_DEBUG, "%s: Pending flag cleared\n", __func__);
   }
   return 0;
 }
@@ -532,9 +532,8 @@ int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
   memcpy(temporary_buffer, buf, buf_len);
   while (internal_qmi_client.services[service].has_pending_message &&
          retries > 0) {
-    logger(MSG_WARN,
-           "%s: The QMI Service %.2x already has something pending. We'll wait "
-           "in line...\n",
+    logger(MSG_DEBUG,
+           "%s: The QMI Service %.2x already has something pending. waiting...\n",
            __func__, service);
     sleep(1);
     retries--;
@@ -660,7 +659,7 @@ void *init_internal_qmi_client() {
       buf_len = read(internal_qmi_client.fd, &buf, MAX_PACKET_SIZE);
       if (buf_len > sizeof(struct qmux_packet)) {
         if (get_qmux_service_id(buf, buf_len) == 0) {
-          logger(MSG_INFO, "%s: New QMI Control Message of %i bytes\n",
+          logger(MSG_DEBUG, "%s: New QMI Control Message of %i bytes\n",
                  __func__, buf_len);
           if (buf_len >
               (sizeof(struct qmux_packet) + sizeof(struct ctl_qmi_packet))) {
@@ -669,7 +668,7 @@ void *init_internal_qmi_client() {
             logger(MSG_WARN, "%s: Size is too small!\n", __func__);
           }
         } else {
-          logger(MSG_INFO, "%s: New QMI Message of %i bytes\n", __func__,
+          logger(MSG_DEBUG, "%s: New QMI Message of %i bytes\n", __func__,
                  buf_len);
           if (buf_len >
               (sizeof(struct qmux_packet) + sizeof(struct qmi_packet))) {
