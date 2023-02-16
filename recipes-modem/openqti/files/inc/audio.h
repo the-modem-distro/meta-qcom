@@ -8,6 +8,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Enable to include speech to text
+// #define USE_POCKETSPHINX
+
 /* AFE Mixer */
 #define AFE_LOOPBACK "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
 #define AFE_LOOPBACK_GAIN_CTL "/sys/kernel/debug/afe_loopback_gain"

@@ -5,7 +5,6 @@
 #include "../inc/command.h"
 #include "../inc/audio.h"
 #include "../inc/helpers.h"
-#define USE_POCKETSPHINX
 
 #ifdef USE_POCKETSPHINX
 #include <pocketsphinx.h>

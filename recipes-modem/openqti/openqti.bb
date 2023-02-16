@@ -2,8 +2,9 @@ SUMMARY = "Minimal OpenSource QTI reimplementation for Qualcomm MDM9207 userspac
 LICENSE = "MIT"
 MY_PN = "openqti"
 RPROVIDES_${PN} = "openqti"
-DEPENDS+="libttspico libpocketsphinx "
-RDEPENDS:${PN} = "libttspico libpocketsphinx "
+DEPENDS+="libttspico "
+# DEPENDS+="libpocketsphinx "
+RDEPENDS:${PN} = "libttspico "
 PR = "r8"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -67,8 +68,9 @@ SRC_URI = "file://inc/openqti.h \
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 FILES:${PN} += "/usr/share/thank_you/*"
+# Add -lpocketsphinx next to lpicotts to add speech to text to openqti
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico -lpocketsphinx
+    ${CC} ${LDFLAGS} -O2 src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
 }
 
 do_install() {

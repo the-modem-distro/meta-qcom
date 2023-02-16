@@ -23,8 +23,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#define USE_POCKETSPHINX
-
 /*
  * Simulated calls
  *  Incoming:
