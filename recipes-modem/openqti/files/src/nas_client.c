@@ -40,8 +40,7 @@ struct {
 
   /* Open Cellid data */
   uint8_t cellid_data_missing; // 0 missing, 1 ready, 2 missing and requested
-  FILE *open_cellid_curr_file;
-  void *open_cellid_import;
+  FILE *curr_ocid_db_fp;
   uint64_t open_cellid_num_items;
   uint8_t open_cellid_mcc[4];
   uint8_t open_cellid_mnc[3];
@@ -51,26 +50,9 @@ struct {
 /*
  * OpenCellid base functions
  */
-int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
-  if (nas_runtime.cellid_data_missing != 1) {
-    logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
-    return -EINVAL;
-  }
-  logger(MSG_DEBUG, "%s Looking for the cell id\n", __func__);
-  for (uint64_t i = 0; i < nas_runtime.open_cellid_num_items; i++) {
-    struct ocid_cell_slim *ocid =
-        (nas_runtime.open_cellid_import + (i * sizeof(struct ocid_cell_slim)));
-    if (cell_id == ocid->cell && ocid->area == lac) {
-      logger(MSG_INFO, "%s: Found %u %u (OpenCellID: %u %u)\n", __func__,
-             cell_id, lac, ocid->cell, ocid->area);
-      return 1;
-    } 
-  }
-  logger(MSG_INFO, "%s: Didn't find it... :(\n ", __func__);
-  return 0;
-}
 
 struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
+  struct ocid_cell_slim *ocid = malloc(sizeof(struct ocid_cell_slim));
   struct ocid_cell_slim cell = {0};
 
   if (nas_runtime.cellid_data_missing != 1) {
@@ -78,18 +60,57 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
     return cell;
   }
 
+  if (nas_runtime.curr_ocid_db_fp == NULL) {
+    nas_runtime.cellid_data_missing = 0;
+    logger(MSG_ERROR, "%s: File is missing!\n", __func__);
+    return cell;
+  }
+
+  fseek(nas_runtime.curr_ocid_db_fp, 0L, SEEK_SET);
+
+  logger(MSG_DEBUG, "%s Looking for the cell id\n", __func__);
   for (uint64_t i = 0; i < nas_runtime.open_cellid_num_items; i++) {
-    struct ocid_cell_slim *ocid =
-        (nas_runtime.open_cellid_import + (i * sizeof(struct ocid_cell_slim)));
+    memset(ocid, 0, sizeof(struct ocid_cell_slim));
+    if (fread(ocid, sizeof(struct ocid_cell_slim), 1,
+              nas_runtime.curr_ocid_db_fp) != 1) {
+      logger(MSG_ERROR, "%s: Error reading OpenCellid database!\n", __func__);
+      fclose(nas_runtime.curr_ocid_db_fp);
+      nas_runtime.curr_ocid_db_fp = NULL;
+      free(ocid);
+      return cell;
+    }
     if (cell_id == ocid->cell && ocid->area == lac) {
       logger(MSG_INFO, "%s: Found %u %u (OpenCellID: %u %u)\n", __func__,
              cell_id, lac, ocid->cell, ocid->area);
       cell = *ocid;
+      free(ocid);
       return cell;
     }
   }
-  logger(MSG_INFO, "%s: Couldn't find cid %u with lac %u \n", __func__, cell_id, lac);
-      return cell;
+
+  logger(MSG_INFO, "%s: Couldn't find cid %u with lac %u \n", __func__, cell_id,
+         lac);
+  free(ocid);
+  return cell;
+}
+
+int is_cell_id_in_db(uint32_t cell_id, uint16_t lac) {
+  struct ocid_cell_slim *ocid = malloc(sizeof(struct ocid_cell_slim));
+  int ret = 0;
+  if (nas_runtime.cellid_data_missing != 1) {
+    logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
+    free(ocid);
+    return -EINVAL;
+  }
+
+  *ocid = get_opencellid_cell_info(cell_id, lac);
+  if (nas_runtime.curr_state.network_type == ocid->radio &&
+      cell_id == ocid->cell && ocid->area == lac) {
+    ret = 1;
+  }
+
+  free(ocid);
+  return ret;
 }
 
 uint8_t is_cellid_data_missing() {
@@ -98,74 +119,72 @@ uint8_t is_cellid_data_missing() {
   return 2;
 }
 
+void set_cellid_data_missing_as_requested() {
+  nas_runtime.cellid_data_missing = 2;
+}
+
 void get_opencellid_data() {
-  FILE *fp;
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz = 0;
   char filename[256];
   size_t filesize = 0;
-  snprintf(filename, 255, "/tmp/%s-%s.bin",
-           (char *)nas_runtime.curr_state.mcc,
+  snprintf(filename, 255, "/tmp/%s-%s.bin", (char *)nas_runtime.curr_state.mcc,
            (char *)nas_runtime.curr_state.mnc);
-  fp = fopen(filename, "r");
-  if (fp == NULL) {
+
+  if (nas_runtime.curr_ocid_db_fp != NULL) {
+    logger(MSG_WARN, "%s: It seems we changed carriers!\n", __func__);
+    fclose(nas_runtime.curr_ocid_db_fp);
+    nas_runtime.curr_ocid_db_fp = NULL;
+    nas_runtime.open_cellid_num_items = 0;
+  }
+
+  nas_runtime.curr_ocid_db_fp = fopen(filename, "r");
+  if (nas_runtime.curr_ocid_db_fp == NULL) {
     logger(
         MSG_WARN,
         "%s: Can't find OpenCellid database for the current carrier: %s-%s\n",
         __func__, nas_runtime.curr_state.mcc, nas_runtime.curr_state.mnc);
+    if (nas_runtime.cellid_data_missing < 2) {
+      set_cellid_data_missing_as_requested();
+      notify_database_unavailable();
+    }
     return;
   }
 
-  if (nas_runtime.open_cellid_import) {
-    /* Clear out the previous file */
-    free(nas_runtime.open_cellid_import);
-  }
-  fseek(fp, 0L, SEEK_END);
-  filesize = ftell(fp);
-  fseek(fp, 0L, SEEK_SET);
-  if (filesize > MAX_FILE_SIZE) {
-    logger(MSG_ERROR, "%s: File is too big\n", __func__);
-  } else {
-    nas_runtime.open_cellid_import = malloc(filesize);
-    nas_runtime.open_cellid_num_items =
-        filesize / sizeof(struct ocid_cell_slim);
-    if (fread(nas_runtime.open_cellid_import, filesize, 1, fp) != 1) {
-      logger(MSG_ERROR, "%s: Error reading OpenCellid database!\n", __func__);
-      fclose(fp);
-      free(nas_runtime.open_cellid_import);
-      return;
-    }
-    memcpy(nas_runtime.open_cellid_mcc, nas_runtime.curr_state.mcc, 4);
-    memcpy(nas_runtime.open_cellid_mnc, nas_runtime.curr_state.mnc, 3);
-    nas_runtime.cellid_data_missing = 1;
+  /* I probably should add a header to each file in ocid_conv */
+  fseek(nas_runtime.curr_ocid_db_fp, 0L, SEEK_END);
+  filesize = ftell(nas_runtime.curr_ocid_db_fp);
+  fseek(nas_runtime.curr_ocid_db_fp, 0L, SEEK_SET);
+  nas_runtime.open_cellid_num_items = filesize / sizeof(struct ocid_cell_slim);
+  memcpy(nas_runtime.open_cellid_mcc, nas_runtime.curr_state.mcc, 4);
+  memcpy(nas_runtime.open_cellid_mnc, nas_runtime.curr_state.mnc, 3);
+  nas_runtime.cellid_data_missing = 1;
 
-    uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-    size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                            "OpenCellid database is ready!");
-    add_message_to_queue(reply, strsz);
-  }
+  strsz = snprintf(
+      (char *)reply, MAX_MESSAGE_SIZE, "OpenCellid database for %s-%s loaded",
+      (char *)nas_runtime.curr_state.mcc, (char *)nas_runtime.curr_state.mnc);
+  add_message_to_queue(reply, strsz);
   logger(MSG_INFO, "%s: End\n", __func__);
-  fclose(fp);
 }
-
 
 /*
  * Hardcoded user notifications
-*/
+ */
+
+void notify_database_unavailable() {
+  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz =
+      snprintf((char *)reply, MAX_MESSAGE_SIZE,
+               "OpenCellID database is not available. Please check "
+               "https://opencellid.themodemdistro.com for more info");
+  add_message_to_queue(reply, strsz);
+}
 
 void fallback_notify() {
   uint8_t reply[MAX_MESSAGE_SIZE] = {0};
   size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                           "Signal Tracking warning! I can't load any previous "
                           "cell data report, I'm switching to learning mode\n");
-  add_message_to_queue(reply, strsz);
-}
-
-void set_cellid_data_missing_as_requested() {
-  nas_runtime.cellid_data_missing = 2;
-  uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-  size_t strsz =
-      snprintf((char *)reply, MAX_MESSAGE_SIZE,
-               "OpenCellID database is not available. Please check "
-               "https://opencellid.themodemdistro.com for more info");
   add_message_to_queue(reply, strsz);
 }
 
@@ -270,7 +289,8 @@ int load_report_data() {
     }
     return -1;
   }
-  ret = fread(reports, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
+  ret =
+      fread(reports, sizeof(struct network_status_reports), MAX_REPORT_NUM, fp);
   if (ret >= sizeof(struct network_status_reports)) {
     logger(MSG_DEBUG, "%s: Loading previous reports...\n ", __func__);
     for (int i = 0; i < MAX_REPORT_NUM; i++) {
@@ -280,21 +300,19 @@ int load_report_data() {
       }
     }
   }
-  logger(MSG_INFO, "%s finished, %i reports in memory\n", __func__, nas_runtime.current_report);
+  logger(MSG_INFO, "%s finished, %i reports in memory\n", __func__,
+         nas_runtime.current_report);
   fclose(fp);
   return 0;
 }
 
 /*
  * Some getters
-*/
-
+ */
 
 uint8_t *get_current_mcc() { return nas_runtime.curr_state.mcc; }
 uint8_t *get_current_mnc() { return nas_runtime.curr_state.mnc; }
-uint8_t get_network_type() {
-  return nas_runtime.curr_state.network_type;
-}
+uint8_t get_network_type() { return nas_runtime.curr_state.network_type; }
 
 struct basic_network_status get_network_status() {
   return nas_runtime.curr_state;
@@ -305,9 +323,7 @@ struct nas_report get_current_cell_report() {
   return nas_runtime.data[nas_runtime.current_report].report;
 }
 
-uint8_t get_signal_strength() {
-  return nas_runtime.curr_state.signal_level;
-}
+uint8_t get_signal_strength() { return nas_runtime.curr_state.signal_level; }
 
 uint8_t nas_is_network_in_service() {
   if (nas_runtime.curr_state.service_capability.gprs ||
@@ -588,8 +604,7 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
     }
     nas_runtime.curr_state.network_registration_status =
         serving_sys->registration_status;
-    nas_runtime.curr_state.circuit_switch_attached =
-        serving_sys->cs_attached;
+    nas_runtime.curr_state.circuit_switch_attached = serving_sys->cs_attached;
     nas_runtime.curr_state.packet_switch_attached = serving_sys->ps_attached;
     nas_runtime.curr_state.radio_access = serving_sys->radio_access;
   }
@@ -615,9 +630,9 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
          nas_runtime.curr_state.service_capability.hsdpa == 1 ? "Yes" : "No",
          nas_runtime.curr_state.service_capability.hsupa == 1 ? "Yes" : "No",
          nas_runtime.curr_state.service_capability.hsdpa_plus == 1 ? "Yes"
-                                                                      : "No",
+                                                                   : "No",
          nas_runtime.curr_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
-                                                                         : "No",
+                                                                      : "No",
          nas_runtime.curr_state.service_capability.lte == 1 ? "Yes" : "No",
          nas_runtime.curr_state.circuit_switch_attached == 1 ? "Yes" : "No",
          nas_runtime.curr_state.packet_switch_attached == 1 ? "Yes" : "No");
@@ -660,9 +675,9 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
         nas_runtime.curr_state.service_capability.hsdpa == 1 ? "Yes" : "No",
         nas_runtime.curr_state.service_capability.hsupa == 1 ? "Yes" : "No",
         nas_runtime.curr_state.service_capability.hsdpa_plus == 1 ? "Yes"
-                                                                     : "No",
+                                                                  : "No",
         nas_runtime.curr_state.service_capability.dc_hsdpa_plus == 1 ? "Yes"
-                                                                        : "No",
+                                                                     : "No",
         nas_runtime.curr_state.service_capability.lte == 1 ? "Yes" : "No",
         nas_runtime.curr_state.circuit_switch_attached == 1 ? "Yes" : "No",
         nas_runtime.curr_state.packet_switch_attached == 1 ? "Yes" : "No");
@@ -684,7 +699,7 @@ void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
  *    * Stop nagging all the time. Once is enough (notification spam on unknown
  * cells) (is it working fine?)
  *    * Try to gather neighbour cell ids: Can't find how so far
- *    WIP Location? In reports from OCID. Investigate PDSv2 later on 
+ *    WIP Location? In reports from OCID. Investigate PDSv2 later on
  */
 
 int add_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
@@ -751,7 +766,6 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
   uint8_t cell_is_known = 0;
   int report_id = -1;
   int opencellid_res = -1;
-
 
   if (lac == 0 || cell_id == 0) {
     logger(MSG_WARN, "%s: Not enough data to process\n", __func__);
@@ -1450,15 +1464,9 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
                        "%.4x,"
                        "%i,"
                        "%i\n",
-                       curr_time, 
-                       cell_info->cell_id, 
-                       cell_info->lac,
-                       cell_info->uarfcn, 
-                       cell_info->psc, 
-                       cell_info->rscp,
-                       cell_info->ecio, 
-                       cell_info->instances, 
-                       j,
+                       curr_time, cell_info->cell_id, cell_info->lac,
+                       cell_info->uarfcn, cell_info->psc, cell_info->rscp,
+                       cell_info->ecio, cell_info->instances, j,
                        cell_info->monitored_cells[j].uarfcn,
                        cell_info->monitored_cells[j].psc,
                        cell_info->monitored_cells[j].rscp,
