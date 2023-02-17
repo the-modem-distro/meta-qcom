@@ -281,7 +281,7 @@ void *start_scheduler_thread() {
             snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      "I'm running out of storage, cleaning /persist\n");
         add_message_to_queue(reply, strsz);
-        cleanup_storage(1, false, "openqti.lock");
+        cleanup_storage(1, true, "openqti.lock");
       }
       if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
         uint8_t reply[MAX_MESSAGE_SIZE] = {0};
