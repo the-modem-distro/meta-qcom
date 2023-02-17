@@ -1181,6 +1181,7 @@ int handle_message_state(int fd, uint32_t message_id) {
   switch (sms_runtime.queue.msg[message_id].state) {
   case 0: // Generate -> RECEIVE TID
     logger(MSG_DEBUG, "%s: Notify Message ID: %i\n", __func__, message_id);
+    pulse_ring_in();
     generate_message_notification(fd, message_id);
     clock_gettime(CLOCK_MONOTONIC,
                   &sms_runtime.queue.msg[message_id].timestamp);
