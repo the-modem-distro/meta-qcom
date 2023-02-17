@@ -717,6 +717,7 @@ int add_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
   }
   logger(MSG_INFO, "%s: Report ID %i\n", __func__, nas_runtime.current_report);
   report_id = nas_runtime.current_report;
+  nas_runtime.data[report_id].in_use = 1;
   nas_runtime.data[report_id].report.found_in_network = 1;
   nas_runtime.data[report_id].report.mcc = mcc;
   nas_runtime.data[report_id].report.mnc = mnc;
@@ -746,6 +747,8 @@ int is_in_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
         nas_runtime.data[i].report.cell_id == cell_id &&
         nas_runtime.data[i].report.lac == lac) {
       logger(MSG_INFO, "%s: Cell found in report %i\n", __func__, i);
+      nas_runtime.data[i].in_use = 1;
+      nas_runtime.data[i].report.found_in_network = 1;
       report_id = i;
     }
   }
