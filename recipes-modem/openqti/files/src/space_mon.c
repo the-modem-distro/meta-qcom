@@ -64,14 +64,15 @@ int cleanup_storage(int storage_id, bool aggressive, char *exclude_file) {
       if (strcmp(ep->d_name, "..") != 0 && 
           strcmp(ep->d_name, ".") != 0 && 
           strcmp(ep->d_name, "openqti.conf") != 0 &&
-          strcmp(ep->d_name, "openqti.lock") != 0
-          ) {
-        logger(MSG_ERROR, "Base: %s\n", tmpfile);
+          strcmp(ep->d_name, "openqti.lock") != 0 &&
+          strstr(ep->d_name, ".bin") == NULL &&
+          strstr(ep->d_name, ".raw") == NULL ) {
+        logger(MSG_DEBUG, "Found file: %s\n", tmpfile);
         if (aggressive) {
           if (strstr(ep->d_name, exclude_file) == NULL) { 
                     // The file name comes from the incall thread with the
                           // entire path
-            logger(MSG_ERROR, " [AGG] %s\n", ep->d_name);
+            logger(MSG_ERROR, "Deleting %s\n", ep->d_name);
             remove(tmpfile);
           }
         } else if (strstr(ep->d_name, "log") != NULL || strstr(ep->d_name, "csv") != NULL) {
