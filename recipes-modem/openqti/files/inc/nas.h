@@ -503,8 +503,9 @@ struct carrier_mcc_mnc {
   uint8_t id; // 0x11 in msgid NAS_OPERATOR_NAME
   uint16_t len;
   uint16_t isntance;
-  uint8_t mcc[3];
-  uint8_t mnc[2];
+  uint8_t mcc[4];
+  uint8_t mnc[3];
+
   uint16_t lac1;
   uint16_t lac2;
   uint8_t plmn_record_id;
