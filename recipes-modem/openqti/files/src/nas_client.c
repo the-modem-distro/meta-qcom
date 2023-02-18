@@ -29,6 +29,8 @@ struct {
   /* Basic state */
   struct basic_network_status curr_state;
   struct basic_network_status prev_state;
+  uint8_t curr_plmn[3];
+  uint8_t prev_plmn[3];
 
   /* Network status report history */
   uint16_t current_report;
@@ -79,8 +81,9 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
       free(ocid);
       return cell;
     }
-    if (cell_id == ocid->cell && ocid->area == lac) {
-      logger(MSG_INFO, "%s: Found %u %u (OpenCellID: %u %u)\n", __func__,
+    if (nas_runtime.curr_state.network_type == ocid->radio &&
+        cell_id == ocid->cell && ocid->area == lac) {
+      logger(MSG_INFO, "%s: Found %.8x %.4x (OpenCellID: %.8x %.4x)\n", __func__,
              cell_id, lac, ocid->cell, ocid->area);
       cell = *ocid;
       free(ocid);
@@ -223,13 +226,18 @@ void notify_cellid_change(uint32_t cell_id, uint16_t lac) {
                           "Location Area / Cell ID changed:\n"
                           "Cell ID: %.8x\nLAC: %.4x\n",
                           cell_id, lac);
-  if (get_signal_tracking_mode() > 1 && is_cell_id_in_db(cell_id, lac) == 1) {
+  if (get_signal_tracking_mode() > 1) {
     struct ocid_cell_slim cell = get_opencellid_cell_info(cell_id, lac);
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                      "OpenCellid Verified:"
-                      "Cell ID: %.8x\nLAC: %.4x\n"
-                      "Lat: %f\nLon: %f\n",
-                      cell.cell, cell.area, cell.lat, cell.lon);
+    if (cell.cell != 0 && cell.area != 0) {
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "OpenCellid Verified:"
+                        "Cell ID: %.8x\nLAC: %.4x\n"
+                        "Lat: %f\nLon: %f\n",
+                        cell.cell, cell.area, cell.lat, cell.lon);
+    } else {
+      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
+                        "Not found in OpenCellid");
+    }
   }
   add_message_to_queue(reply, strsz);
 }
@@ -855,7 +863,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
            arfcn = 0, srx_lev = 0, rx_lev = 0;
   uint8_t type_of_service = 0, bsic = 0;
   uint32_t cell_id = 0;
-
+  uint8_t reported_plmn[3] = { 0 };
   if (!is_signal_tracking_enabled()) {
     logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
     return;
@@ -942,7 +950,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         srx_lev = cell_info->rscp;
         arfcn = cell_info->uarfcn;
         psc = cell_info->psc;
-
+        memcpy(reported_plmn, cell_info->plmn, 3);
         for (uint8_t j = 0; j < cell_info->instances; j++) {
           logger(MSG_DEBUG,
                  "Neighbour %u\n"
@@ -985,7 +993,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         arfcn = cell_info->earfcn;
         // cell_info->serv_cell_id; // FIXME: We seem to have cell id in u16 and
         // u32 values...
-
+        memcpy(reported_plmn, cell_info->plmn, 3);
         for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
           logger(MSG_DEBUG,
                  "Neighbour %u\n"
@@ -1103,6 +1111,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
             );
           }
         }
+
       } break;
       case NAS_CELL_LAC_INFO_LTE_INFO_NEIGHBOUR_WCDMA: {
         struct nas_lac_lte_wcdma_neighbour_info *cell_info =
@@ -1142,6 +1151,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                    cell_info->lte_wcdma_neighbours[j].wcdma_cells[k].srx_level);
           }
         }
+
       }
 
       break;
@@ -1231,6 +1241,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         cell_id = cell_info->cell_id;
         lac = cell_info->lac;
         arfcn = cell_info->arfcn;
+        memcpy(reported_plmn, cell_info->plmn, 3);
         //        bcch = cell_info->bcch;
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(MSG_DEBUG,
@@ -1272,6 +1283,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         lac = cell_info->lac;
         arfcn = cell_info->uarfcn;
         psc = cell_info->psc;
+        memcpy(reported_plmn, cell_info->plmn, 3);
         //        bcch = cell_info->bcch;
         for (uint8_t j = 0; j < cell_info->num_instances; j++) {
           logger(MSG_DEBUG,
@@ -1350,7 +1362,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
             "\t Number of items: %u\n",
             __func__, cell_info->num_instances);
         for (uint8_t i = 0; i < cell_info->num_instances; i++) {
-          logger(MSG_INFO,
+          logger(MSG_DEBUG,
                  "\t Type: WCDMA Extended Info: Neighbour LTE EARFCNs\n"
                  "\t Item #%u\n",
                  "\t EARFCN: %.8x\n", i, cell_info->earfcn[i]);
@@ -1363,9 +1375,23 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     }
   }
 
+
+  if (memcmp(nas_runtime.curr_plmn, reported_plmn, 3) != 0) {
+    logger(MSG_INFO, "%s: Reported PLMN changed\n", __func__);
+    memcpy(nas_runtime.prev_plmn, nas_runtime.curr_plmn, 3);
+    memcpy(nas_runtime.curr_plmn, reported_plmn, 3);
+
+    nas_runtime.curr_state.mcc[0] = (nas_runtime.curr_plmn[0] & 0x0f) + 0x30;
+    nas_runtime.curr_state.mcc[1] = ((nas_runtime.curr_plmn[0] & 0xf0) >> 4) + 0x30;
+    nas_runtime.curr_state.mcc[2] = (nas_runtime.curr_plmn[1] & 0x0f) + 0x30;
+    nas_runtime.curr_state.mnc[0] = (nas_runtime.curr_plmn[2] & 0x0f) + 0x30;
+    nas_runtime.curr_state.mnc[1] = ((nas_runtime.curr_plmn[2] & 0xf0) >> 4) + 0x30;
+  }
+  
   process_current_network_data(mcc, mnc, type_of_service, lac, phy_cell_id,
                                cell_id, bsic, bcch, psc, arfcn, srx_lev,
                                rx_lev);
+
 }
 
 void log_cell_location_information(uint8_t *buf, size_t buf_len) {
