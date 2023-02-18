@@ -1138,6 +1138,96 @@ void suspend_call_notifications(uint8_t *command) {
   reply = NULL;
 }
 
+
+int find_dictionary_entry(char *word) {
+  char *line = malloc(32768); /* initialize all to 0 ('\0') */
+  bool found = false;
+  FILE *dictfile;
+  uint32_t id = 0;
+  uint8_t type = 0;
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  size_t def_size = 0;
+  dictfile = fopen(DICT_PATH, "r");
+  if (dictfile == NULL) {
+    logger(MSG_INFO, "Failed to open dictionary file!\n");
+    free(line);
+    return -ENOMEM;
+  }
+
+  fseek(dictfile, 0, SEEK_SET);
+
+  /* Loop through the dictionary until we find the word */
+  while (fgets(line, 32768, dictfile) && !found) {
+    int count = 0;
+    char *next = strtok(line, ":");
+    found = 0;
+    // ID:TYPE:WORD:DEFINITION\n
+    while (next != NULL) {
+      switch (count) {
+      case 0:
+        id = atoi(next);
+        break;
+      case 1:
+        type = atoi(next);
+        break;
+      case 2:
+        if (strcmp(next, word) == 0) {
+          logger(MSG_DEBUG, "--> Word found: %s -> %s (id %u type %u [%s])\n",
+                  word, next, id, type,
+                  wtypes[type]);
+          found = 1;
+        }
+        break;
+      case 3:
+        if (found) {
+          logger(MSG_DEBUG,"--> Definition: %s\n", next);
+          def_size = strlen(next);
+          while (strsz < def_size) {
+            memset(reply, 0, MAX_MESSAGE_SIZE);
+            if (def_size - strsz > MAX_MESSAGE_SIZE) {
+              strncpy((char*) reply, (next+strsz), MAX_MESSAGE_SIZE-1);
+              add_message_to_queue(reply, MAX_MESSAGE_SIZE);
+              strsz+= MAX_MESSAGE_SIZE-1;
+            } else {
+              strncpy((char*) reply, (next+strsz), (def_size-strsz));
+              add_message_to_queue(reply,  (def_size-strsz));
+              strsz+=  (def_size-strsz);
+            }
+          }
+        free(line);
+        fclose(dictfile);
+        return 0;
+        }
+      }
+      next = strtok(NULL, ":");
+      count++;
+    };
+  }
+  logger(MSG_DEBUG, "--> Word '%s' not found\n", word);
+  memset(reply, 0, MAX_MESSAGE_SIZE);
+  strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "I don't know what '%s' means :(\n", word);
+  add_message_to_queue(reply, strsz);
+  free(line);
+  fclose(dictfile);
+
+  return 0;
+}
+
+void search_dictionary_entry(uint8_t *command) {
+  int strsz = 0;
+  uint8_t *offset;
+  char word[128];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[9].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[9].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(word, 128, "%s", (char *)command + ofs);
+      find_dictionary_entry(word);
+    }
+  }
+}
+
 void set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
   uint8_t *reply = calloc(160, sizeof(unsigned char));
@@ -1739,6 +1829,9 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 108:
     set_new_signal_tracking_mode(command);
+    break;
+  case 109:
+    search_dictionary_entry(command);
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,

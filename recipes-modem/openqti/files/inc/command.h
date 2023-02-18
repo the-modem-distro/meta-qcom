@@ -7,6 +7,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#define DICT_PATH "/opt/openqti/dict.txt"
+static const char *wtypes[] = { "noun", "preposition", "adjective", "verb", "adverb", "pronoun", "interjection", "conjunction", "pronoun" };
+
 static const struct {
   unsigned int id;
   const char *cmd;
@@ -94,6 +97,7 @@ static const struct {
      "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "},
     {107, "enable debugging of service ", "Enabling debugging of service ", "Enables extensive logging of a defined QMI service"},
     {108, "signal tracking mode ", "Set signal tracking mode", "Set the paranoia level for signal tracking functions"},
+    {109, "define ", "Definition fo X", "define X: Looks up definition for a given word"},
 };
 
 static const struct {

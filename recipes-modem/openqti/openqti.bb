@@ -63,11 +63,13 @@ SRC_URI = "file://inc/openqti.h \
            file://init_openqti \
            file://boot_counter \
            file://external/ring8k.wav \
-           file://thankyou/thankyou.txt"
+           file://thankyou/thankyou.txt \
+           file://external/dict.txt"
            
 S = "${WORKDIR}"
 FILES:${PN} += "/usr/share/tones/*"
 FILES:${PN} += "/usr/share/thank_you/*"
+FILES:${PN} += "/opt/openqti/*"
 # Add -lpocketsphinx next to lpicotts to add speech to text to openqti
 do_compile() {
     ${CC} ${LDFLAGS} -O2 src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
@@ -81,6 +83,7 @@ do_install() {
     install -d ${D}/etc/rc6.d
     install -d ${D}/usr/share/tones/
     install -d ${D}/usr/share/thank_you/
+    install -d ${D}/opt/openqti/
 
     install -m 0755 ${S}/openqti ${D}${bindir}
     install -m 0755 ${S}/init_openqti ${D}/etc/init.d/
@@ -88,6 +91,7 @@ do_install() {
 
     # default dialing tone
     install -m 0644 ${S}/external/ring8k.wav ${D}/usr/share/tones/
+    install -m 0644 ${S}/external/dict.txt ${D}/opt/openqti/
     install -m 0644 ${S}/thankyou/thankyou.txt ${D}/usr/share/thank_you/
     
     ln -sf -r ${D}/etc/init.d/boot_counter ${D}/etc/rc0.d/K01boot_counter
