@@ -303,10 +303,10 @@ struct nas_lac_lte_intra_cell_info {
   uint32_t cell_id;
   uint16_t earfcn;
   uint16_t serv_cell_id;
-  uint8_t serving_freq_prio;
-  uint8_t inter_frequency_search_threshold;
+  uint8_t cell_reselect_prio;
+  uint8_t non_intra_search_threshold;
   uint8_t serving_cell_lower_threshold;
-  uint8_t reselect_threshold;
+  uint8_t intra_search_threshold;
   uint8_t num_of_cells;
   struct lte_cell_info lte_cell_info[0];
 } __attribute__((packed));

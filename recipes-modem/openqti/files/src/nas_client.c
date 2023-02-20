@@ -59,12 +59,14 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
 
   if (nas_runtime.cellid_data_missing != 1) {
     logger(MSG_ERROR, "%s: Open Cellid data isn't available\n", __func__);
+    free(ocid);
     return cell;
   }
 
   if (nas_runtime.curr_ocid_db_fp == NULL) {
     nas_runtime.cellid_data_missing = 0;
     logger(MSG_ERROR, "%s: File is missing!\n", __func__);
+    free(ocid);
     return cell;
   }
 
@@ -974,18 +976,19 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
                "\t Tracking Area Code: %.4x\n"
                "\t EARFCN: %.4x\n"
                "\t Serving Cell ID: %.4x\n"
-               "\t Serving Frequency Priority: %.2x\n"
-               "\t Interfrequency search threshold: %.2x\n"
+               "\t Cell Reselect Priority: %.2x\n"
+               "\t Non Intrafrequency search threshold: %.2x\n"
                "\t Serving cell lower threshold: %.2x\n"
-               "\t Reselect threshold: %.2x\n"
+               "\t Intrafrequency search threshold: %.2x\n"
                "\t Neighbour Cell count: %u\n",
                __func__, (cell_info->is_idle == 1) ? "Yes" : "No",
                cell_info->cell_id, cell_info->tracking_area_code,
                cell_info->earfcn, cell_info->serv_cell_id,
-               cell_info->serving_freq_prio,
-               cell_info->inter_frequency_search_threshold,
+               cell_info->cell_reselect_prio,
+               cell_info->non_intra_search_threshold,
                cell_info->serving_cell_lower_threshold,
-               cell_info->reselect_threshold, cell_info->num_of_cells);
+               cell_info->intra_search_threshold, 
+               cell_info->num_of_cells);
 
         type_of_service = OCID_RADIO_LTE;
         cell_id = cell_info->cell_id;
@@ -994,6 +997,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
         // cell_info->serv_cell_id; // FIXME: We seem to have cell id in u16 and
         // u32 values...
         memcpy(reported_plmn, cell_info->plmn, 3);
+
         for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
           logger(MSG_DEBUG,
                  "Neighbour %u\n"
@@ -1510,9 +1514,9 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
                         "EARFCN,"
                         "Serving Cell ID,"
                         "Serving Frequency Priority,"
-                        "Interfrequency search threshold,"
+                        "Non-Intrafrequency search threshold,"
                         "Serving cell lower threshold,"
-                        "Reselect threshold,"
+                        "Intrafrequency search threshold,"
                         "Neighbour Cell count,"
                         "Neighbour,"
                         "PHY Cell ID,"
@@ -1532,61 +1536,66 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
                      "%.2x,"
                      "%.2x,"
                      "%.2x,"
-                     "%.2x,"
-                     "%u,",
-                     "%u\n", curr_time,
+                     "%u\n", 
+                     curr_time,
                      (cell_info->is_idle == 1) ? "Yes" : "No",
-                     cell_info->cell_id, cell_info->tracking_area_code,
-                     cell_info->earfcn, cell_info->serv_cell_id,
-                     cell_info->serving_freq_prio,
-                     cell_info->inter_frequency_search_threshold,
+                     cell_info->cell_id,
+                     cell_info->tracking_area_code,
+                     cell_info->earfcn, 
+                     cell_info->serv_cell_id,
+                     cell_info->non_intra_search_threshold,
                      cell_info->serving_cell_lower_threshold,
-                     cell_info->reselect_threshold, cell_info->num_of_cells);
+                     cell_info->intra_search_threshold,
+                     cell_info->num_of_cells);
 
         for (uint8_t j = 0; j < cell_info->num_of_cells; j++) {
           dump_to_file("NAS_CELL_LAC_INFO_LTE_INTRA_INFO", header,
-                       "%u,"
-                       "%s,"
-                       "%.4x,"
-                       "%.4x,"
-                       "%.4x,"
-                       "%.4x,"
-                       "%.2x,"
-                       "%.2x,"
-                       "%.2x,"
-                       "%.2x,"
-                       "%u,",
+                      "%u,"
+                      "%s,"
+                      "%.4x,"
+                      "%.4x,"
+                      "%.4x,"
+                      "%.4x,"
+                      "%.2x,"
+                      "%.2x,"
+                      "%.2x,"
+                      "%u,"
                        "%u,"
                        "%.4x,"
                        "%.4x,"
                        "%i,"
                        "%i,"
                        "%i\n",
-                       curr_time, (cell_info->is_idle == 1) ? "Yes" : "No",
-                       cell_info->cell_id, cell_info->tracking_area_code,
-                       cell_info->earfcn, cell_info->serv_cell_id,
-                       cell_info->serving_freq_prio,
-                       cell_info->inter_frequency_search_threshold,
+                       curr_time, 
+                       (cell_info->is_idle == 1) ? "Yes" : "No",
+                       cell_info->cell_id, 
+                       cell_info->tracking_area_code,
+                       cell_info->earfcn, 
+                       cell_info->serv_cell_id,
+                       cell_info->non_intra_search_threshold,
                        cell_info->serving_cell_lower_threshold,
-                       cell_info->reselect_threshold, cell_info->num_of_cells,
-                       j, cell_info->lte_cell_info[j].phy_cell_id,
+                       cell_info->intra_search_threshold,
+                       cell_info->num_of_cells,
+                       j, 
+                       cell_info->lte_cell_info[j].phy_cell_id,
                        cell_info->lte_cell_info[j].rsrq,
                        cell_info->lte_cell_info[j].rsrp,
                        cell_info->lte_cell_info[j].srx_level,
                        cell_info->lte_cell_info[j].rssi_level);
-          // add neighbours too?
         }
       } break;
       case NAS_CELL_LAC_INFO_LTE_INTER_INFO: {
         char header[] = "Time,"
                         "Is Idle?,"
                         "Instances,"
+
                         "Instance,"
                         "EARFCN,"
                         "SRX Level Low Threshold,"
                         "SRX Level High Threshold,"
                         "Reselect Priority,"
-                        "Number of cells:\n"
+                        "Number of cells:,"
+
                         "Cell count,"
                         "PHY Cell ID,"
                         "RSRQ,"
@@ -1601,34 +1610,31 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
                k < cell_info->lte_inter_freq_instance[j].num_cells; k++) {
             dump_to_file(
                 "NAS_CELL_LAC_INFO_LTE_INTER_INFO", header,
-                "%u,"
-                "%s,"
-                "%u,"
-                "%u,"
-                "%.4x,"
-                "%.2x,"
-                "%.2x,"
-                "%.2x,"
-                "%i,"
-                "%u,"
-                "%.4x,"
-                "%.2x,"
-                "%.2x,"
-                "%.2x,"
-                "%i,"
-                "%u,"
-                "%.4x,"
-                "%.4x,"
-                "%i,"
-                "%i,"
-                "%i\n",
-                curr_time, k, (cell_info->is_idle == 1) ? "Yes" : "No",
-                cell_info->num_instances, j,
+                "%u," // time
+                "%s," // idle
+                "%u," // instances
+                "%u," // curr instance
+                "%.4x," // earfcn
+                "%.2x," //srx low
+                "%.2x," // srx hi
+                "%.2x," // resel prio
+                "%i," // num of cells
+                "%u," // curr cell (k)
+                "%.4x," //phy cell id
+                "%.4x," // rsrq
+                "%i," // rsrp
+                "%i," // rssi lev
+                "%i\n", // srxlev
+                curr_time, 
+                (cell_info->is_idle == 1) ? "Yes" : "No",
+                cell_info->num_instances, 
+                j,
                 cell_info->lte_inter_freq_instance[j].earfcn,
                 cell_info->lte_inter_freq_instance[j].srxlev_low_threshold,
                 cell_info->lte_inter_freq_instance[j].srxlev_high_threshold,
                 cell_info->lte_inter_freq_instance[j].reselect_priority,
                 cell_info->lte_inter_freq_instance[j].num_cells,
+                k, 
                 cell_info->lte_inter_freq_instance[j]
                     .lte_cell_info[k]
                     .phy_cell_id,
@@ -1636,10 +1642,10 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
                 cell_info->lte_inter_freq_instance[j].lte_cell_info[k].rsrp,
                 cell_info->lte_inter_freq_instance[j]
                     .lte_cell_info[k]
-                    .srx_level,
+                    .rssi_level,
                 cell_info->lte_inter_freq_instance[j]
                     .lte_cell_info[k]
-                    .rssi_level);
+                    .srx_level);
           }
         }
       } break;
