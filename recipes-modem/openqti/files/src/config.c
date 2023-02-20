@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/input.h>
+#include <linux/netdevice.h>
 #include <linux/reboot.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -85,8 +86,7 @@ int parse_line(char *buf) {
     return 1;
   }
 
-  logger(MSG_DEBUG, "%s: Key %s -> val %s -> toint %i\n", __func__, setting,
-         value, atoi(value));
+  logger(MSG_DEBUG, "%s: Key %s -> val %s\n", __func__, setting, value);
   if (strcmp(setting, "custom_alert_tone") == 0) {
     settings->custom_alert_tone = atoi(value);
     return 1;
@@ -135,32 +135,32 @@ int parse_line(char *buf) {
   }
 
   if (strcmp(setting, "user_name") == 0) {
-    memcpy(settings->user_name, value, strlen(settings->user_name));
-    settings->user_name[(sizeof(settings->user_name) - 1)] = 0;
+    snprintf(settings->user_name, MAX_NAME_SZ, "%s", value);
+    settings->user_name[strlen(settings->user_name)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "modem_name") == 0) {
-    strncpy(settings->modem_name, value, sizeof(settings->modem_name));
-    settings->modem_name[(sizeof(settings->modem_name) - 1)] = 0;
+    snprintf(settings->modem_name, MAX_NAME_SZ, "%s", value);
+    settings->modem_name[strlen(settings->modem_name)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "apn_addr") == 0) {
-    memcpy(settings->apn_addr, value, strlen(settings->apn_addr));
-    settings->apn_addr[(sizeof(settings->apn_addr) - 1)] = 0;
+    snprintf(settings->apn_addr, MAX_ADDR_LEN, "%s", value);
+    settings->apn_addr[strlen(settings->apn_addr)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "apn_username") == 0) {
-    memcpy(settings->apn_username, value, strlen(settings->apn_username));
-    settings->apn_username[(sizeof(settings->apn_username) - 1)] = 0;
+    snprintf(settings->apn_username, MAX_ADDR_LEN, "%s", value);
+    settings->apn_username[strlen(settings->apn_username)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "apn_password") == 0) {
-    memcpy(settings->apn_password, value, strlen(settings->apn_password));
-    settings->apn_password[(sizeof(settings->apn_password) - 1)] = 0;
+    snprintf(settings->apn_password, MAX_ADDR_LEN, "%s", value);
+    settings->apn_password[strlen(settings->apn_password)] = 0;
     return 1;
   }
   

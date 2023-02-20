@@ -11,7 +11,7 @@
 #define SCHEDULER_DATA_FILE_PATH "/persist/sched.raw"
 #define PERSISTENT_PATH "/persist/"
 #define VOLATILE_PATH "/tmp/"
-#define MAX_NAME_SZ 32
+#define MAX_NAME_SZ 128
 #define MAX_APN_FIELD_SZ 128
 struct config_prototype {
   uint8_t custom_alert_tone;
