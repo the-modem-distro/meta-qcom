@@ -8,7 +8,6 @@
 #include <sys/types.h>
 
 #define DICT_PATH "/opt/openqti/dict.txt"
-static const char *wtypes[] = { "noun", "preposition", "adjective", "verb", "adverb", "pronoun", "interjection", "conjunction", "pronoun" };
 
 static const struct {
   unsigned int id;

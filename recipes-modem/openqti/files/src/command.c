@@ -1142,10 +1142,11 @@ void suspend_call_notifications(uint8_t *command) {
 int find_dictionary_entry(char *word) {
   char *line = malloc(32768); /* initialize all to 0 ('\0') */
   bool found = false;
+  static const char *wtypes[] = { "noun", "preposition", "adjective", "verb", "adverb", "pronoun", "interjection", "conjunction", "pronoun" };
   FILE *dictfile;
   uint32_t id = 0;
   uint8_t type = 0;
-  size_t strsz;
+  size_t strsz = 0;
   uint8_t reply[MAX_MESSAGE_SIZE];
   size_t def_size = 0;
   dictfile = fopen(DICT_PATH, "r");
@@ -1181,7 +1182,7 @@ int find_dictionary_entry(char *word) {
         break;
       case 3:
         if (found) {
-          logger(MSG_DEBUG,"--> Definition: %s\n", next);
+          logger(MSG_DEBUG,"--> Definition: %s: %s\n", next, wtypes[type]);
           def_size = strlen(next);
           while (strsz < def_size) {
             memset(reply, 0, MAX_MESSAGE_SIZE);
@@ -1215,7 +1216,6 @@ int find_dictionary_entry(char *word) {
 }
 
 void search_dictionary_entry(uint8_t *command) {
-  int strsz = 0;
   uint8_t *offset;
   char word[128];
   offset = (uint8_t *)strstr((char *)command, partial_commands[9].cmd);
@@ -1296,8 +1296,9 @@ void clear_internal_networking_auth() {
   size_t strsz;
   uint8_t reply[MAX_MESSAGE_SIZE];
   set_internal_network_auth_method(0);
-  set_internal_network_username(NULL);
-  set_internal_network_apn_name(NULL);
+  set_internal_network_username("");
+  set_internal_network_pass("");
+  set_internal_network_apn_name("");
   strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "APN Auth data cleared\n");
   add_message_to_queue(reply, strsz);
 }
