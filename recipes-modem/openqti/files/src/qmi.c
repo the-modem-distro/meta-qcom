@@ -261,6 +261,21 @@ int build_u8_tlv(void *output, size_t output_len, size_t offset, uint8_t id,
   return 0;
 }
 
+int build_u32_tlv(void *output, size_t output_len, size_t offset, uint8_t id,
+                 uint32_t data) {
+  if (output_len < offset + sizeof(struct qmi_generic_uint8_t_tlv)) {
+    logger(MSG_ERROR, "%s: Can't build U8 TLV, buffer is too small\n",
+           __func__);
+    return -ENOMEM;
+  }
+  struct qmi_generic_uint32_t_tlv *pkt =
+      (struct qmi_generic_uint32_t_tlv *)(output + offset);
+  pkt->id = id;
+  pkt->len = 0x04;
+  pkt->data = data;
+  pkt = NULL;
+  return 0;
+}
 uint16_t count_tlvs_in_message(uint8_t *bytes, size_t len) {
   uint16_t cur_byte;
   uint8_t *arr = (uint8_t *)bytes;
@@ -717,8 +732,9 @@ void *start_service_initialization_thread() {
   dms_register_to_indications();
   register_to_nas_service();
   register_to_voice_service();
-
-
   dms_retrieve_modem_info();
+
+  /* oneshot */
+  init_internal_networking();
   return NULL;
 }
