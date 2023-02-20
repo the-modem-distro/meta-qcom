@@ -383,14 +383,14 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
 
 uint8_t is_inject_needed() {
   if (is_message_pending() && get_notification_source() == MSG_INTERNAL) {
-    logger(MSG_INFO, "%s: Internal generated message\n", __func__);
+    logger(MSG_DEBUG, "%s: Internal generated message\n", __func__);
     return 1;
   } else if (is_message_pending() &&
              get_notification_source() == MSG_EXTERNAL) {
-    logger(MSG_INFO, "%s: Pending external message\n", __func__);
+    logger(MSG_DEBUG, "%s: Pending external message\n", __func__);
     return 1;
   } else if (get_call_pending()) {
-    logger(MSG_INFO, "%s: Simulated call pending\n", __func__);
+    logger(MSG_DEBUG, "%s: Simulated call pending\n", __func__);
     return 1;
   } else if (get_call_simulation_mode()) {
     logger(MSG_DEBUG, "%s: In simulated call\n", __func__);
