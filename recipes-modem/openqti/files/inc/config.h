@@ -12,7 +12,7 @@
 #define PERSISTENT_PATH "/persist/"
 #define VOLATILE_PATH "/tmp/"
 #define MAX_NAME_SZ 32
-
+#define MAX_APN_FIELD_SZ 128
 struct config_prototype {
   uint8_t custom_alert_tone;
   uint8_t persistent_logging;
@@ -23,11 +23,16 @@ struct config_prototype {
   uint8_t sms_logging;
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
-  uint8_t allow_internal_modem_connectivity;
   uint8_t dump_network_tables;
   bool first_boot;
+  uint8_t allow_internal_modem_connectivity;
+  uint8_t auth_method; // 0 none, 1 PAP, 2 CHAP
+  char apn_addr[MAX_APN_FIELD_SZ];
+  char apn_username[MAX_APN_FIELD_SZ];
+  char apn_password[MAX_APN_FIELD_SZ];
+  // IPv6 is not currently supported, but I'll have to look into it
 
-};
+}; 
 /* 
 signal_tracking_operating mode (requires signal_tracking ON and PERSIST)
 0: Standalone + info (learning mode)
@@ -82,9 +87,19 @@ void enable_call_waiting_autohangup(uint8_t en);
 uint8_t is_automatic_call_recording_enabled();
 void set_automatic_call_recording(uint8_t mode);
 
-/* SMS logging */
+/* Internal Networking */
+/* Getters */
 uint8_t is_internal_connect_enabled();
+char *get_internal_network_apn_name();
+char *get_internal_network_username();
+char *get_internal_network_pass();
+uint8_t get_internal_network_auth_method();
+/* Setters */
 void set_internal_connectivity(bool en);
+void set_internal_network_apn_name(char *apn);
+void set_internal_network_username(char *username);
+void set_internal_network_pass(char *pass);
+void set_internal_network_auth_method(uint8_t method);
 
 /* Automatically export cell location data as CSV */
 uint8_t get_dump_network_tables_config();

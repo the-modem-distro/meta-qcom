@@ -478,3 +478,44 @@ void enable_call_waiting_autohangup(uint8_t en) {
   }
   write_settings_to_storage();
 }
+
+
+char *get_internal_network_apn_name() {
+  return settings->apn_addr;
+}
+
+char *get_internal_network_username() {
+  return settings->apn_username;
+}
+
+char *get_internal_network_pass() {
+  return settings->apn_password;
+}
+
+uint8_t get_internal_network_auth_method() {
+  return settings->auth_method;
+}
+
+void set_internal_network_apn_name(char *apn) {
+  size_t len = strlen(apn) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(apn);
+  memset(settings->apn_addr, 0, MAX_APN_FIELD_SZ);
+  strncpy(settings->apn_addr, apn, len);
+}
+
+void set_internal_network_username(char *username) {
+  size_t len = strlen(username) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(username);
+  memset(settings->apn_username, 0, MAX_APN_FIELD_SZ);
+  strncpy(settings->apn_username, username, len);
+}
+
+void set_internal_network_pass(char *pass) {
+  size_t len = strlen(pass) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(pass);
+  memset(settings->apn_password, 0, MAX_APN_FIELD_SZ);
+  strncpy(settings->apn_password, pass, len);
+}
+
+void set_internal_network_auth_method(uint8_t method) {
+  if (method < 3) {
+    settings->auth_method = method;
+  }
+}
