@@ -59,19 +59,6 @@ int set_initial_config() {
   return 0;
 }
 
-void dump_current_config() {
-  logger(MSG_DEBUG,
-         "[SETTINGS] Dump current configuration\n"
-         "---> Custom alert tone: %i\n"
-         "---> Persistent logging: %i\n"
-         "---> Signal tracking: %i\n"
-         "---> Autokill call waiting: %i\n"
-         "---> User name: %s\n"
-         "---> Modem name: %s\n",
-         settings->custom_alert_tone, settings->persistent_logging,
-         settings->signal_tracking, settings->callwait_autohangup,
-         settings->user_name, settings->modem_name);
-}
 int parse_line(char *buf) {
   if (settings == NULL || buf == NULL)
     return 0;
@@ -159,7 +146,28 @@ int parse_line(char *buf) {
     return 1;
   }
 
-  // var=val not recognized
+  if (strcmp(setting, "apn_addr") == 0) {
+    memcpy(settings->apn_addr, value, strlen(settings->apn_addr));
+    settings->apn_addr[(sizeof(settings->apn_addr) - 1)] = 0;
+    return 1;
+  }
+
+  if (strcmp(setting, "apn_username") == 0) {
+    memcpy(settings->apn_username, value, strlen(settings->apn_username));
+    settings->apn_username[(sizeof(settings->apn_username) - 1)] = 0;
+    return 1;
+  }
+
+  if (strcmp(setting, "apn_password") == 0) {
+    memcpy(settings->apn_password, value, strlen(settings->apn_password));
+    settings->apn_password[(sizeof(settings->apn_password) - 1)] = 0;
+    return 1;
+  }
+  
+  if (strcmp(setting, "auth_method") == 0) {
+    settings->auth_method = atoi(value);
+    return 1;
+  }
   return 0;
 }
 
@@ -189,8 +197,20 @@ int write_settings_to_storage() {
   fprintf(fp, "automatic_call_recording=%i\n",
           settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
+
   fprintf(fp, "allow_internal_modem_connectivity=%i\n",
           settings->allow_internal_modem_connectivity);
+  fprintf(fp, "auth_method=%i\n",
+          settings->auth_method);
+  fprintf(fp, "apn_addr=%s\n", settings->apn_addr);
+  fprintf(fp, "apn_username=%s\n", settings->apn_username);
+  fprintf(fp, "apn_password=%s\n", settings->apn_password);
+
+
+
+
+
+
   logger(MSG_DEBUG, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
@@ -264,7 +284,6 @@ int read_settings_from_file() {
     }
   }
   fclose(fp);
-  dump_current_config();
   attempted_boots = read_boot_counter_file();
   if (attempted_boots > 3) {
     logger(MSG_WARN,
@@ -500,22 +519,26 @@ void set_internal_network_apn_name(char *apn) {
   size_t len = strlen(apn) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(apn);
   memset(settings->apn_addr, 0, MAX_APN_FIELD_SZ);
   strncpy(settings->apn_addr, apn, len);
+  write_settings_to_storage();
 }
 
 void set_internal_network_username(char *username) {
   size_t len = strlen(username) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(username);
   memset(settings->apn_username, 0, MAX_APN_FIELD_SZ);
   strncpy(settings->apn_username, username, len);
+  write_settings_to_storage();
 }
 
 void set_internal_network_pass(char *pass) {
   size_t len = strlen(pass) > MAX_APN_FIELD_SZ ? (MAX_APN_FIELD_SZ-1) : strlen(pass);
   memset(settings->apn_password, 0, MAX_APN_FIELD_SZ);
   strncpy(settings->apn_password, pass, len);
+  write_settings_to_storage();
 }
 
 void set_internal_network_auth_method(uint8_t method) {
   if (method < 3) {
     settings->auth_method = method;
   }
+  write_settings_to_storage();
 }
