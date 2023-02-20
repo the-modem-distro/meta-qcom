@@ -391,8 +391,10 @@ void *simulated_call_tts_handler() {
   int i;
   bool handled;
   char *phrase; //[MAX_TTS_TEXT_SIZE];
+#ifdef USE_POCKETSPHINX
   pthread_t incoming_audio_thread;
   int ret;
+#endif 
 
   /*
    * Open PCM if we're in call simulation mode,
