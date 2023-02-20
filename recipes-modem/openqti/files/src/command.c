@@ -1228,6 +1228,82 @@ void search_dictionary_entry(uint8_t *command) {
   }
 }
 
+void configure_new_apn(uint8_t *command) {
+  uint8_t *offset;
+  char apn[128];
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[10].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[10].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(apn, 128, "%s", (char *)command + ofs);
+      set_internal_network_apn_name(apn);
+      // Send notif
+      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN name to %s\n", apn);
+      add_message_to_queue(reply, strsz);
+    }
+  } else {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting internal APN name \n");
+    add_message_to_queue(reply, strsz);
+  }
+}
+
+
+void configure_apn_username(uint8_t *command) {
+  uint8_t *offset;
+  char user[128];
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[11].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[11].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(user, 128, "%s", (char *)command + ofs);
+      set_internal_network_username(user);
+      // Send notif
+      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN username to %s\n", user);
+      add_message_to_queue(reply, strsz);
+    }
+  } else {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting APN username \n");
+    add_message_to_queue(reply, strsz);
+  }
+}
+
+void configure_apn_password(uint8_t *command) {
+  uint8_t *offset;
+  char pass[128];
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[12].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[12].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(pass, 128, "%s", (char *)command + ofs);
+      set_internal_network_username(pass);
+      // Send notif
+      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN password to %s\n", pass);
+      add_message_to_queue(reply, strsz);
+    }
+  } else {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting APN password \n");
+    add_message_to_queue(reply, strsz);
+  }
+}
+
+void clear_internal_networking_auth() {
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  set_internal_network_auth_method(0);
+  set_internal_network_username(NULL);
+  set_internal_network_apn_name(NULL);
+  strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "APN Auth data cleared\n");
+  add_message_to_queue(reply, strsz);
+}
+
+
+
 void set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
   uint8_t *reply = calloc(160, sizeof(unsigned char));
@@ -1802,6 +1878,9 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     enable_dump_network_tables(false);
     break;
+  case 53:
+    clear_internal_networking_auth();
+    break;
   case 100:
     set_custom_modem_name(command);
     break;
@@ -1832,6 +1911,17 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 109:
     search_dictionary_entry(command);
+    break;
+  case 110:
+    configure_new_apn(command);
+    break;
+  case 111:
+    configure_apn_username(command);
+    break;
+  case 112:
+    configure_apn_password(command);
+    break;
+  case 113:
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
