@@ -30,6 +30,7 @@ enum rmnet_ioctl_cmds_e {
 	RMNET_IOCTL_EXTENDED         = 0x000089FD, /* Extended IOCTLs        */
 	RMNET_IOCTL_MAX
 };
+
 enum {
   WDS_APN_TYPE_UNKNOWN = 0,
   WDS_APN_TYPE_INTERNET = 1,
@@ -114,6 +115,7 @@ enum {
   WDS_ROAMING_DISALLOWED_FLAG = 0x3E,
   WDS_APN_TYPE_MASK = 0xDD,
 };
+
 static const struct {
   uint16_t id;
   const char *cmd;
@@ -162,10 +164,15 @@ static const struct {
     {WDS_SWI_CREATE_PROFILE_INDEXED, "Swi Create Profile Indexed"},
 };
 
+enum {
+  WDS_CALL_TYPE_LAPTOP = 0x00,
+  WDS_CALL_TYPE_EMBEDDED = 0x01,
+};
+
 struct apn_config {
   uint8_t type; // 0x14
   uint16_t len; // sizeof
-  char apn[8];  // Null to get default, name
+  char apn[0];  // Null to get default, name
 } __attribute__((packed));
 
 struct apn_type {
@@ -222,6 +229,24 @@ struct wds_bind_mux_data_port_request {
   struct qmi_packet qmi;
   struct ep_id peripheral_id;
   struct mux_id mux;
+} __attribute__((packed));
+
+struct wds_auth_pref {
+  uint8_t type;   // 0x11
+  uint16_t len;   // 0x01
+  uint8_t preference; // Bit 0: PAP 0||1 ; Bit 1: CHAP 0||1
+} __attribute__((packed));
+
+struct wds_auth_username { // 0x17
+  uint8_t type;
+  uint16_t len;
+  char username[0];
+} __attribute__((packed));
+
+struct wds_auth_password { // 0x18
+  uint8_t type;
+  uint16_t len;
+  char password[0];
 } __attribute__((packed));
 
 struct wds_start_network {

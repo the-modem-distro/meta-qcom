@@ -252,63 +252,102 @@ int wds_bind_mux_data_port() {
   return 0;
 }
 
+
 int wds_attempt_to_connect() {
-  struct wds_start_network *request = NULL;
-  if (is_internal_connect_enabled()) {
-    logger(MSG_INFO, "%s: Autoconnect request!\n", __func__);
-  } else {
-    logger(MSG_INFO, "%s: Internal connectivity support is not enabled\n",
-           __func__);
+  uint8_t *pkt = NULL;
+  size_t curr_offset = 0;
+  size_t pkt_len = sizeof(struct qmux_packet) + 
+                   sizeof(struct qmi_packet);
+
+  pkt_len+= sizeof(struct apn_config);
+  pkt_len+= strlen(get_internal_network_apn_name());
+  pkt_len+= sizeof(struct apn_type);
+
+  if (get_internal_network_auth_method() != 0) {
+    pkt_len+= sizeof(struct wds_auth_pref);
+    pkt_len+= sizeof(struct wds_auth_username);
+    pkt_len+= sizeof(struct wds_auth_password);
+    pkt_len+= strlen(get_internal_network_username());
+    pkt_len+= strlen(get_internal_network_pass());
+  }
+  
+  pkt_len+= sizeof(struct ip_family_preference);
+  pkt_len+= sizeof(struct call_type);
+  pkt_len+= sizeof(struct block_in_roaming);
+
+  pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
     return -EINVAL;
   }
-  if (wds_runtime.mux_state == 0) {
-    wds_bind_mux_data_port();
-  } else if (wds_runtime.mux_state == 1) {
-    logger(MSG_INFO, "%s: Waiting for mux ready...\n", __func__);
-  } else {
-    logger(MSG_INFO, "Mux was already setup\n");
+
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0, WDS_START_NETWORK) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
   }
+
+  curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+
+  struct apn_config *apn = (struct apn_config*)(pkt+curr_offset);
+  apn->type = 0x14;
+  apn->len = strlen(get_internal_network_apn_name());
+  memcpy(apn->apn, get_internal_network_apn_name(), apn->len);
+  curr_offset+= sizeof(struct apn_config) + apn->len;
+
+  if (get_internal_network_auth_method() != 0) {
+    struct wds_auth_pref *auth_pref = (struct wds_auth_pref *)(pkt+curr_offset);
+    auth_pref->type = 0x16;
+    auth_pref->len = 0x01;
+    auth_pref->preference = get_internal_network_auth_method();
+    curr_offset+= sizeof(struct wds_auth_pref);
+
+    struct wds_auth_username *user = (struct wds_auth_username *)(pkt+curr_offset);
+    user->type = 0x17;
+    user->len = strlen(get_internal_network_username());
+    memcpy(user->username, get_internal_network_username(), user->len);
+    curr_offset+= sizeof(struct wds_auth_username) + user->len;
+
+    struct wds_auth_password *pass = (struct wds_auth_password *)(pkt+curr_offset);
+    pass->type = 0x18;
+    pass->len = strlen(get_internal_network_pass());
+    memcpy(pass->password, get_internal_network_pass(), pass->len);
+    curr_offset+= sizeof(struct wds_auth_password) + pass->len;
+  }
+
+  struct ip_family_preference *ip_family = (struct ip_family_preference *)(pkt+curr_offset);
+  ip_family->type = 0x19;
+  ip_family->len = 0x01;
+  ip_family->value = 4;
+  curr_offset+= sizeof(struct ip_family_preference);
+
+  struct call_type *ctype = (struct call_type *)(pkt+curr_offset);
+  ctype->type = 0x35;
+  ctype->len = 0x01;
+  ctype->value = WDS_CALL_TYPE_EMBEDDED; // 0x00:LAPTOP, 0x01:embedded
+  curr_offset+= sizeof(struct call_type);
+
+  struct apn_type *apn_type = (struct apn_type *)(pkt+curr_offset);
+  apn_type->type = 0x38;
+  apn_type->len = 0x04;
+  apn_type->value = htole32(WDS_APN_TYPE_INTERNET);
+  curr_offset+= sizeof(struct apn_type);
+
+  struct block_in_roaming *roaming_lock = (struct block_in_roaming *)(pkt+curr_offset);
+  roaming_lock->type = 0x39;
+  roaming_lock->len = 0x01;
+  roaming_lock->value = 0x00; // OFF
+  curr_offset+= sizeof(struct block_in_roaming);
+
   wds_set_autoconnect(0);
   set_rawip_mode();
-  //  wds_stop_network();
-  request =
-      (struct wds_start_network *)calloc(1, sizeof(struct wds_start_network));
-  request->qmux.version = 0x01;
-  request->qmux.packet_length =
-      sizeof(struct wds_start_network) - sizeof(uint8_t);
-  request->qmux.control = 0x00;
-  request->qmux.service = QMI_SERVICE_WDS;
 
-  request->qmi.ctlid = QMI_REQUEST;
-  request->qmi.msgid = WDS_START_NETWORK;
-  request->qmi.length = sizeof(struct wds_start_network) -
-                        sizeof(struct qmux_packet) - sizeof(struct qmi_packet);
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
 
-  request->apn.type = 0x14;
-  request->apn.len = 8;
-  memcpy(request->apn.apn, DEFAULT_APN_NAME, 8);
-
-  request->apn_type.type = 0x38;
-  request->apn_type.len = 0x04;
-  request->apn_type.value = htole32(WDS_APN_TYPE_INTERNET);
-
-  request->ip_family.type = 0x19;
-  request->ip_family.len = 0x01;
-  request->ip_family.value = 4;
-
-  request->call_type.type = 0x35;
-  request->call_type.len = 0x01;
-  request->call_type.value = 0x01; // 0x00:LAPTOP, 0x01:embedded
-
-
-  request->roaming_lock.type = 0x39;
-  request->roaming_lock.len = 0x01;
-  request->roaming_lock.value = 0x00; // OFF
-
-  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)request,
-                      sizeof(struct wds_start_network));
-
-  free(request);
+  free(pkt);
   return 0;
 }
 
@@ -336,6 +375,7 @@ void *init_internal_networking() {
 int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
   uint16_t qmi_err;
+
 #ifdef DEBUG_WDS
   pretty_print_qmi_pkt("WDS: Baseband --> Host", buf, buf_len);
 #endif
@@ -356,6 +396,8 @@ int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
   case WDS_START_NETWORK:
     if (did_qmi_op_fail(buf, buf_len)) {
       logger(MSG_ERROR, "%s failed to start network\n", __func__);
+    } else {
+      logger(MSG_INFO, "%s: Network started! enable indications and request dhcp\n", __func__);
     }
     wds_enable_indications_ipv4();
     break;
