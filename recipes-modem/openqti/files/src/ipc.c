@@ -262,7 +262,7 @@ int init_port_mapper_internal() {
   dpmreq->sw.id = 0x11;
   dpmreq->sw.len = 0x0011;
   dpmreq->sw.valid_ctl_list = 1;
-  dpmreq->sw.ep_type = htole32(5);
+  dpmreq->sw.ep_type = htole32(DATA_EP_TYPE_BAM_DMUX);
   dpmreq->sw.peripheral_id = htole32(0);
   dpmreq->sw.consumer_pipe_num = htole32(0);
   dpmreq->sw.prod_pipe_num = htole32(0);
