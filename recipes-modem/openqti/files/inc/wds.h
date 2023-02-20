@@ -14,7 +14,22 @@
  */
 
 #define DEFAULT_APN_NAME "internet"
-
+enum rmnet_ioctl_cmds_e {
+	RMNET_IOCTL_SET_LLP_ETHERNET = 0x000089F1, /* Set Ethernet protocol  */
+	RMNET_IOCTL_SET_LLP_IP       = 0x000089F2, /* Set RAWIP protocol     */
+	RMNET_IOCTL_GET_LLP          = 0x000089F3, /* Get link protocol      */
+	RMNET_IOCTL_SET_QOS_ENABLE   = 0x000089F4, /* Set QoS header enabled */
+	RMNET_IOCTL_SET_QOS_DISABLE  = 0x000089F5, /* Set QoS header disabled*/
+	RMNET_IOCTL_GET_QOS          = 0x000089F6, /* Get QoS header state   */
+	RMNET_IOCTL_GET_OPMODE       = 0x000089F7, /* Get operation mode     */
+	RMNET_IOCTL_OPEN             = 0x000089F8, /* Open transport port    */
+	RMNET_IOCTL_CLOSE            = 0x000089F9, /* Close transport port   */
+	RMNET_IOCTL_FLOW_ENABLE      = 0x000089FA, /* Flow enable            */
+	RMNET_IOCTL_FLOW_DISABLE     = 0x000089FB, /* Flow disable           */
+	RMNET_IOCTL_FLOW_SET_HNDL    = 0x000089FC, /* Set flow handle        */
+	RMNET_IOCTL_EXTENDED         = 0x000089FD, /* Extended IOCTLs        */
+	RMNET_IOCTL_MAX
+};
 enum {
   WDS_APN_TYPE_UNKNOWN = 0,
   WDS_APN_TYPE_INTERNET = 1,
@@ -23,38 +38,6 @@ enum {
 };
 
 enum {
-  WDS_EXTENDED_ERROR_CODE = 0xE0,
-  WDS_PROFILE_IDENTIFIER = 0x01,
-  WDS_PROFILE_NAME = 0x10,
-  WDS_PDP_TYPE = 0x11,
-  WDS_PDP_HEADER_COMPRESSION_TYPE = 0x12,
-  WDS_PDP_DATA_COMPRESSION_TYPE = 0x13,
-  WDS_APN_NAME = 0x14,
-  WDS_PRIMARY_IPV4_DNS_ADDRESS = 0x15,
-  WDS_SECONDARY_IPV4_DNS_ADDRESS = 0x16,
-  WDS_UMTS_REQUESTED_QOS = 0x17,
-  WDS_UMTS_MINIMUM_QOS = 0x18,
-  WDS_GPRS_REQUESTED_QOS = 0x19,
-  WDS_GPRS_MINIMUM_QOS = 0x1A,
-  WDS_USERNAME = 0x1B,
-  WDS_PASSWORD = 0x1C,
-  WDS_AUTHENTICATION = 0x1D,
-  WDS_IPV4_ADDRESS_PREFERENCE = 0x1E,
-  WDS_PCSCF_ADDRESS_USING_PCO = 0x1F,
-  WDS_PCSCF_ADDRESS_USING_DHCP = 0x21,
-  WDS_IMCN_FLAG = 0x22,
-  WDS_PDP_CONTEXT_NUMBER = 0x25,
-  WDS_PDP_CONTEXT_SECONDARY_FLAG = 0x26,
-  WDS_PDP_CONTEXT_PRIMARY_ID = 0x27,
-  WDS_IPV6_ADDRESS_PREFERENCE = 0x28,
-  WDS_UMTS_REQUESTED_QOS_WITH_SIGNALING_INDICATION_FLAG = 0x29,
-  WDS_UMTS_MINIMUM_QOS_WITH_SIGNALING_INDICATION_FLAG = 0x2A,
-  WDS_IPV6_PRIMARY_DNS_ADDRESS_PREFERENCE = 0x2B,
-  WDS_IPV6_SECONDARY_DNS_ADDRESS_PREFERENCE = 0x2C,
-  WDS_LTE_QOS_PARAMETERS = 0x2E,
-  WDS_APN_DISABLED_FLAG = 0x2F,
-  WDS_ROAMING_DISALLOWED_FLAG = 0x3E,
-  WDS_APN_TYPE_MASK = 0xDD,
   WDS_RESET = 0x0000,
   WDS_SET_EVENT_REPORT = 0x0001,
   WDS_EVENT_REPORT = 0x0001,
@@ -97,46 +80,44 @@ enum {
   WDS_SWI_CREATE_PROFILE_INDEXED = 0x5558,
 };
 
+enum {
+   WDS_EXTENDED_ERROR_CODE = 0xE0,
+  WDS_PROFILE_IDENTIFIER = 0x01,
+  WDS_PROFILE_NAME = 0x10,
+  WDS_PDP_TYPE = 0x11,
+  WDS_PDP_HEADER_COMPRESSION_TYPE = 0x12,
+  WDS_PDP_DATA_COMPRESSION_TYPE = 0x13,
+  WDS_APN_NAME = 0x14,
+  WDS_PRIMARY_IPV4_DNS_ADDRESS = 0x15,
+  WDS_SECONDARY_IPV4_DNS_ADDRESS = 0x16,
+  WDS_UMTS_REQUESTED_QOS = 0x17,
+  WDS_UMTS_MINIMUM_QOS = 0x18,
+  WDS_GPRS_REQUESTED_QOS = 0x19,
+  WDS_GPRS_MINIMUM_QOS = 0x1A,
+  WDS_USERNAME = 0x1B,
+  WDS_PASSWORD = 0x1C,
+  WDS_AUTHENTICATION = 0x1D,
+  WDS_IPV4_ADDRESS_PREFERENCE = 0x1E,
+  WDS_PCSCF_ADDRESS_USING_PCO = 0x1F,
+  WDS_PCSCF_ADDRESS_USING_DHCP = 0x21,
+  WDS_IMCN_FLAG = 0x22,
+  WDS_PDP_CONTEXT_NUMBER = 0x25,
+  WDS_PDP_CONTEXT_SECONDARY_FLAG = 0x26,
+  WDS_PDP_CONTEXT_PRIMARY_ID = 0x27,
+  WDS_IPV6_ADDRESS_PREFERENCE = 0x28,
+  WDS_UMTS_REQUESTED_QOS_WITH_SIGNALING_INDICATION_FLAG = 0x29,
+  WDS_UMTS_MINIMUM_QOS_WITH_SIGNALING_INDICATION_FLAG = 0x2A,
+  WDS_IPV6_PRIMARY_DNS_ADDRESS_PREFERENCE = 0x2B,
+  WDS_IPV6_SECONDARY_DNS_ADDRESS_PREFERENCE = 0x2C,
+  WDS_LTE_QOS_PARAMETERS = 0x2E,
+  WDS_APN_DISABLED_FLAG = 0x2F,
+  WDS_ROAMING_DISALLOWED_FLAG = 0x3E,
+  WDS_APN_TYPE_MASK = 0xDD,
+};
 static const struct {
   uint16_t id;
   const char *cmd;
 } wds_svc_commands[] = {
-    {WDS_EXTENDED_ERROR_CODE, "Extended Error Code"},
-    {WDS_PROFILE_IDENTIFIER, "Profile Identifier"},
-    {WDS_PROFILE_NAME, "Profile Name"},
-    {WDS_PDP_TYPE, "PDP Type"},
-    {WDS_PDP_HEADER_COMPRESSION_TYPE, "PDP Header Compression Type"},
-    {WDS_PDP_DATA_COMPRESSION_TYPE, "PDP Data Compression Type"},
-    {WDS_APN_NAME, "APN Name"},
-    {WDS_PRIMARY_IPV4_DNS_ADDRESS, "Primary IPv4 DNS Address"},
-    {WDS_SECONDARY_IPV4_DNS_ADDRESS, "Secondary IPv4 DNS Address"},
-    {WDS_UMTS_REQUESTED_QOS, "UMTS Requested QoS"},
-    {WDS_UMTS_MINIMUM_QOS, "UMTS Minimum QoS"},
-    {WDS_GPRS_REQUESTED_QOS, "GPRS Requested QoS"},
-    {WDS_GPRS_MINIMUM_QOS, "GPRS Minimum QoS"},
-    {WDS_USERNAME, "Username"},
-    {WDS_PASSWORD, "Password"},
-    {WDS_AUTHENTICATION, "Authentication"},
-    {WDS_IPV4_ADDRESS_PREFERENCE, "IPv4 Address Preference"},
-    {WDS_PCSCF_ADDRESS_USING_PCO, "PCSCF Address Using PCO"},
-    {WDS_PCSCF_ADDRESS_USING_DHCP, "PCSCF Address Using DHCP"},
-    {WDS_IMCN_FLAG, "IMCN Flag"},
-    {WDS_PDP_CONTEXT_NUMBER, "PDP Context Number"},
-    {WDS_PDP_CONTEXT_SECONDARY_FLAG, "PDP Context Secondary Flag"},
-    {WDS_PDP_CONTEXT_PRIMARY_ID, "PDP Context Primary ID"},
-    {WDS_IPV6_ADDRESS_PREFERENCE, "IPv6 Address Preference"},
-    {WDS_UMTS_REQUESTED_QOS_WITH_SIGNALING_INDICATION_FLAG,
-     "UMTS Requested QoS With Signaling Indication Flag"},
-    {WDS_UMTS_MINIMUM_QOS_WITH_SIGNALING_INDICATION_FLAG,
-     "UMTS Minimum QoS With Signaling Indication Flag"},
-    {WDS_IPV6_PRIMARY_DNS_ADDRESS_PREFERENCE,
-     "IPv6 Primary DNS Address Preference"},
-    {WDS_IPV6_SECONDARY_DNS_ADDRESS_PREFERENCE,
-     "IPv6 Secondary DNS Address Preference"},
-    {WDS_LTE_QOS_PARAMETERS, "LTE QoS Parameters"},
-    {WDS_APN_DISABLED_FLAG, "APN Disabled Flag"},
-    {WDS_ROAMING_DISALLOWED_FLAG, "Roaming Disallowed Flag"},
-    {WDS_APN_TYPE_MASK, "APN Type Mask"},
     {WDS_RESET, "Reset"},
     {WDS_SET_EVENT_REPORT, "Set Event Report"},
     {WDS_EVENT_REPORT, "Event Report"},
@@ -249,9 +230,9 @@ struct wds_start_network {
   struct apn_config apn;
   struct apn_type apn_type;
   struct ip_family_preference ip_family;
-  struct profile_index profile;
+//  struct profile_index profile;
   struct call_type call_type;
-  struct autoconnect_config autoconnect;
+//  struct autoconnect_config autoconnect;
   struct block_in_roaming roaming_lock;
 } __attribute__((packed));
 
