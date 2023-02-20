@@ -192,16 +192,14 @@ int set_rawip_mode() {
  struct ifreq *ifr = calloc(1, sizeof(struct ifreq));
   char netdev[] = "rmnet0";
   system("ifconfig rmnet0 down");
-  /* Open a temporary socket of datagram type to use for issuing the ioctl */
   if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     logger(MSG_ERROR, "%s: Can't open socket!\n", __func__);
+    free(ifr);
     return -EBADFD;
   }
 
-  /* Set device name in the ioctl req struct */
   strncpy(ifr->ifr_name, netdev, sizeof(ifr->ifr_name));
 
-  /* Issue ioctl on the device */
   if (ioctl(fd, RMNET_IOCTL_SET_LLP_IP, ifr) < 0)  {
     logger(MSG_ERROR, "%s: IOCTL Failed!\n", __func__);
     free(ifr);
@@ -209,8 +207,8 @@ int set_rawip_mode() {
     return -EIO;
   }
   system("ifconfig rmnet0 169.252.10.1 netmask 255.0.0.0 allmulti multicast up");
-  /* Close temporary socket */
   close(fd);
+  free(ifr);
   return 0;
 
 }
