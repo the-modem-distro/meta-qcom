@@ -12,6 +12,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 #include "../inc/nas.h"
 #include "../inc/config.h"
@@ -20,15 +21,51 @@
 #include "../inc/logger.h"
 #include "../inc/qmi.h"
 #include "../inc/wds.h"
+#include <net/if.h>
+
+/* 
+Connection steps, as used in ModemManager:
+  1. Load profile settings -> nah
+  2. Open QMI port  -> already done 
+  3. Setup data format -> check out wda service, do I really need to do this or is it ok with the defaults?
+  4. Setup link
+  5. Setup link main up
+  6. Set IP method
+  7. Allocate IPv4 WDS client
+  8. Bind data port
+  9. Set IP family
+  10. Enable indications
+  11. Start network
+
+    CONNECT_STEP_FIRST,
+    CONNECT_STEP_LOAD_PROFILE_SETTINGS,
+    CONNECT_STEP_OPEN_QMI_PORT,
+    CONNECT_STEP_SETUP_DATA_FORMAT,
+    CONNECT_STEP_SETUP_LINK,
+    CONNECT_STEP_SETUP_LINK_MAIN_UP,
+    CONNECT_STEP_IP_METHOD,
+    CONNECT_STEP_IPV4,
+    CONNECT_STEP_WDS_CLIENT_IPV4,
+    CONNECT_STEP_BIND_DATA_PORT_IPV4,
+    CONNECT_STEP_IP_FAMILY_IPV4,
+    CONNECT_STEP_ENABLE_INDICATIONS_IPV4,
+    CONNECT_STEP_START_NETWORK_IPV4,
+    CONNECT_STEP_ENABLE_WDS_INDICATIONS_IPV4, 01:10:00:00:01:03:00:04:00:03:00:04:00:12:01:00:01
+    CONNECT_STEP_GET_CURRENT_SETTINGS_IPV4, 01:13:00:00:01:03:00:05:00:2D:00:07:00:10:04:00:30:E3:04:00
+*/
 
 struct {
+  uint8_t curr_step;
   uint8_t mux_state;
   int pdp_session_handle; // we need this to stop the connection later
+  uint32_t pkt_data_handle;
 } wds_runtime;
 
 void reset_wds_runtime() {
+  wds_runtime.curr_step = 0;
   wds_runtime.mux_state = 0;
   wds_runtime.pdp_session_handle = -1;
+  wds_runtime.pkt_data_handle = 0;
 }
 
 const char *get_wds_command(uint16_t msgid) {
@@ -41,44 +78,179 @@ const char *get_wds_command(uint16_t msgid) {
   return "WDS service: Unknown command\n";
 }
 
-int wds_bind_mux_data_port() {
-  struct wds_bind_mux_data_port_request *request = NULL;
+int wds_sample_func() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
 
-  if (is_internal_connect_enabled()) {
-    logger(MSG_INFO, "%s: Bind mux data port request!\n", __func__);
-  } else {
-    logger(MSG_INFO, "%s: Internal connectivity support is not enabled\n",
-           __func__);
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
     return -EINVAL;
   }
-  request = (struct wds_bind_mux_data_port_request *)calloc(
-      1, sizeof(struct wds_bind_mux_data_port_request));
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       NAS_GET_CELL_LOCATION_INFO) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
 
-  request->qmux.version = 0x01;
-  request->qmux.packet_length =
-      sizeof(struct wds_bind_mux_data_port_request) - sizeof(uint8_t);
-  request->qmux.control = 0x00;
-  request->qmux.service = QMI_SERVICE_WDS;
-  //  request->qmux.instance_id = wds_runtime.instance_id;
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
 
-  request->qmi.ctlid = QMI_REQUEST;
-  //  request->qmi.transaction_id = wds_runtime.transaction_id;
-  request->qmi.msgid = WDS_BIND_MUX_DATA_PORT;
-  request->qmi.length = sizeof(struct wds_bind_mux_data_port_request) -
-                        sizeof(struct qmux_packet) - sizeof(struct qmi_packet);
+int wds_set_autoconnect(uint8_t enable) {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof(struct qmi_generic_uint8_t_tlv);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
 
-  request->peripheral_id.type = 0x10;
-  request->peripheral_id.len = 0x08;
-  request->peripheral_id.ep_type = htole32(DATA_EP_TYPE_BAM_DMUX);
-  request->peripheral_id.interface_id = htole32(0);
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       WDS_SET_AUTOCONNECT_SETTINGS) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
 
-  request->mux.type = 0x11;
-  request->mux.len = 0x01;
-  request->mux.mux_id = 42;
+  size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  if (build_u8_tlv(pkt, pkt_len, curr_offset, 0x01, enable) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+    curr_offset += sizeof(struct qmi_generic_uint8_t_tlv);
+  }
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
 
-  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)request,
-                      sizeof(struct wds_bind_mux_data_port_request));
-  free(request);
+int wds_stop_network() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof(struct qmi_generic_uint32_t_tlv);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       WDS_STOP_NETWORK) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  if (build_u32_tlv(pkt, pkt_len, curr_offset, 0x01, wds_runtime.pkt_data_handle) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+    curr_offset += sizeof(struct qmi_generic_uint32_t_tlv);
+  }
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
+
+int wds_enable_indications_ipv4() {
+  size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) + sizeof(struct qmi_generic_uint32_t_tlv);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       WDS_GET_CURRENT_SETTINGS) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  if (build_u32_tlv(pkt, pkt_len, curr_offset, 0x10, 0x0004e330) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the TLV\n", __func__);
+    free(pkt);
+    return -EINVAL;
+    curr_offset += sizeof(struct qmi_generic_uint32_t_tlv);
+  }
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
+  free(pkt);
+  return 0;
+}
+
+int set_rawip_mode() {
+ int fd;
+ struct ifreq *ifr = calloc(1, sizeof(struct ifreq));
+  char netdev[] = "rmnet0";
+  system("ifconfig rmnet0 down");
+  /* Open a temporary socket of datagram type to use for issuing the ioctl */
+  if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+    logger(MSG_ERROR, "%s: Can't open socket!\n", __func__);
+    return -EBADFD;
+  }
+
+  /* Set device name in the ioctl req struct */
+  strncpy(ifr->ifr_name, netdev, sizeof(ifr->ifr_name));
+
+  /* Issue ioctl on the device */
+  if (ioctl(fd, RMNET_IOCTL_SET_LLP_IP, ifr) < 0)  {
+    logger(MSG_ERROR, "%s: IOCTL Failed!\n", __func__);
+    free(ifr);
+    close(fd);
+    return -EIO;
+  }
+  system("ifconfig rmnet0 169.252.10.1 netmask 255.0.0.0 allmulti multicast up");
+  /* Close temporary socket */
+  close(fd);
+  return 0;
+
+}
+
+int wds_bind_mux_data_port() {
+  size_t pkt_len = sizeof(struct qmux_packet) + 
+                   sizeof(struct qmi_packet) + 
+                   sizeof(struct ep_id) +
+                   sizeof(struct mux_id);
+  uint8_t *pkt = malloc(pkt_len);
+  memset(pkt, 0, pkt_len);
+
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_WDS, 0) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+    
+  }
+  if (build_qmi_header(pkt, pkt_len, QMI_REQUEST, 0,
+                       WDS_BIND_MUX_DATA_PORT) < 0) {
+    logger(MSG_ERROR, "%s: Error adding the qmi header\n", __func__);
+    free(pkt);
+    return -EINVAL;
+  }
+
+  size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
+  struct ep_id *periph = (struct ep_id*)(pkt+curr_offset);
+  periph->type = 0x10;
+  periph->len = 0x08;
+  periph->ep_type = DATA_EP_TYPE_BAM_DMUX;
+  periph->interface_id = 0;
+
+  curr_offset+= sizeof(struct ep_id);
+  struct mux_id *mux = (struct mux_id *)(pkt+curr_offset);
+  mux->type = 0x11;
+  mux->len = 0x01;
+  mux->mux_id = 0;
+  
+  add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
+  free(pkt);
   return 0;
 }
 
@@ -98,7 +270,9 @@ int wds_attempt_to_connect() {
   } else {
     logger(MSG_INFO, "Mux was already setup\n");
   }
-
+  wds_set_autoconnect(0);
+  set_rawip_mode();
+  //  wds_stop_network();
   request =
       (struct wds_start_network *)calloc(1, sizeof(struct wds_start_network));
   request->qmux.version = 0x01;
@@ -106,17 +280,15 @@ int wds_attempt_to_connect() {
       sizeof(struct wds_start_network) - sizeof(uint8_t);
   request->qmux.control = 0x00;
   request->qmux.service = QMI_SERVICE_WDS;
-  //  request->qmux.instance_id = wds_runtime.instance_id;
 
   request->qmi.ctlid = QMI_REQUEST;
-  //  request->qmi.transaction_id = wds_runtime.transaction_id;
   request->qmi.msgid = WDS_START_NETWORK;
   request->qmi.length = sizeof(struct wds_start_network) -
                         sizeof(struct qmux_packet) - sizeof(struct qmi_packet);
 
   request->apn.type = 0x14;
   request->apn.len = 8;
-  memcpy(request->apn.apn, DEFAULT_APN_NAME, strlen(DEFAULT_APN_NAME));
+  memcpy(request->apn.apn, DEFAULT_APN_NAME, 8);
 
   request->apn_type.type = 0x38;
   request->apn_type.len = 0x04;
@@ -126,17 +298,10 @@ int wds_attempt_to_connect() {
   request->ip_family.len = 0x01;
   request->ip_family.value = 4;
 
-  request->profile.type = 0x31;
-  request->profile.len = 0x01;
-  request->profile.value = 2; // Let's try this one
-
   request->call_type.type = 0x35;
   request->call_type.len = 0x01;
-  request->call_type.value = 1; // Let's try with embedded
+  request->call_type.value = 0x01; // 0x00:LAPTOP, 0x01:embedded
 
-  request->autoconnect.type = 0x33;
-  request->autoconnect.len = 0x01;
-  request->autoconnect.value = 0x01; // ON
 
   request->roaming_lock.type = 0x39;
   request->roaming_lock.len = 0x01;
@@ -160,39 +325,41 @@ void *init_internal_networking() {
     sleep(10);
   }
 
-  logger(MSG_INFO, "%s: Network is ready, try to connect\n", __func__);
+  logger(MSG_INFO, "%s: WDS: Network is ready, try to connect\n", __func__);
   wds_attempt_to_connect();
 
   return NULL;
 }
 
+#define DEBUG_WDS 1
 /*
  * Reroutes messages from the internal QMI client to the service
  */
 int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
   logger(MSG_INFO, "%s: Start\n", __func__);
   uint16_t qmi_err;
-
+#ifdef DEBUG_WDS
+  pretty_print_qmi_pkt("WDS: Baseband --> Host", buf, buf_len);
+#endif
   switch (get_qmi_message_id(buf, buf_len)) {
   case WDS_BIND_MUX_DATA_PORT:
-    if (get_qmi_message_type(buf, buf_len) == QMI_RESPONSE) {
       qmi_err = did_qmi_op_fail(buf, buf_len);
       if (qmi_err == QMI_RESULT_FAILURE) {
-        logger(MSG_ERROR, "%s failed\n", __func__);
+        logger(MSG_ERROR, "%s failed to bind the port\n", __func__);
         wds_runtime.mux_state = 0;
       } else if (qmi_err == QMI_RESULT_SUCCESS) {
-        logger(MSG_INFO, "%s succeeded\n", __func__);
+        logger(MSG_INFO, "%s succeeded to bind the port\n", __func__);
         wds_runtime.mux_state = 2;
       } else if (qmi_err == QMI_RESULT_UNKNOWN) {
         logger(MSG_ERROR, "%s: QMI message didn't have an indication\n",
                __func__);
       }
-    }
     break;
   case WDS_START_NETWORK:
     if (did_qmi_op_fail(buf, buf_len)) {
-      logger(MSG_ERROR, "%s failed\n", __func__);
+      logger(MSG_ERROR, "%s failed to start network\n", __func__);
     }
+    wds_enable_indications_ipv4();
     break;
   case WDS_EXTENDED_ERROR_CODE:
     logger(MSG_INFO, "%s: Extended Error Code\n", __func__);
