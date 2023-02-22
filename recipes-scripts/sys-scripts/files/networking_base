@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Minimalistic network bring up script
+#
+INTERNAL="rndis0"
+EXTERNAL="rmnet0"
+
+/usr/bin/oqticonf -n
+rndis_setting=$(echo $?)
+if [ "$rndis_setting" = "1" ];
+then 
+    echo 1 > /proc/sys/net/ipv4/ip_forward
+fi 
