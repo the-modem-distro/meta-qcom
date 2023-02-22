@@ -208,6 +208,7 @@ struct wav_header {
 } __attribute__((packed));
 
 void set_audio_runtime_default();
+uint8_t get_current_call_id();
 int use_external_codec();
 void set_output_device(int device);
 uint8_t get_output_device();

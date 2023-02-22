@@ -46,6 +46,10 @@ void set_audio_runtime_default() {
   audio_runtime_state.current_active_call_id = 0;
 }
 
+uint8_t get_current_call_id() {
+  return audio_runtime_state.current_active_call_id;
+}
+
 int use_external_codec() {
   int fd;
   fd = open(EXTERNAL_CODEC_DETECT_PATH, O_RDONLY);
