@@ -22,6 +22,7 @@
 #include "../inc/nas.h"
 #include "../inc/qmi.h"
 #include "../inc/sms.h"
+#include "../inc/audio.h"
 
 // #define DEBUG_NAS 0
 
@@ -2046,7 +2047,9 @@ void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   if (signal_level > 0)
     nas_runtime.curr_state.signal_level = signal_level / 2;
 
-  if (is_signal_tracking_enabled() && is_signal_tracking_downgrade_notification_enabled()) {
+  if (is_signal_tracking_enabled() && 
+      is_signal_tracking_downgrade_notification_enabled() &&
+      get_current_call_id() != 0 ) { // So we don't notify when signal is downgraded due to a call
     if (nas_runtime.curr_state.network_type <
         nas_runtime.prev_state.network_type) {
       uint8_t reply[MAX_MESSAGE_SIZE] = {0};
