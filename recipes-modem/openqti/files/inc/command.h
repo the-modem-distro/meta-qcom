@@ -75,7 +75,9 @@ static const struct {
     {50, "list qmi services", "Available QMI services:", "Shows QMI Service IDs (for service debugging)"},
     {51, "dump network data", "Enabling network data logging", "Dumps network data given by the baseband as CSV files"},
     {52, "disable network data dump", "Disabling network data logging", "Disables network data dump to CSV"},
-    {53, "clear internal network auth", "Removing internal networking authentication config", "Resets internal networking user,pass and method"},
+    {53, "enable network downgrade notification", "I will notify you if network type gets downgraded", "Sends a SMS when the network changes (ie from LTE to WCDMA)"},
+    {54, "disable network downgrade notification", "I won't notify when network type gets downgraded", "Disables service downgrade notifications"},
+    {55, "clear internal network auth", "Removing internal networking authentication config", "Resets internal networking user,pass and method"},
 
 };
 
@@ -98,13 +100,13 @@ static const struct {
      "enable dnd for X [hours:minutes]: Ignores incoming calls (will send you an sms with the number who called) "},
     {107, "enable debugging of service ", "Enabling debugging of service ", "Enables extensive logging of a defined QMI service"},
     {108, "signal tracking mode ", "Set signal tracking mode", "Set the paranoia level for signal tracking functions"},
-    {109, "define ", "Definition fo X", "define X: Looks up definition for a given word"},
-    {110, "set internal network apn ", "Set internal apn name ", "Configure your carrier APN for use in internal networking"},
-    {111, "set internal network user ", "Set internal apn user ", "Configure your carrier APN username for use in internal networking"},
-    {112, "set internal network pass ", "Set internal apn pass ", "Configure your carrier APN password for use in internal networking"},
-    {113, "set internal network auth method ", "Set internal apn auth method ", "Configure your carrier APN authentication method (PAP / CHAP)"},
-
-};
+    {109, "signal tracking cell notifications ", "Signal tracking notification", "Signal tracking: cell change notification (options: none, new, all -don't notify,notify on new cells only,notify everything all the time)"},
+    {110, "define ", "Definition fo X", "define X: Looks up definition for a given word"},
+    {111, "set internal network apn ", "Set internal apn name ", "Configure your carrier APN for use in internal networking"},
+    {112, "set internal network user ", "Set internal apn user ", "Configure your carrier APN username for use in internal networking"},
+    {113, "set internal network pass ", "Set internal apn pass ", "Configure your carrier APN password for use in internal networking"},
+    {114, "set internal network auth method ", "Set internal apn auth method ", "Configure your carrier APN authentication method (options: none, pap, chap, auto)"},
+  };
 
 static const struct {
   unsigned int id;

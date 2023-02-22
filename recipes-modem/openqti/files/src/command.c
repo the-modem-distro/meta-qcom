@@ -1218,9 +1218,9 @@ int find_dictionary_entry(char *word) {
 void search_dictionary_entry(uint8_t *command) {
   uint8_t *offset;
   char word[128];
-  offset = (uint8_t *)strstr((char *)command, partial_commands[9].cmd);
+  offset = (uint8_t *)strstr((char *)command, partial_commands[10].cmd);
   if (offset != NULL) {
-    int ofs = (int)(offset - command) + strlen(partial_commands[9].cmd);
+    int ofs = (int)(offset - command) + strlen(partial_commands[10].cmd);
     if (strlen((char *)command) > ofs) {
       snprintf(word, 128, "%s", (char *)command + ofs);
       find_dictionary_entry(word);
@@ -1233,9 +1233,9 @@ void configure_new_apn(uint8_t *command) {
   char apn[128];
   size_t strsz;
   uint8_t reply[MAX_MESSAGE_SIZE];
-  offset = (uint8_t *)strstr((char *)command, partial_commands[10].cmd);
+  offset = (uint8_t *)strstr((char *)command, partial_commands[11].cmd);
   if (offset != NULL) {
-    int ofs = (int)(offset - command) + strlen(partial_commands[10].cmd);
+    int ofs = (int)(offset - command) + strlen(partial_commands[11].cmd);
     if (strlen((char *)command) > ofs) {
       snprintf(apn, 128, "%s", (char *)command + ofs);
       set_internal_network_apn_name(apn);
@@ -1255,9 +1255,9 @@ void configure_apn_username(uint8_t *command) {
   char user[128];
   size_t strsz;
   uint8_t reply[MAX_MESSAGE_SIZE];
-  offset = (uint8_t *)strstr((char *)command, partial_commands[11].cmd);
+  offset = (uint8_t *)strstr((char *)command, partial_commands[12].cmd);
   if (offset != NULL) {
-    int ofs = (int)(offset - command) + strlen(partial_commands[11].cmd);
+    int ofs = (int)(offset - command) + strlen(partial_commands[12].cmd);
     if (strlen((char *)command) > ofs) {
       snprintf(user, 128, "%s", (char *)command + ofs);
       set_internal_network_username(user);
@@ -1276,9 +1276,9 @@ void configure_apn_password(uint8_t *command) {
   char pass[128];
   size_t strsz;
   uint8_t reply[MAX_MESSAGE_SIZE];
-  offset = (uint8_t *)strstr((char *)command, partial_commands[12].cmd);
+  offset = (uint8_t *)strstr((char *)command, partial_commands[13].cmd);
   if (offset != NULL) {
-    int ofs = (int)(offset - command) + strlen(partial_commands[12].cmd);
+    int ofs = (int)(offset - command) + strlen(partial_commands[13].cmd);
     if (strlen((char *)command) > ofs) {
       snprintf(pass, 128, "%s", (char *)command + ofs);
       set_internal_network_username(pass);
@@ -1290,6 +1290,71 @@ void configure_apn_password(uint8_t *command) {
     strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting APN password \n");
     add_message_to_queue(reply, strsz);
   }
+}
+
+void configure_internal_network_auth_method(uint8_t *command) {
+  uint8_t *offset;
+  uint8_t changed = 0;
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  char word[128];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[14].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[14].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(word, 128, "%s", (char *)command + ofs);
+      if (strcmp(word, "none") == 0) {
+        changed = 1;
+        set_internal_network_auth_method(0);
+      } else if (strcmp(word, "pap") == 0) {
+        changed = 1;
+        set_internal_network_auth_method(1);
+      } else if (strcmp(word, "chap") == 0) {
+        changed = 1;
+        set_internal_network_auth_method(2);
+      } else if (strcmp(word, "auto") == 0) {
+        set_internal_network_auth_method(2);
+        changed = 1;
+      }
+    }
+  }
+  if (changed) {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Auth mode changed: %s \n", word);
+  } else {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Unknown auth mode!\n");
+  }
+  add_message_to_queue(reply, strsz);
+}
+
+void configure_signal_tracking_cell_notification(uint8_t *command) {
+  uint8_t *offset;
+  uint8_t changed = 0;
+  size_t strsz;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  char word[128];
+  offset = (uint8_t *)strstr((char *)command, partial_commands[9].cmd);
+  if (offset != NULL) {
+    int ofs = (int)(offset - command) + strlen(partial_commands[9].cmd);
+    if (strlen((char *)command) > ofs) {
+      snprintf(word, 128, "%s", (char *)command + ofs);
+      if (strcmp(word, "none") == 0) {
+        changed = 1;
+        set_signal_tracking_cell_change_notification(0);
+      } else if (strcmp(word, "new") == 0) {
+        changed = 1;
+        set_signal_tracking_cell_change_notification(1);
+      } else if (strcmp(word, "all") == 0) {
+        changed = 1;
+        set_signal_tracking_cell_change_notification(2);
+      }
+    }
+  }
+  if (changed) {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Cell ID change notificaitons: %s \n", word);
+  } else {
+    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Unknown Cell ID change notification mode!\n");
+  }
+  add_message_to_queue(reply, strsz);
 }
 
 void clear_internal_networking_auth() {
@@ -1877,9 +1942,21 @@ uint8_t parse_command(uint8_t *command) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
-    enable_dump_network_tables(false);
+    set_signal_tracking_downgrade_notification(true);
     break;
   case 53:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_signal_tracking_downgrade_notification(false);
+    break;
+  case 54:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    enable_dump_network_tables(false);
+    break;
+  case 55:
     clear_internal_networking_auth();
     break;
   case 100:
@@ -1911,18 +1988,21 @@ uint8_t parse_command(uint8_t *command) {
     set_new_signal_tracking_mode(command);
     break;
   case 109:
+    configure_signal_tracking_cell_notification(command);
+    break; 
+  case 110:
     search_dictionary_entry(command);
     break;
-  case 110:
+  case 111:
     configure_new_apn(command);
     break;
-  case 111:
+  case 112:
     configure_apn_username(command);
     break;
-  case 112:
+  case 113:
     configure_apn_password(command);
     break;
-  case 113:
+  case 114:
     break;
   default:
     strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
