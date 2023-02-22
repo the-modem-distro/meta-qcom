@@ -285,7 +285,7 @@ int read_settings_from_file() {
   }
   fclose(fp);
   attempted_boots = read_boot_counter_file();
-  if (attempted_boots > 3) {
+  if (attempted_boots > 3 && !settings->persistent_logging) {
     logger(MSG_WARN,
            "%s: Enabling persistent logging due to repeated boot failures\n",
            __func__);
