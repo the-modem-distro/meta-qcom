@@ -19,7 +19,9 @@ struct config_prototype {
   char user_name[MAX_NAME_SZ];
   char modem_name[MAX_NAME_SZ];
   uint8_t signal_tracking;
-  uint8_t signal_tracking_mode; 
+  uint8_t signal_tracking_mode;
+  uint8_t signal_tracking_notify_downgrade;
+  uint8_t signal_tracking_notify_cell_change; // no, only new, all
   uint8_t sms_logging;
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
@@ -27,12 +29,14 @@ struct config_prototype {
   bool first_boot;
   uint8_t allow_internal_modem_connectivity;
   uint8_t apn_auth_method; // 0 none, 1 PAP, 2 CHAP
+  uint8_t apn_ip_family; // ipv4 - ipv6: not implemented
   char apn_addr[MAX_APN_FIELD_SZ];
   char apn_username[MAX_APN_FIELD_SZ];
   char apn_password[MAX_APN_FIELD_SZ];
   // IPv6 is not currently supported, but I'll have to look into it
 
 }; 
+
 /* 
 signal_tracking_operating mode (requires signal_tracking ON and PERSIST)
 0: Standalone + info (learning mode)
@@ -54,6 +58,11 @@ uint8_t is_signal_tracking_enabled();
 uint8_t get_signal_tracking_mode();
 void enable_signal_tracking(bool en);
 void set_signal_tracking_mode(uint8_t mode);
+
+uint8_t is_signal_tracking_downgrade_notification_enabled();
+uint8_t get_signal_tracking_cell_change_notification_mode();
+void set_signal_tracking_downgrade_notification(uint8_t enable);
+void set_signal_tracking_cell_change_notification(uint8_t mode);
 
 /* Custom alert tone */
 uint8_t use_custom_alert_tone();

@@ -49,6 +49,8 @@ int set_initial_config() {
   settings->persistent_logging = 0;
   settings->signal_tracking = 0;
   settings->signal_tracking_mode = 0;
+  settings->signal_tracking_notify_downgrade = 0;
+  settings->signal_tracking_notify_cell_change = 0;
   settings->sms_logging = 0;
   settings->callwait_autohangup = 0;
   settings->automatic_call_recording = 0;
@@ -106,6 +108,16 @@ int parse_line(char *buf) {
 
   if (strcmp(setting, "signal_tracking_mode") == 0) {
     settings->signal_tracking_mode = atoi(value);
+    return 1;
+  }
+
+  if (strcmp(setting, "signal_tracking_notify_downgrade") == 0) {
+    settings->signal_tracking_notify_downgrade = atoi(value);
+    return 1;
+  }
+
+  if (strcmp(setting, "signal_tracking_notify_cell_change") == 0) {
+    settings->signal_tracking_notify_cell_change = atoi(value);
     return 1;
   }
 
@@ -192,6 +204,8 @@ int write_settings_to_storage() {
   fprintf(fp, "modem_name=%s\n", settings->modem_name);
   fprintf(fp, "signal_tracking=%i\n", settings->signal_tracking);
   fprintf(fp, "signal_tracking_mode=%i\n", settings->signal_tracking_mode);
+  fprintf(fp, "signal_tracking_notify_downgrade=%i\n", settings->signal_tracking_notify_downgrade);
+  fprintf(fp, "signal_tracking_notify_cell_change=%i\n", settings->signal_tracking_notify_cell_change);
   fprintf(fp, "dump_network_tables=%i\n", settings->dump_network_tables);
   fprintf(fp, "callwait_autohangup=%i\n", settings->callwait_autohangup);
   fprintf(fp, "automatic_call_recording=%i\n",
@@ -483,6 +497,52 @@ void set_signal_tracking_mode(uint8_t mode) {
   settings->signal_tracking_mode = mode;
   write_settings_to_storage();
 }
+
+uint8_t is_signal_tracking_downgrade_notification_enabled() {
+  return settings->signal_tracking_notify_downgrade;
+}
+uint8_t get_signal_tracking_cell_change_notification_mode() {
+  return settings->signal_tracking_notify_cell_change;
+}
+
+void set_signal_tracking_downgrade_notification(uint8_t enable) {
+  if (enable) {
+    logger(MSG_WARN, "Enabling Signal downgrade notification\n");
+    settings->signal_tracking_notify_downgrade = 1;
+  } else {
+    logger(MSG_WARN, "Disabling Signal downgrade notification\n");
+    settings->signal_tracking_notify_downgrade = 0;
+  }
+  write_settings_to_storage();
+}
+
+void set_signal_tracking_cell_change_notification(uint8_t mode) {
+  if (mode > 2) {
+    logger(MSG_ERROR, "%s: Invalid mode: %u\n", __func__, mode);
+    return;
+  }
+  switch (mode) {
+  case 0:
+    logger(MSG_INFO, "%s: Mode: Don't notify \n",
+           __func__);
+    break;
+
+  case 1:
+    logger(MSG_INFO, "%s: Mode: Notify when connecting to a new cell \n",
+           __func__);
+    break;
+
+  case 2:
+    logger(MSG_INFO,
+           "%s: Mode: Send a SMS on every cell change \n",
+           __func__);
+    break;
+
+  }
+  settings->signal_tracking_notify_cell_change = mode;
+  write_settings_to_storage();
+}
+
 void enable_call_waiting_autohangup(uint8_t en) {
   if (en == 2) {
     logger(MSG_WARN, "Enabling Automatic hang up of calls in waiting state\n");
