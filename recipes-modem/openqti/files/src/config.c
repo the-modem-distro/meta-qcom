@@ -165,7 +165,7 @@ int parse_line(char *buf) {
   }
   
   if (strcmp(setting, "auth_method") == 0) {
-    settings->auth_method = atoi(value);
+    settings->apn_auth_method = atoi(value);
     return 1;
   }
   return 0;
@@ -201,7 +201,7 @@ int write_settings_to_storage() {
   fprintf(fp, "allow_internal_modem_connectivity=%i\n",
           settings->allow_internal_modem_connectivity);
   fprintf(fp, "auth_method=%i\n",
-          settings->auth_method);
+          settings->apn_auth_method);
   fprintf(fp, "apn_addr=%s\n", settings->apn_addr);
   fprintf(fp, "apn_username=%s\n", settings->apn_username);
   fprintf(fp, "apn_password=%s\n", settings->apn_password);
@@ -512,7 +512,7 @@ char *get_internal_network_pass() {
 }
 
 uint8_t get_internal_network_auth_method() {
-  return settings->auth_method;
+  return settings->apn_auth_method;
 }
 
 void set_internal_network_apn_name(char *apn) {
@@ -538,7 +538,7 @@ void set_internal_network_pass(char *pass) {
 
 void set_internal_network_auth_method(uint8_t method) {
   if (method < 3) {
-    settings->auth_method = method;
+    settings->apn_auth_method = method;
   }
   write_settings_to_storage();
 }

@@ -26,7 +26,7 @@ struct config_prototype {
   uint8_t dump_network_tables;
   bool first_boot;
   uint8_t allow_internal_modem_connectivity;
-  uint8_t auth_method; // 0 none, 1 PAP, 2 CHAP
+  uint8_t apn_auth_method; // 0 none, 1 PAP, 2 CHAP
   char apn_addr[MAX_APN_FIELD_SZ];
   char apn_username[MAX_APN_FIELD_SZ];
   char apn_password[MAX_APN_FIELD_SZ];
