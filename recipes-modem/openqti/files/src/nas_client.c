@@ -854,7 +854,9 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
 
   if (cell_id != nas_runtime.current_cell_id ||
       lac != nas_runtime.current_lac) {
-    notify_cellid_change(cell_id, lac);
+    if (get_signal_tracking_cell_change_notification_mode() == 2 ||
+        (get_signal_tracking_cell_change_notification_mode() == 1 && !cell_is_known))
+          notify_cellid_change(cell_id, lac);
     nas_runtime.current_cell_id = cell_id;
     nas_runtime.current_lac = lac;
   }
@@ -2044,13 +2046,13 @@ void nas_update_network_data(uint8_t network_type, uint8_t signal_level) {
   if (signal_level > 0)
     nas_runtime.curr_state.signal_level = signal_level / 2;
 
-  if (is_signal_tracking_enabled()) {
+  if (is_signal_tracking_enabled() && is_signal_tracking_downgrade_notification_enabled()) {
     if (nas_runtime.curr_state.network_type <
         nas_runtime.prev_state.network_type) {
       uint8_t reply[MAX_MESSAGE_SIZE] = {0};
       size_t strsz =
           snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                   "Warning: Network service has been downgraded!\n");
+                   "WARNING: Network service has been downgraded!\n");
       add_message_to_queue(reply, strsz);
     }
   }
