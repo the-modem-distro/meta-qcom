@@ -342,9 +342,6 @@ int wds_attempt_to_connect() {
   roaming_lock->value = 0x00; // OFF
   curr_offset+= sizeof(struct block_in_roaming);
 
-  wds_set_autoconnect(0);
-  set_rawip_mode();
-
   add_pending_message(QMI_SERVICE_WDS, (uint8_t *)pkt, pkt_len);
 
   free(pkt);
@@ -363,6 +360,10 @@ void *init_internal_networking() {
   }
 
   logger(MSG_INFO, "%s: WDS: Network is ready, try to connect\n", __func__);
+
+  wds_set_autoconnect(0);
+  set_rawip_mode();
+
   wds_attempt_to_connect();
 
   return NULL;
@@ -398,6 +399,7 @@ int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
       logger(MSG_ERROR, "%s failed to start network\n", __func__);
     } else {
       logger(MSG_INFO, "%s: Network started! enable indications and request dhcp\n", __func__);
+      system("udhcpc -q -f -i rmnet0");
     }
     wds_enable_indications_ipv4();
     break;
