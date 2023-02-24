@@ -102,7 +102,8 @@ static const struct {
     {53, CMD_CATEGORY_NETWORK, "enable network downgrade notification", "I will notify you if network type gets downgraded", "Sends a SMS when the network changes (ie from LTE to WCDMA)"},
     {54, CMD_CATEGORY_NETWORK, "disable network downgrade notification", "I won't notify when network type gets downgraded", "Disables service downgrade notifications"},
     {55, CMD_CATEGORY_NETWORK, "clear internal network auth", "Removing internal networking authentication config", "Resets internal networking user,pass and method"},
-
+    {56, CMD_CATEGORY_UTILITY, "enable message recovery", "Will try to retrieve any stuck messages on next boot", "Enables MM bypass of List All messages to retrieve stuck SMS"},
+    {57, CMD_CATEGORY_UTILITY, "disable message recovery", "Will stop hijacking ModemManager's List All Messages", "Disables MM bypass of List All messages to retrieve stuck SMS"},
 };
 
 static const struct {
@@ -132,23 +133,6 @@ static const struct {
     {113, CMD_CATEGORY_NETWORK, "set internal network pass ", "Set internal apn pass ", "Configure your carrier APN password for use in internal networking"},
     {114, CMD_CATEGORY_NETWORK, "set internal network auth method ", "Set internal apn auth method ", "Configure your carrier APN authentication method (options: none, pap, chap, auto)"},
   };
-
-static const struct {
-  unsigned int id;
-  const char *answer;
-} repeated_cmd[] = {
-    {0, "Here it is... again."},
-    {1, "Really?"},
-    {2, "Can't believe it. Here:"},
-    {3, "U gotta be kidding me"},
-    {4, "Excuse me?"},
-    {5, "How about you stop this"},
-    {6, "I hate you."},
-    {7, "Oh come on"},
-    {8, "Please not again"},
-    {9, "Stop that already"},
-    {10, "I hate you"},
-};
 
 char *get_rt_modem_name();
 char *get_rt_user_name();

@@ -1448,13 +1448,7 @@ uint8_t parse_command(uint8_t *command) {
       }
     }
   }
-  ret = find_cmd_history_match(cmd_id);
-  if (ret >= 5) {
-    logger(MSG_WARN, "You're pissing me off\n");
-    random = rand() % 10;
-    strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s\n",
-                      repeated_cmd[random].answer);
-  }
+
   switch (cmd_id) {
   case -1:
     logger(MSG_INFO, "%s: Nothing to do\n", __func__);
@@ -1980,6 +1974,20 @@ uint8_t parse_command(uint8_t *command) {
   case 55:
     clear_internal_networking_auth();
     break;
+  case 56:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_list_all_bypass(true);
+    break;
+  case 57:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    set_list_all_bypass(false);
+    break;
+
+    /* Partials */
   case 100:
     set_custom_modem_name(command);
     break;
