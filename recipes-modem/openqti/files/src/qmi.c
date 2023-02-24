@@ -537,7 +537,7 @@ int send_pending_internal_qmi_messages() {
  * This is called from each client to add a message to the pool
  */
 int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
-  uint8_t retries = 10;
+  uint8_t retries = 25;
   uint8_t *temporary_buffer = malloc(buf_len);
   if (service > QMI_SERVICES_LAST) {
     logger(MSG_ERROR, "%s: Invalid Service ID: %.2x\n", __func__);
@@ -567,6 +567,7 @@ int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
 
   logger(MSG_ERROR, "%s: Failed to add the pending message for service %.2x!\n",
          __func__, service);
+  free(temporary_buffer);
   return -EINVAL;
 }
 
