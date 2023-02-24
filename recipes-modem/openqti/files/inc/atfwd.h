@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 #ifndef _ATFWD_H_
 #define _ATFWD_H_
-#include "../inc/qmi.h"
+#include "qmi.h"
 #include <stdbool.h>
 #include <stdint.h>
 

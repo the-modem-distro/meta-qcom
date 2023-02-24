@@ -2,9 +2,9 @@
 #ifndef __VOICE__H_
 #define __VOICE__H_
 
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
-#include "../inc/call.h"
+#include "openqti.h"
+#include "qmi.h"
+#include "call.h"
 #include <stdbool.h>
 #include <stdio.h>
 /*

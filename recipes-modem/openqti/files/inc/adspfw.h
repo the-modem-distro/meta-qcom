@@ -2,7 +2,7 @@
 #ifndef _ADSPFW_H_
 #define _ADSPFW_H_
 
-#include "../inc/openqti.h"
+#include "openqti.h"
 #include <stdbool.h>
 #include <stdio.h>
 

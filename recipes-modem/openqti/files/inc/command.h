@@ -2,7 +2,7 @@
 
 #ifndef _COMMAND_H_
 #define _COMMAND_H_
-#include "../inc/helpers.h"
+#include "helpers.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>

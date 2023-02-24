@@ -3,7 +3,7 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
-#include "../inc/call.h"
+#include "call.h"
 #include <sound/asound.h>
 #include <stdbool.h>
 #include <stdint.h>

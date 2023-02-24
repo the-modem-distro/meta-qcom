@@ -2,7 +2,7 @@
 
 #ifndef _SMS_H
 #define _SMS_H
-#include "../inc/qmi.h"
+#include "qmi.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>

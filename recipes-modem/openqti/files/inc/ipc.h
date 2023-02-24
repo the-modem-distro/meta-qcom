@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include "../inc/qmi.h"
+#include "qmi.h"
 
 #define IPC_ROUTER 27     // AF_IB
 #define IPC_ROUTER_ADDR 2 // Kernel IPC driver address

@@ -2,8 +2,8 @@
 #ifndef _CELL_BROADCAST_H_
 #define _CELL_BROADCAST_H_
 
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
+#include "openqti.h"
+#include "qmi.h"
 #include <stdbool.h>
 #include <stdio.h>
 

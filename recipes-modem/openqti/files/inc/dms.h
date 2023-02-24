@@ -2,8 +2,8 @@
 #ifndef __DMS_H__
 #define __DMS_H__
 
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
+#include "openqti.h"
+#include "qmi.h"
 #include <stdbool.h>
 #include <stdio.h>
 /*
