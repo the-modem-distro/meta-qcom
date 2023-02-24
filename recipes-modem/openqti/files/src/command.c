@@ -212,7 +212,9 @@ void set_new_signal_tracking_mode(uint8_t *command) {
         set_signal_tracking_mode(mode);
       } else {
         strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         "Available modes for signal tracking:\n0:Standalone learn\n1:Standalone enforce\n2:OpenCellID learn\n3:OpenCellID enforce\nYour selection: %u\n",
+                         "Available modes for signal tracking:\n0:Standalone "
+                         "learn\n1:Standalone enforce\n2:OpenCellID "
+                         "learn\n3:OpenCellID enforce\nYour selection: %u\n",
                          mode);
       }
     }
@@ -1138,11 +1140,12 @@ void suspend_call_notifications(uint8_t *command) {
   reply = NULL;
 }
 
-
 int find_dictionary_entry(char *word) {
   char *line = malloc(32768); /* initialize all to 0 ('\0') */
   bool found = false;
-  static const char *wtypes[] = { "noun", "preposition", "adjective", "verb", "adverb", "pronoun", "interjection", "conjunction", "pronoun" };
+  static const char *wtypes[] = {"noun",         "preposition", "adjective",
+                                 "verb",         "adverb",      "pronoun",
+                                 "interjection", "conjunction", "pronoun"};
   FILE *dictfile;
   uint32_t id = 0;
   uint8_t type = 0;
@@ -1175,30 +1178,29 @@ int find_dictionary_entry(char *word) {
       case 2:
         if (strcmp(next, word) == 0) {
           logger(MSG_DEBUG, "--> Word found: %s -> %s (id %u type %u [%s])\n",
-                  word, next, id, type,
-                  wtypes[type]);
+                 word, next, id, type, wtypes[type]);
           found = 1;
         }
         break;
       case 3:
         if (found) {
-          logger(MSG_DEBUG,"--> Definition: %s: %s\n", next, wtypes[type]);
+          logger(MSG_DEBUG, "--> Definition: %s: %s\n", next, wtypes[type]);
           def_size = strlen(next);
           while (strsz < def_size) {
             memset(reply, 0, MAX_MESSAGE_SIZE);
             if (def_size - strsz > MAX_MESSAGE_SIZE) {
-              strncpy((char*) reply, (next+strsz), MAX_MESSAGE_SIZE-1);
+              strncpy((char *)reply, (next + strsz), MAX_MESSAGE_SIZE - 1);
               add_message_to_queue(reply, MAX_MESSAGE_SIZE);
-              strsz+= MAX_MESSAGE_SIZE-1;
+              strsz += MAX_MESSAGE_SIZE - 1;
             } else {
-              strncpy((char*) reply, (next+strsz), (def_size-strsz));
-              add_message_to_queue(reply,  (def_size-strsz));
-              strsz+=  (def_size-strsz);
+              strncpy((char *)reply, (next + strsz), (def_size - strsz));
+              add_message_to_queue(reply, (def_size - strsz));
+              strsz += (def_size - strsz);
             }
           }
-        free(line);
-        fclose(dictfile);
-        return 0;
+          free(line);
+          fclose(dictfile);
+          return 0;
         }
       }
       next = strtok(NULL, ":");
@@ -1207,7 +1209,8 @@ int find_dictionary_entry(char *word) {
   }
   logger(MSG_DEBUG, "--> Word '%s' not found\n", word);
   memset(reply, 0, MAX_MESSAGE_SIZE);
-  strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "I don't know what '%s' means :(\n", word);
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "I don't know what '%s' means :(\n", word);
   add_message_to_queue(reply, strsz);
   free(line);
   fclose(dictfile);
@@ -1240,15 +1243,16 @@ void configure_new_apn(uint8_t *command) {
       snprintf(apn, 128, "%s", (char *)command + ofs);
       set_internal_network_apn_name(apn);
       // Send notif
-      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN name to %s\n", apn);
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Setting internal APN name to %s\n", apn);
       add_message_to_queue(reply, strsz);
     }
   } else {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting internal APN name \n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Error setting internal APN name \n");
     add_message_to_queue(reply, strsz);
   }
 }
-
 
 void configure_apn_username(uint8_t *command) {
   uint8_t *offset;
@@ -1262,11 +1266,13 @@ void configure_apn_username(uint8_t *command) {
       snprintf(user, 128, "%s", (char *)command + ofs);
       set_internal_network_username(user);
       // Send notif
-      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN username to %s\n", user);
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Setting internal APN username to %s\n", user);
       add_message_to_queue(reply, strsz);
     }
   } else {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting APN username \n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Error setting APN username \n");
     add_message_to_queue(reply, strsz);
   }
 }
@@ -1283,11 +1289,13 @@ void configure_apn_password(uint8_t *command) {
       snprintf(pass, 128, "%s", (char *)command + ofs);
       set_internal_network_username(pass);
       // Send notif
-      strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Setting internal APN password to %s\n", pass);
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                       "Setting internal APN password to %s\n", pass);
       add_message_to_queue(reply, strsz);
     }
   } else {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Error setting APN password \n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Error setting APN password \n");
     add_message_to_queue(reply, strsz);
   }
 }
@@ -1319,9 +1327,10 @@ void configure_internal_network_auth_method(uint8_t *command) {
     }
   }
   if (changed) {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Auth mode changed: %s \n", word);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Auth mode changed: %s \n", word);
   } else {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Unknown auth mode!\n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Unknown auth mode!\n");
   }
   add_message_to_queue(reply, strsz);
 }
@@ -1350,9 +1359,11 @@ void configure_signal_tracking_cell_notification(uint8_t *command) {
     }
   }
   if (changed) {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Cell ID change notificaitons: %s \n", word);
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Cell ID change notificaitons: %s \n", word);
   } else {
-    strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "Unknown Cell ID change notification mode!\n");
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Unknown Cell ID change notification mode!\n");
   }
   add_message_to_queue(reply, strsz);
 }
@@ -1364,11 +1375,9 @@ void clear_internal_networking_auth() {
   set_internal_network_username("");
   set_internal_network_pass("");
   set_internal_network_apn_name("");
-  strsz = snprintf((char*)reply, MAX_MESSAGE_SIZE, "APN Auth data cleared\n");
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "APN Auth data cleared\n");
   add_message_to_queue(reply, strsz);
 }
-
-
 
 void set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
@@ -1535,42 +1544,53 @@ uint8_t parse_command(uint8_t *command) {
                       packet_stats.allowed, packet_stats.other);
     add_message_to_queue(reply, strsz);
     break;
-  case 8:
+  case CHAT_CMD_HELP: {
+    /* Help */
     strsz = 0;
-    snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-             "Help: Static commands\n");
-    add_message_to_queue(reply, strsz);
-    strsz = 0;
-    for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
-      if (strlen(bot_commands[i].cmd) + (3 * sizeof(uint8_t)) +
-              strlen(bot_commands[i].help) + strsz >
-          MAX_MESSAGE_SIZE) {
-        add_message_to_queue(reply, strsz);
-        strsz = 0;
+    char full_help_msg[4096];
+    size_t full_msg_size = 0;
+    full_msg_size = snprintf((char *)full_help_msg, 4096,
+             "Welcome to the modem distro!\n"
+             "You can use the chat to view and change a lot of settings\n"
+             "Here's a list of what you can do:");
+    for (uint8_t j = 0;
+         j < (sizeof(cmd_categories) / sizeof(cmd_categories[0])); j++) {
+      full_msg_size +=
+          snprintf((char *)full_help_msg + full_msg_size, 4096 - full_msg_size,
+                   "-> Category: %s\n", cmd_categories[j].name);
+      for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
+        if (cmd_categories[j].category == bot_commands[i].category) {
+          full_msg_size += snprintf((char *)full_help_msg + full_msg_size,
+                                    4096 - full_msg_size, "%s: %s\n",
+                                    bot_commands[i].cmd, bot_commands[i].help);
+        }
       }
-      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                        "%s: %s\n", bot_commands[i].cmd, bot_commands[i].help);
+      for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
+           i++) {
+        if (cmd_categories[j].category == partial_commands[i].category) {
+          strsz += snprintf((char *)full_help_msg + full_msg_size,
+                            MAX_MESSAGE_SIZE - full_msg_size, "%s x: %s\n",
+                            partial_commands[i].cmd, partial_commands[i].help);
+        }
+      }
+    }
+    while (strsz < full_msg_size) {
+      memset(reply, 0, MAX_MESSAGE_SIZE);
+      if (full_msg_size - strsz > MAX_MESSAGE_SIZE) {
+        strncpy((char *)reply, (full_help_msg + strsz), MAX_MESSAGE_SIZE - 1);
+        add_message_to_queue(reply, MAX_MESSAGE_SIZE);
+        strsz += MAX_MESSAGE_SIZE - 1;
+        usleep(250); // Let modemmanager breathe
+      } else {
+        strncpy((char *)reply, (full_help_msg + strsz),
+                (full_msg_size - strsz));
+        add_message_to_queue(reply, (full_msg_size - strsz));
+        strsz += (full_msg_size - strsz);
+      }
     }
     add_message_to_queue(reply, strsz);
-    strsz = 0;
-    snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-             "Help: Commands with arguments\n");
-    add_message_to_queue(reply, strsz);
-    strsz = 0;
-    for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
-         i++) {
-      if (strlen(partial_commands[i].cmd) + (5 * sizeof(uint8_t)) +
-              strlen(partial_commands[i].help) + strsz >
-          MAX_MESSAGE_SIZE) {
-        add_message_to_queue(reply, strsz);
-        strsz = 0;
-      }
-      strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
-                        "%s x: %s\n", partial_commands[i].cmd,
-                        partial_commands[i].help);
-    }
-    add_message_to_queue(reply, strsz);
-    break;
+  } break;
+
   case 9:
     strsz += snprintf(
         (char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
@@ -1989,7 +2009,7 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case 109:
     configure_signal_tracking_cell_notification(command);
-    break; 
+    break;
   case 110:
     search_dictionary_entry(command);
     break;
