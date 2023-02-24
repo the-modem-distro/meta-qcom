@@ -216,10 +216,10 @@ void emergency_baseband_pwoerdown(uint32_t cell_id, uint16_t lac,
   }
   add_message_to_queue(reply, strsz);
   // Disable until we get to production with this
-  /*  sleep(10);
+    sleep(10);
     if (write_to(ADSP_BOOT_HANDLER, "0", O_WRONLY) < 0) {
       logger(MSG_ERROR, "%s: Error shutting down the ADSP\n", __func__);
-    }*/
+    }
 }
 
 void notify_cellid_change(uint32_t cell_id, uint16_t lac) {
@@ -757,14 +757,14 @@ int is_in_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
         nas_runtime.data[i].report.type_of_service == type_of_service &&
         nas_runtime.data[i].report.cell_id == cell_id &&
         nas_runtime.data[i].report.lac == lac) {
-      logger(MSG_INFO, "%s: Cell found in report %i\n", __func__, i);
+      logger(MSG_DEBUG, "%s: Cell found in report %i\n", __func__, i);
       nas_runtime.data[i].in_use = 1;
       nas_runtime.data[i].report.found_in_network = 1;
       report_id = i;
     }
   }
   if (report_id < 0) {
-    logger(MSG_WARN, "%s: Cell not found!\n", __func__);
+    logger(MSG_INFO, "%s: Cell not found!\n", __func__);
   }
 
   store_report_data();
@@ -805,20 +805,20 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
 
   switch (get_signal_tracking_mode()) {
   case 0:
-    logger(MSG_INFO, "%s: Learning mode: standalone\n", __func__);
+    logger(MSG_DEBUG, "%s: Learning mode: standalone\n", __func__);
     if (!cell_is_known) {
       report_id = add_report(mcc, mnc, type_of_service, lac, phy_cell_id,
                              cell_id, bsic, bcch, psc, arfcn, srx_lev, rx_lev);
     }
     break;
   case 1:
-    logger(MSG_INFO, "%s: Strict mode: standalone\n", __func__);
+    logger(MSG_DEBUG, "%s: Strict mode: standalone\n", __func__);
     if (!cell_is_known) {
       emergency_baseband_pwoerdown(cell_id, lac, opencellid_res);
     }
     break;
   case 2:
-    logger(MSG_INFO, "%s: Learning mode: OpenCellid + standalone\n", __func__);
+    logger(MSG_DEBUG, "%s: Learning mode: OpenCellid + standalone\n", __func__);
     opencellid_res = is_cell_id_in_db(cell_id, lac);
 
     if (!cell_is_known) {
@@ -830,6 +830,7 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
     }
     break;
   case 3:
+    logger(MSG_DEBUG, "%s: Strict mode: OpenCellid + standalone\n", __func__);
     opencellid_res = is_cell_id_in_db(cell_id, lac);
     if (opencellid_res == 1 && !cell_is_known) {
       report_id = add_report(mcc, mnc, type_of_service, lac, phy_cell_id,
@@ -843,7 +844,6 @@ void process_current_network_data(uint16_t mcc, uint16_t mnc,
           "%s: Don't know what to do! Cell is known: %u | opencellid_res: %i\n",
           __func__, cell_is_known, opencellid_res);
     }
-    logger(MSG_INFO, "%s: Strict mode: OpenCellid + standalone\n", __func__);
     break;
 
   default:
