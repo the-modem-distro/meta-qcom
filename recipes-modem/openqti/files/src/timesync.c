@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/timesync.h"
-#include "../inc/nas.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
+#include "timesync.h"
+#include "nas.h"
+#include "devices.h"
+#include "helpers.h"
+#include "logger.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>

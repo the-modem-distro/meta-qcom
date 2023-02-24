@@ -5,13 +5,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/audio.h"
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
-#include "../inc/space_mon.h"
+#include "audio.h"
+#include "call.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "logger.h"
+#include "space_mon.h"
 
 struct mixer *mixer;
 struct pcm *pcm_tx;

@@ -1,6 +1,6 @@
-#include "../inc/space_mon.h"
-#include "../inc/config.h"
-#include "../inc/logger.h"
+#include "space_mon.h"
+#include "config.h"
+#include "logger.h"
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>

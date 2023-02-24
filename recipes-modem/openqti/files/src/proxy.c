@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/proxy.h"
-#include "../inc/atfwd.h"
-#include "../inc/audio.h"
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
-#include "../inc/tracking.h"
-#include "../inc/nas.h"
+#include "proxy.h"
+#include "atfwd.h"
+#include "audio.h"
+#include "call.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "openqti.h"
+#include "qmi.h"
+#include "sms.h"
+#include "tracking.h"
+#include "nas.h"
 
 #include <errno.h>
 #include <fcntl.h>

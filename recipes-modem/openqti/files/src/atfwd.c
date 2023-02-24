@@ -13,18 +13,18 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "../inc/adspfw.h"
-#include "../inc/atfwd.h"
-#include "../inc/audio.h"
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/proxy.h"
-#include "../inc/sms.h"
-#include "../inc/nas.h"
+#include "adspfw.h"
+#include "atfwd.h"
+#include "audio.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "openqti.h"
+#include "proxy.h"
+#include "sms.h"
+#include "nas.h"
 
 struct {
   bool adb_enabled;

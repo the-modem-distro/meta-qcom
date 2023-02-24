@@ -23,8 +23,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/audio.h"
-#include "../inc/logger.h"
+#include "audio.h"
+#include "logger.h"
 
 static inline int param_is_mask(int p) {
   return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&

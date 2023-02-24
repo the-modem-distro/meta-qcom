@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include "../inc/logger.h"
-#include "../inc/devices.h"
-#include "../inc/command.h"
-#include "../inc/audio.h"
-#include "../inc/helpers.h"
+#include "logger.h"
+#include "devices.h"
+#include "command.h"
+#include "audio.h"
+#include "helpers.h"
 
 #ifdef USE_POCKETSPHINX
 #include <pocketsphinx.h>

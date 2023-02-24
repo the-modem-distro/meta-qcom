@@ -7,17 +7,17 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/dms.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/nas.h"
-#include "../inc/openqti.h"
-#include "../inc/tracking.h"
-#include "../inc/voice.h"
-#include "../inc/wds.h"
+#include "call.h"
+#include "config.h"
+#include "dms.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "nas.h"
+#include "openqti.h"
+#include "tracking.h"
+#include "voice.h"
+#include "wds.h"
 
 bool log_to_file = true;
 uint8_t log_level = 0;

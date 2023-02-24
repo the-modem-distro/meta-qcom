@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/helpers.h"
-#include "../inc/adspfw.h"
-#include "../inc/atfwd.h"
-#include "../inc/audio.h"
-#include "../inc/devices.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/md5sum.h"
-#include "../inc/openqti.h"
-#include "../inc/sms.h"
-#include "../inc/tracking.h"
+#include "helpers.h"
+#include "adspfw.h"
+#include "atfwd.h"
+#include "audio.h"
+#include "devices.h"
+#include "ipc.h"
+#include "logger.h"
+#include "md5sum.h"
+#include "openqti.h"
+#include "sms.h"
+#include "tracking.h"
 
 #include <errno.h>
 #include <fcntl.h>

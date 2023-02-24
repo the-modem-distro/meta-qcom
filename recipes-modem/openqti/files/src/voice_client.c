@@ -13,12 +13,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/qmi.h"
-#include "../inc/voice.h"
+#include "config.h"
+#include "devices.h"
+#include "ipc.h"
+#include "logger.h"
+#include "qmi.h"
+#include "voice.h"
 
 const char *get_voice_command(uint16_t msgid) {
   for (uint16_t i = 0;

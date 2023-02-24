@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
-#include "../inc/qmi.h"
-#include "../inc/call.h"
-#include "../inc/devices.h"
-#include "../inc/dms.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/sms.h"
-#include "../inc/wds.h"
-#include "../inc/voice.h"
-#include "../inc/nas.h"
+#include "qmi.h"
+#include "call.h"
+#include "devices.h"
+#include "dms.h"
+#include "ipc.h"
+#include "logger.h"
+#include "openqti.h"
+#include "sms.h"
+#include "wds.h"
+#include "voice.h"
+#include "nas.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>

@@ -13,12 +13,12 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/dms.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/qmi.h"
+#include "config.h"
+#include "devices.h"
+#include "dms.h"
+#include "ipc.h"
+#include "logger.h"
+#include "qmi.h"
 
 #define DMS_MODEM_INFO_MAX_STR_LEN 256
 

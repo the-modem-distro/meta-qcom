@@ -8,11 +8,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/tracking.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "tracking.h"
 
 struct {
   struct service_pair services[33];

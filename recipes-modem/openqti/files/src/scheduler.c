@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-#include "../inc/scheduler.h"
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
-#include "../inc/nas.h"
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
-#include "../inc/space_mon.h"
+#include "scheduler.h"
+#include "call.h"
+#include "config.h"
+#include "helpers.h"
+#include "logger.h"
+#include "nas.h"
+#include "openqti.h"
+#include "qmi.h"
+#include "sms.h"
+#include "space_mon.h"
 
 #include <endian.h>
 #include <errno.h>

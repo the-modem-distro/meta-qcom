@@ -14,15 +14,15 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/nas.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
-#include "../inc/wds.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "nas.h"
+#include "qmi.h"
+#include "sms.h"
+#include "wds.h"
 #include <net/if.h>
 
 #define DEBUG_WDS 1

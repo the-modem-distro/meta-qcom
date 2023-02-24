@@ -6,18 +6,18 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../inc/atfwd.h"
-#include "../inc/call.h"
-#include "../inc/cell_broadcast.h"
-#include "../inc/command.h"
-#include "../inc/config.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/proxy.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
-#include "../inc/timesync.h"
+#include "atfwd.h"
+#include "call.h"
+#include "cell_broadcast.h"
+#include "command.h"
+#include "config.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "proxy.h"
+#include "qmi.h"
+#include "sms.h"
+#include "timesync.h"
 
 /* Workaround while I debug pdu_decode()*/
 #define MSG_PDU_DECODE MSG_DEBUG

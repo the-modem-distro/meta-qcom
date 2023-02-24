@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-#include "../inc/thermal.h"
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
-#include "../inc/scheduler.h"
-#include "../inc/sms.h"
+#include "thermal.h"
+#include "call.h"
+#include "config.h"
+#include "helpers.h"
+#include "logger.h"
+#include "openqti.h"
+#include "qmi.h"
+#include "scheduler.h"
+#include "sms.h"
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>

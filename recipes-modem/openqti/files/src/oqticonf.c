@@ -5,9 +5,9 @@
 #include <sys/file.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
+#include "config.h"
+#include "logger.h"
+#include "openqti.h"
 
 #define ADB_EN_MAGIC "persistent_adb_on"
 #define PERSIST_USB_AUD_MAGIC "persistent_usbaudio_on"

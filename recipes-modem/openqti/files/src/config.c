@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/config.h"
-#include "../inc/logger.h"
+#include "config.h"
+#include "logger.h"
 
 #include <errno.h>
 #include <fcntl.h>
