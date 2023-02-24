@@ -56,6 +56,7 @@ struct message {
 };
 
 struct message_queue {
+  bool lock_queue;
   bool needs_intercept;
   int queue_pos;
   // max QUEUE_SIZE message to keep, we use the array as MSGID
@@ -77,6 +78,7 @@ void reset_sms_runtime() {
   sms_runtime.notif_pending = false;
   sms_runtime.curr_transaction_id = 0;
   sms_runtime.source = -1;
+  sms_runtime.queue.lock_queue = false;
   sms_runtime.queue.queue_pos = -1;
   sms_runtime.current_message_id = 0;
   sms_runtime.pending_messages_from_adsp = 0;
@@ -85,6 +87,7 @@ void reset_sms_runtime() {
 }
 
 void set_notif_pending(bool pending) { sms_runtime.notif_pending = pending; }
+void set_queue_lock(bool lock) { sms_runtime.queue.lock_queue = lock; }
 
 void set_pending_notification_source(uint8_t source) {
   sms_runtime.source = source;
@@ -877,8 +880,11 @@ int build_and_send_message(int fd, uint32_t message_id) {
   ret = ascii_to_gsm7((uint8_t *)sms_runtime.queue.msg[message_id].pkt,
                       msgoutput);
 
-  logger(MSG_DEBUG, "%s: Bytes to write %i\n", __func__, ret);
-
+  logger(MSG_INFO, "%s: Bytes to write %i\n", __func__, ret);
+  if (ret > MAX_MESSAGE_SIZE) {
+    logger(MSG_ERROR, "%s: Warning: resulting message size exceeds limit. Truncating\n");
+    ret = 160;
+  }
   /* QMUX */
   this_sms->qmuxpkt.version = 0x01;
   this_sms->qmuxpkt.packet_length = 0x00; // SIZE
@@ -997,7 +1003,6 @@ int build_and_send_message(int fd, uint32_t message_id) {
 
   ret = write(fd, (uint8_t *)this_sms, fullpktsz);
   dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
-
   free(this_sms);
   this_sms = NULL;
   return ret;
@@ -1262,7 +1267,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
   sms_runtime.curr_transaction_id = pkt->qmi.transaction_id;
-  logger(MSG_INFO, "%s: Messages in queue: %i\n", __func__,
+  logger(MSG_DEBUG, "%s: Messages in queue: %i\n", __func__,
          sms_runtime.queue.queue_pos + 1);
   if (sms_runtime.queue.queue_pos < 0) {
     logger(MSG_DEBUG, "%s: Nothing to do \n", __func__);
@@ -1287,21 +1292,19 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
-    logger(MSG_INFO, "%s: Requesting message contents for ID %i\n", __func__,
+    logger(MSG_INFO, "%s: Requested contents for Message ID %i\n", __func__,
            sms_runtime.current_message_id);
     offset = get_tlv_offset_by_id(bytes, len, 0x01);
     if (offset > 0) {
       struct sms_storage_type *storage;
       storage = (struct sms_storage_type *)(bytes + offset);
-      logger(MSG_WARN, "%s: Message ID: (offset) 0x%.2x\n", __func__,
-             storage->message_id);
+      logger(MSG_DEBUG, "%s: Message ID: 0x%.2x\n", __func__, storage->message_id);
       sms_runtime.current_message_id = storage->message_id;
       sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
       handle_message_state(fd, sms_runtime.current_message_id);
       clock_gettime(
           CLOCK_MONOTONIC,
           &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
-
     } else {
       logger(MSG_ERROR, "%s: Can't find offset for raw_message!\n", __func__);
       dump_pkt_raw(bytes, len);
@@ -1311,7 +1314,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
     logger(MSG_DEBUG, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (sms_runtime.queue.msg[sms_runtime.current_message_id].state != 3) {
-      logger(MSG_INFO, "%s: Requested to delete previous message \n", __func__);
+      logger(MSG_DEBUG, "%s: Requested to delete previous message \n", __func__);
       if (sms_runtime.current_message_id > 0) {
         sms_runtime.current_message_id--;
       }
@@ -1323,7 +1326,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
         &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
     break;
   case WMS_LIST_ALL_MESSAGES:
-    logger(MSG_INFO, "Host requests to list ALL messages");
+    logger(MSG_DEBUG, "Host requests to list ALL messages");
     break;
   default:
     logger(MSG_DEBUG, "%s: Unknown event received: %.4x\n", __func__,
@@ -1346,7 +1349,10 @@ int process_message_queue(int fd) {
   double elapsed_time;
 
   clock_gettime(CLOCK_MONOTONIC, &cur_time);
-
+  if (sms_runtime.queue.lock_queue) {
+    logger(MSG_INFO, "%s: Queue is locked \n", __func__);
+    return 0;
+  }
   if (sms_runtime.queue.queue_pos < 0) {
     logger(MSG_INFO, "%s: Nothing yet \n", __func__);
     return 0;
