@@ -880,7 +880,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
   ret = ascii_to_gsm7((uint8_t *)sms_runtime.queue.msg[message_id].pkt,
                       msgoutput);
 
-  logger(MSG_INFO, "%s: Bytes to write %i\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Bytes to write %i\n", __func__, ret);
   if (ret > MAX_MESSAGE_SIZE) {
     logger(MSG_ERROR, "%s: Warning: resulting message size exceeds limit. Truncating\n");
     ret = 160;
