@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #define MAX_MESSAGE_SIZE 160
+#define MSG_MAX_MULTIPART_SIZE 16384
 #define QUEUE_SIZE 100
 #define MAX_PHONE_NUMBER_SIZE 20
 
@@ -701,6 +702,7 @@ struct message_data {
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);
+void set_queue_lock(bool lock);
 void set_pending_notification_source(uint8_t source);
 
 
