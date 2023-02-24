@@ -23,6 +23,7 @@ struct config_prototype {
   uint8_t signal_tracking_notify_downgrade;
   uint8_t signal_tracking_notify_cell_change; // no, only new, all
   uint8_t sms_logging;
+  uint8_t list_all_bypass;
   uint8_t callwait_autohangup;
   uint8_t automatic_call_recording;
   uint8_t dump_network_tables;
@@ -88,6 +89,9 @@ void clear_ifrst_boot_flag();
 uint8_t is_sms_logging_enabled();
 void set_sms_logging(bool en);
 
+/* List All Bypass */
+uint8_t is_sms_list_all_bypass_enabled();
+void set_list_all_bypass(bool en);
 /* Automatically hang up call waiting */
 uint8_t callwait_auto_hangup_operation_mode();
 void enable_call_waiting_autohangup(uint8_t en);

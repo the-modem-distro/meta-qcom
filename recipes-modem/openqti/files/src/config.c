@@ -52,6 +52,7 @@ int set_initial_config() {
   settings->signal_tracking_notify_downgrade = 0;
   settings->signal_tracking_notify_cell_change = 0;
   settings->sms_logging = 0;
+  settings->list_all_bypass = 1;
   settings->callwait_autohangup = 0;
   settings->automatic_call_recording = 0;
   settings->allow_internal_modem_connectivity = 0;
@@ -136,6 +137,11 @@ int parse_line(char *buf) {
     return 1;
   }
 
+  if (strcmp(setting, "list_all_bypass") == 0) {
+    settings->list_all_bypass = atoi(value);
+    return 1;
+  }
+
   if (strcmp(setting, "allow_internal_modem_connectivity") == 0) {
     settings->allow_internal_modem_connectivity = atoi(value);
     return 1;
@@ -211,6 +217,7 @@ int write_settings_to_storage() {
   fprintf(fp, "automatic_call_recording=%i\n",
           settings->automatic_call_recording);
   fprintf(fp, "sms_logging=%i\n", settings->sms_logging);
+  fprintf(fp, "list_all_bypass=%i\n", settings->list_all_bypass);
 
   fprintf(fp, "allow_internal_modem_connectivity=%i\n",
           settings->allow_internal_modem_connectivity);
@@ -345,6 +352,7 @@ uint8_t get_dump_network_tables_config() {
 }
 
 uint8_t is_sms_logging_enabled() { return settings->sms_logging; }
+uint8_t is_sms_list_all_bypass_enabled() { return settings->list_all_bypass; }
 
 uint8_t is_internal_connect_enabled() {
   return settings->allow_internal_modem_connectivity;
@@ -401,6 +409,17 @@ void set_sms_logging(bool en) {
   } else {
     logger(MSG_WARN, "Disabling SMS logging\n");
     settings->sms_logging = 0;
+  }
+  write_settings_to_storage();
+}
+
+void set_list_all_bypass(bool en) {
+  if (en) {
+    logger(MSG_WARN, "Enabling SMS List All Bypass for MM\n");
+    settings->list_all_bypass = 1;
+  } else {
+    logger(MSG_WARN, "Disabling SMS List All Bypass for MM\n");
+    settings->list_all_bypass = 0;
   }
   write_settings_to_storage();
 }
