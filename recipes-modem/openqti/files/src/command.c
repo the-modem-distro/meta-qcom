@@ -1547,49 +1547,50 @@ uint8_t parse_command(uint8_t *command) {
   case CHAT_CMD_HELP: {
     /* Help */
     strsz = 0;
-    char full_help_msg[4096];
+    char *full_help_msg = malloc(MSG_MAX_MULTIPART_SIZE);
     size_t full_msg_size = 0;
-    full_msg_size = snprintf((char *)full_help_msg, 4096,
+    full_msg_size = snprintf((char *)full_help_msg, MSG_MAX_MULTIPART_SIZE,
              "Welcome to the modem distro!\n"
              "You can use the chat to view and change a lot of settings\n"
-             "Here's a list of what you can do:");
+             "Here's a list of what you can do:\n");
     for (uint8_t j = 0;
          j < (sizeof(cmd_categories) / sizeof(cmd_categories[0])); j++) {
       full_msg_size +=
-          snprintf((char *)full_help_msg + full_msg_size, 4096 - full_msg_size,
-                   "-> Category: %s\n", cmd_categories[j].name);
+          snprintf((char *)full_help_msg + full_msg_size, MSG_MAX_MULTIPART_SIZE - full_msg_size,
+                   "Category: %s\n", cmd_categories[j].name);
       for (i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0])); i++) {
         if (cmd_categories[j].category == bot_commands[i].category) {
           full_msg_size += snprintf((char *)full_help_msg + full_msg_size,
-                                    4096 - full_msg_size, "%s: %s\n",
+                                    MSG_MAX_MULTIPART_SIZE - full_msg_size, "%s: %s\n",
                                     bot_commands[i].cmd, bot_commands[i].help);
         }
       }
       for (i = 0; i < (sizeof(partial_commands) / sizeof(partial_commands[0]));
            i++) {
         if (cmd_categories[j].category == partial_commands[i].category) {
-          strsz += snprintf((char *)full_help_msg + full_msg_size,
-                            MAX_MESSAGE_SIZE - full_msg_size, "%s x: %s\n",
+          full_msg_size += snprintf((char *)full_help_msg + full_msg_size,
+                            MSG_MAX_MULTIPART_SIZE - full_msg_size, "%s x: %s\n",
                             partial_commands[i].cmd, partial_commands[i].help);
         }
       }
     }
+  //  set_queue_lock(true);
     while (strsz < full_msg_size) {
       memset(reply, 0, MAX_MESSAGE_SIZE);
-      if (full_msg_size - strsz > MAX_MESSAGE_SIZE) {
-        strncpy((char *)reply, (full_help_msg + strsz), MAX_MESSAGE_SIZE - 1);
-        add_message_to_queue(reply, MAX_MESSAGE_SIZE);
-        strsz += MAX_MESSAGE_SIZE - 1;
-        usleep(250); // Let modemmanager breathe
-      } else {
-        strncpy((char *)reply, (full_help_msg + strsz),
-                (full_msg_size - strsz));
+      if ((full_msg_size - strsz) > MAX_MESSAGE_SIZE) {
+        memcpy((char *)reply,(full_help_msg + strsz), (MAX_MESSAGE_SIZE-10) );
+        add_message_to_queue(reply, (MAX_MESSAGE_SIZE-10));
+        strsz += (MAX_MESSAGE_SIZE-10);
+      } else if ((full_msg_size - strsz) > 0){
+        memcpy((char *)reply, (full_help_msg + strsz), (full_msg_size - strsz));
         add_message_to_queue(reply, (full_msg_size - strsz));
         strsz += (full_msg_size - strsz);
       }
     }
-    add_message_to_queue(reply, strsz);
-  } break;
+  //  set_queue_lock(false);
+    free(full_help_msg);
+  } 
+  break;
 
   case 9:
     strsz += snprintf(
