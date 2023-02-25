@@ -28,14 +28,15 @@
 #define DEBUG_WDS 1
 
 struct {
-  uint8_t curr_step;
+  uint8_t in_progress;
   uint8_t mux_state;
   int pdp_session_handle; // we need this to stop the connection later
   uint32_t pkt_data_handle;
+
 } wds_runtime;
 
 void reset_wds_runtime() {
-  wds_runtime.curr_step = 0;
+  wds_runtime.in_progress = 0;
   wds_runtime.mux_state = 0;
   wds_runtime.pdp_session_handle = -1;
   wds_runtime.pkt_data_handle = 0;
@@ -369,6 +370,7 @@ int wds_attempt_to_connect() {
 }
 
 void *init_internal_networking() {
+
   if (!is_internal_connect_enabled()) {
     logger(MSG_WARN, "%s: Internal networking is disabled\n", __func__);
     return NULL;
@@ -379,14 +381,37 @@ void *init_internal_networking() {
     sleep(10);
   }
 
-  logger(MSG_INFO, "%s: WDS: Network is ready, try to connect\n", __func__);
+  if (wds_runtime.in_progress) {
+    logger(MSG_WARN, "%s: Already in progress \n", __func__);
+    return NULL;
+  }
 
+  logger(MSG_INFO, "%s: WDS: Network is ready, try to connect\n", __func__);
+  wds_runtime.in_progress = 1;
   wds_set_autoconnect(0);
   wds_set_rawip_mode();
 
   wds_attempt_to_connect();
 
   return NULL;
+}
+void wds_chat_ifup_down(bool start) {
+    uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+  size_t strsz = 0;
+  if (start && !wds_runtime.in_progress && wds_runtime.pkt_data_handle == 0) {
+     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Attempting to start the network");
+      init_internal_networking();
+  } else if (start) {
+     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Can't start netwotk, already running or connecting!");
+  } else {
+    if (wds_runtime.pkt_data_handle != 0) {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Stopping network...");
+      wds_stop_network();
+    } else {
+      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Can't stop network, it wasn't running!");
+    }
+  }
+    add_message_to_queue(reply, strsz);
 }
 
 /* Handle start network response */
@@ -410,12 +435,13 @@ void wds_handle_start_network_response(uint8_t *buf, size_t buf_len) {
       logger(MSG_INFO, "%s: Data handler for this session is %.8x\n", __func__,
              wds_runtime.pkt_data_handle);
       notify_network_up();
+
     } else {
       logger(MSG_ERROR, "%s: We didn't get a Packet Data Handle!\n", __func__);
       notify_network_down("Didn't get a packet data handle");
     }
   }
-
+  wds_runtime.in_progress = 0;
   logger(MSG_INFO, "%s: End\n", __func__);
 }
 
@@ -459,12 +485,14 @@ int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
     if (qmi_err == QMI_RESULT_FAILURE) {
       logger(MSG_ERROR, "%s failed to bind the port\n", __func__);
       wds_runtime.mux_state = 0;
+      wds_runtime.in_progress = 0;
     } else if (qmi_err == QMI_RESULT_SUCCESS) {
       logger(MSG_INFO, "%s succeeded to bind the port\n", __func__);
       wds_runtime.mux_state = 2;
     } else if (qmi_err == QMI_RESULT_UNKNOWN) {
       logger(MSG_ERROR, "%s: QMI message didn't have an indication\n",
              __func__);
+      wds_runtime.in_progress = 0;
     }
     break;
   case WDS_START_NETWORK:
@@ -541,6 +569,18 @@ int handle_incoming_wds_message(uint8_t *buf, size_t buf_len) {
     break;
   case WDS_STOP_NETWORK:
     logger(MSG_INFO, "%s: Stop Network\n", __func__);
+        qmi_err = did_qmi_op_fail(buf, buf_len);
+    if (qmi_err == QMI_RESULT_FAILURE) {
+      logger(MSG_ERROR, "%s failed to stop network\n", __func__);
+    } else if (qmi_err == QMI_RESULT_SUCCESS) {
+      logger(MSG_INFO, "%s succeeded interface stop\n", __func__);
+      wds_runtime.pkt_data_handle = 0;
+    } else if (qmi_err == QMI_RESULT_UNKNOWN) {
+      logger(MSG_ERROR, "%s: QMI message didn't have an indication\n",
+             __func__);
+      wds_runtime.pkt_data_handle = 0;
+    }
+    //TODO: Handle pkt data session reset
     break;
   case WDS_GET_PACKET_SERVICE_STATUS:
     logger(MSG_INFO, "%s: Get Packet Service Status\n", __func__);
