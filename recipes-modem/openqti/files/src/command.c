@@ -1985,6 +1985,18 @@ uint8_t parse_command(uint8_t *command) {
                      bot_commands[cmd_id].cmd_text);
     add_message_to_queue(reply, strsz);
     set_list_all_bypass(false);
+    break;  
+  case 58:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    wds_chat_ifup_down(true);
+    break;
+  case 59:
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "%s\n",
+                     bot_commands[cmd_id].cmd_text);
+    add_message_to_queue(reply, strsz);
+    wds_chat_ifup_down(false);
     break;
 
     /* Partials */

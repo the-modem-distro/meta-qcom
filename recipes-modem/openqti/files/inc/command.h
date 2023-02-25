@@ -104,6 +104,9 @@ static const struct {
     {55, CMD_CATEGORY_NETWORK, "clear internal network auth", "Removing internal networking authentication config", "Resets internal networking user,pass and method"},
     {56, CMD_CATEGORY_UTILITY, "enable message recovery", "Will try to retrieve any stuck messages on next boot", "Enables MM bypass of List All messages to retrieve stuck SMS"},
     {57, CMD_CATEGORY_UTILITY, "disable message recovery", "Will stop hijacking ModemManager's List All Messages", "Disables MM bypass of List All messages to retrieve stuck SMS"},
+    {58, CMD_CATEGORY_NETWORK, "ifup", "Trying to kickstart internal networking", "Attempts to start a data session from the modem's userspace"},
+    {59, CMD_CATEGORY_NETWORK, "ifdown", "Stopping internal networking ", "Stops an active data session on the modem's userspace"},
+
 };
 
 static const struct {
