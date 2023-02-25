@@ -565,8 +565,8 @@ int add_pending_message(uint8_t service, uint8_t *buf, size_t buf_len) {
     return 0;
   }
 
-  logger(MSG_ERROR, "%s: Failed to add the pending message for service %.2x!\n",
-         __func__, service);
+  logger(MSG_ERROR, "%s: Failed to add pending message for service %.2x of %u bytes!\n",
+         __func__, service, buf_len);
   free(temporary_buffer);
   return -EINVAL;
 }
