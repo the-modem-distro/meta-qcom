@@ -30,7 +30,7 @@
 struct {
   uint8_t in_progress;
   uint8_t mux_state;
-  int pdp_session_handle; // we need this to stop the connection later
+  uint8_t user_ordered_stop;
   uint32_t pkt_data_handle;
 
 } wds_runtime;
@@ -38,7 +38,7 @@ struct {
 void reset_wds_runtime() {
   wds_runtime.in_progress = 0;
   wds_runtime.mux_state = 0;
-  wds_runtime.pdp_session_handle = -1;
+  wds_runtime.user_ordered_stop = 0;
   wds_runtime.pkt_data_handle = 0;
 }
 
@@ -58,10 +58,11 @@ void notify_network_down(char *reason) {
   if (is_internal_connect_enabled()) {
     strsz = snprintf(
         (char *)reply, MAX_MESSAGE_SIZE,
-        "Network connection is down (reason: %s), trying to restart it",
+        "Network connection is down (reason: %s)",
         reason);
     add_message_to_queue(reply, strsz);
-    init_internal_networking();
+    if (!wds_runtime.user_ordered_stop)
+      init_internal_networking();
   } else {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      "Network connection is down (reason: %s)", reason);
@@ -397,7 +398,8 @@ void *init_internal_networking() {
 }
 void wds_chat_ifup_down(bool start) {
     uint8_t reply[MAX_MESSAGE_SIZE] = {0};
-  size_t strsz = 0;
+    size_t strsz = 0;
+    wds_runtime.user_ordered_stop = 0;
   if (start && !wds_runtime.in_progress && wds_runtime.pkt_data_handle == 0) {
      strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Attempting to start the network");
       init_internal_networking();
@@ -406,6 +408,7 @@ void wds_chat_ifup_down(bool start) {
   } else {
     if (wds_runtime.pkt_data_handle != 0) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Stopping network...");
+      wds_runtime.user_ordered_stop = 1;
       wds_stop_network();
     } else {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "Can't stop network, it wasn't running!");
