@@ -67,7 +67,7 @@ void cmd_get_help() {
   size_t strsz = 0;
   uint8_t reply[MAX_MESSAGE_SIZE];
 
-  char *full_help_msg = malloc(MSG_MAX_MULTIPART_SIZE);
+  char *full_help_msg[MSG_MAX_MULTIPART_SIZE] = { 0 };
   size_t full_msg_size = 0;
   full_msg_size =
       snprintf((char *)full_help_msg, MSG_MAX_MULTIPART_SIZE,
@@ -110,7 +110,6 @@ void cmd_get_help() {
     }
   }
   //  set_queue_lock(false);
-  free(full_help_msg);
 }
 
 int get_uptime() {
@@ -200,7 +199,7 @@ int cmd_get_memory() {
 void set_custom_modem_name(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   char name[32];
   offset = (uint8_t *)strstr((char *)command,
                              bot_commands[CMD_ID_SET_MODEM_NAME].cmd);
@@ -226,7 +225,7 @@ void set_custom_modem_name(uint8_t *command) {
 void enable_service_debugging_for_service_id(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t service_id = 0;
   offset = (uint8_t *)strstr(
       (char *)command, bot_commands[CMD_ID_DEBUG_ENABLE_SERVICE_LOGGING].cmd);
@@ -251,7 +250,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
 void set_new_signal_tracking_mode(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t mode = 0;
   offset = (uint8_t *)strstr((char *)command,
                              bot_commands[CMD_ID_ACTION_SET_ST_MODE].cmd);
@@ -285,7 +284,7 @@ void set_new_signal_tracking_mode(uint8_t *command) {
 void set_custom_user_name(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   char name[32];
   offset = (uint8_t *)strstr((char *)command,
                              bot_commands[CMD_ID_SET_OWNER_NAME].cmd);
@@ -311,7 +310,7 @@ void set_custom_user_name(uint8_t *command) {
 void delete_task(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int taskID;
   char command_args[64];
   offset = (uint8_t *)strstr((char *)command,
@@ -340,7 +339,7 @@ void delete_task(uint8_t *command) {
 
 void debug_gsm7_cb_message(uint8_t *command) {
   int strsz = 0;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t example_pkt1[] = {
       0x01, 0x73, 0x00, 0x80, 0x05, 0x01, 0x04, 0x02, 0x00, 0x01, 0x00, 0x67,
       0x00, 0x11, 0x60, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x07, 0x58, 0x00,
@@ -415,7 +414,7 @@ void debug_gsm7_cb_message(uint8_t *command) {
 }
 
 void debug_ucs2_cb_message(uint8_t *command) {
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t pkt1[] = {
       0x01, 0x73, 0x00, 0x80, 0x05, 0x01, 0x04, 0x03, 0x00, 0x01, 0x00, 0x67,
       0x00, 0x11, 0x60, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0x07, 0x58, 0x00,
@@ -472,7 +471,7 @@ void debug_ucs2_cb_message(uint8_t *command) {
 
 void dump_signal_report() {
   int strsz = 0;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   struct nas_report report = get_current_cell_report();
   if (report.mcc == 0) {
     strsz = snprintf(
@@ -542,7 +541,7 @@ void *schedule_call(void *cmd) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *command = (uint8_t *)cmd;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   logger(MSG_WARN, "SCH: %s -> %s \n", cmd, command);
 
   int delaysec;
@@ -585,7 +584,7 @@ void render_gsm_signal_data() {
   char *network_types[] = {"Unknown", "CDMA",  "EVDO",  "AMPS", "GSM",
                            "UMTS",    "Error", "Error", "LTE"};
 
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   strsz += snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz,
                     "Network type: ");
   if (get_network_type() >= 0x00 && get_network_type() <= 0x08) {
@@ -615,7 +614,7 @@ void render_gsm_signal_data() {
  */
 void schedule_reminder(uint8_t *command) {
   uint8_t *offset_command;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
   char temp_str[160];
   char reminder_text[160] = {0};
@@ -820,7 +819,7 @@ void schedule_reminder(uint8_t *command) {
  */
 void schedule_wakeup(uint8_t *command) {
   uint8_t *offset_command;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
   char temp_str[160];
   char current_word[160] = {0};
@@ -1054,7 +1053,7 @@ void schedule_wakeup(uint8_t *command) {
 
 void suspend_call_notifications(uint8_t *command) {
   uint8_t *offset_command;
-  uint8_t *reply = calloc(256, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
   char temp_str[160];
   char current_word[160] = {0};
@@ -1464,7 +1463,7 @@ void clear_internal_networking_auth() {
 
 void set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
-  uint8_t *reply = calloc(160, sizeof(unsigned char));
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
   int strsz;
   int cmd_ret;
   if (en) {
