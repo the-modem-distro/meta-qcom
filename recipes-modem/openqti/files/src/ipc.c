@@ -14,6 +14,18 @@
 #include "ipc.h"
 #include "logger.h"
 
+
+
+const char *get_qmi_service_name(uint8_t service) {
+  for (uint8_t i = 0;
+       i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
+    if (qmi_service[i].service == service) {
+      return qmi_service[i].name;
+    }
+  }
+  return "Unknown QMI Service\n";
+}
+
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
                     unsigned char address_type) {
