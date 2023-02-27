@@ -165,19 +165,19 @@ int parse_line(char *buf) {
   }
 
   if (strcmp(setting, "apn_addr") == 0) {
-    snprintf(settings->apn_addr, MAX_ADDR_LEN, "%s", value);
+    snprintf(settings->apn_addr, MAX_APN_FIELD_SZ, "%s", value);
     settings->apn_addr[strlen(settings->apn_addr)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "apn_username") == 0) {
-    snprintf(settings->apn_username, MAX_ADDR_LEN, "%s", value);
+    snprintf(settings->apn_username, MAX_APN_FIELD_SZ, "%s", value);
     settings->apn_username[strlen(settings->apn_username)] = 0;
     return 1;
   }
 
   if (strcmp(setting, "apn_password") == 0) {
-    snprintf(settings->apn_password, MAX_ADDR_LEN, "%s", value);
+    snprintf(settings->apn_password, MAX_APN_FIELD_SZ, "%s", value);
     settings->apn_password[strlen(settings->apn_password)] = 0;
     return 1;
   }
