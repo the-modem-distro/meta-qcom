@@ -38,8 +38,8 @@ struct {
   uint8_t cmd_history[1024];
   uint16_t cmd_position;
   uint32_t last_cmd_timestamp;
-  char user_name[32];
-  char bot_name[32];
+  char user_name[MAX_NAME_SZ];
+  char bot_name[MAX_NAME_SZ];
 } cmd_runtime;
 
 char *get_rt_modem_name() { return cmd_runtime.bot_name; }
