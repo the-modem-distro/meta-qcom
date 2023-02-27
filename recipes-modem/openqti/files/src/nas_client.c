@@ -86,7 +86,7 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
     }
     if (nas_runtime.curr_state.network_type == ocid->radio &&
         cell_id == ocid->cell && ocid->area == lac) {
-      logger(MSG_INFO, "%s: Found %.8x %.4x (OpenCellID: %.8x %.4x)\n", __func__,
+      logger(MSG_DEBUG, "%s: Found %.8x %.4x (OpenCellID: %.8x %.4x)\n", __func__,
              cell_id, lac, ocid->cell, ocid->area);
       cell = *ocid;
       free(ocid);
@@ -94,7 +94,7 @@ struct ocid_cell_slim get_opencellid_cell_info(uint32_t cell_id, uint16_t lac) {
     }
   }
 
-  logger(MSG_INFO, "%s: Couldn't find cid %u with lac %u \n", __func__, cell_id,
+  logger(MSG_DEBUG, "%s: Couldn't find cid %u with lac %u \n", __func__, cell_id,
          lac);
   free(ocid);
   return cell;
@@ -751,23 +751,28 @@ int add_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
 int is_in_report(uint16_t mcc, uint16_t mnc, uint8_t type_of_service,
                  uint32_t cell_id, uint16_t lac) {
   int report_id = -1;
+  uint8_t opencellid_verified =  0;
   for (int i = 0; i < nas_runtime.current_report; i++) {
     if (nas_runtime.data[i].report.mcc == mcc &&
         nas_runtime.data[i].report.mnc == mnc &&
         nas_runtime.data[i].report.type_of_service == type_of_service &&
         nas_runtime.data[i].report.cell_id == cell_id &&
         nas_runtime.data[i].report.lac == lac) {
-      logger(MSG_DEBUG, "%s: Cell found in report %i\n", __func__, i);
       nas_runtime.data[i].in_use = 1;
       nas_runtime.data[i].report.found_in_network = 1;
+      opencellid_verified = nas_runtime.data[i].report.opencellid_verified;
+
       report_id = i;
+      store_report_data();
     }
   }
-  if (report_id < 0) {
-    logger(MSG_INFO, "%s: Cell not found!\n", __func__);
-  }
 
-  store_report_data();
+  dump_to_file("cell_history",
+                "MCC,MNC,Type Of Service,Cell ID,LAC,Found in network,OCID Verified\n",
+                "%i,%i,%.2x,%.8x,%.4x,%s,%s\n",
+                  mcc, mnc, type_of_service, cell_id, lac, 
+                  report_id > -1? "Known":"Unknown",
+                  opencellid_verified == 1? "Yes":"No"  );
   return report_id;
 }
 
@@ -1387,10 +1392,11 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     logger(MSG_INFO, "%s: Reported PLMN changed\n", __func__);
     memcpy(nas_runtime.prev_plmn, nas_runtime.curr_plmn, 3);
     memcpy(nas_runtime.curr_plmn, reported_plmn, 3);
-
+    // MCC
     nas_runtime.curr_state.mcc[0] = (nas_runtime.curr_plmn[0] & 0x0f) + 0x30;
     nas_runtime.curr_state.mcc[1] = ((nas_runtime.curr_plmn[0] & 0xf0) >> 4) + 0x30;
     nas_runtime.curr_state.mcc[2] = (nas_runtime.curr_plmn[1] & 0x0f) + 0x30;
+    // MNC
     nas_runtime.curr_state.mnc[0] = (nas_runtime.curr_plmn[2] & 0x0f) + 0x30;
     nas_runtime.curr_state.mnc[1] = ((nas_runtime.curr_plmn[2] & 0xf0) >> 4) + 0x30;
   }
@@ -2012,7 +2018,7 @@ void log_cell_location_information(uint8_t *buf, size_t buf_len) {
         }
       } break;
       default:
-        logger(MSG_INFO, "%s: Unknown event %.2x\n", __func__,
+        logger(MSG_DEBUG, "%s: Unknown event %.2x\n", __func__,
                available_tlvs[i]);
         break;
       }
@@ -2105,8 +2111,11 @@ int handle_incoming_nas_message(uint8_t *buf, size_t buf_len) {
     logger(MSG_INFO, "%s: Attach Detach\n", __func__);
     break;
   case NAS_GET_SERVING_SYSTEM:
-    logger(MSG_INFO, "%s: Get Serving System\n", __func__);
+    logger(MSG_DEBUG, "%s: Get Serving System\n", __func__);
     parse_serving_system_message(buf, buf_len);
+    break;
+  case NAS_GET_IMS_PREFERENCE_STATE:
+    logger(MSG_INFO, "%s: Get IMS Preference\n", __func__);
     break;
   case NAS_GET_HOME_NETWORK:
     logger(MSG_INFO, "%s: Get Home Network\n", __func__);
