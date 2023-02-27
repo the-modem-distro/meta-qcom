@@ -525,21 +525,10 @@ void update_operator_name(uint8_t *buf, size_t buf_len) {
       logger(MSG_ERROR, "%s: Message is shorter than carrier data\n", __func__);
       return;
     }
-    memcpy(nas_runtime.curr_state.mcc, op_code->mcc, 3);
-    memcpy(nas_runtime.curr_state.mnc, op_code->mnc, 2);
-    nas_runtime.curr_state.location_area_code_1 = op_code->lac1;
-    nas_runtime.curr_state.location_area_code_2 = op_code->lac2;
   }
 
-  logger(MSG_INFO,
-         "%s: Operator: %s | "
-         "MCC-MNC: %s-%s | "
-         "LACs: %.4x %.4x\n",
-         __func__, nas_runtime.curr_state.operator_name,
-         (unsigned char *)nas_runtime.curr_state.mcc,
-         (unsigned char *)nas_runtime.curr_state.mnc,
-         nas_runtime.curr_state.location_area_code_1,
-         nas_runtime.curr_state.location_area_code_2);
+  logger(MSG_INFO, "%s: Operator: %s\n",
+         __func__, nas_runtime.curr_state.operator_name);
 }
 
 void parse_serving_system_message(uint8_t *buf, size_t buf_len) {
@@ -874,6 +863,8 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
   uint8_t type_of_service = 0, bsic = 0;
   uint32_t cell_id = 0;
   uint8_t reported_plmn[3] = { 0 };
+  mcc = atoi((char *)nas_runtime.curr_state.mcc);
+  mnc = atoi((char *)nas_runtime.curr_state.mnc);
   if (!is_signal_tracking_enabled()) {
     logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
     return;
@@ -885,7 +876,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     return;
   }
 
-  if (get_signal_tracking_mode() > 1) {
+  if (get_signal_tracking_mode() > 1 && mcc != 0 && mnc != 0) {
     if (memcmp(nas_runtime.curr_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
             0 ||
         memcmp(nas_runtime.curr_state.mnc, nas_runtime.open_cellid_mnc, 3) !=
@@ -895,8 +886,6 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     }
   }
 
-  mcc = atoi((char *)nas_runtime.curr_state.mcc);
-  mnc = atoi((char *)nas_runtime.curr_state.mnc);
 
   uint8_t available_tlvs[] = {
       NAS_CELL_LAC_INFO_UMTS_CELL_INFO,
@@ -1400,10 +1389,10 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     nas_runtime.curr_state.mnc[0] = (nas_runtime.curr_plmn[2] & 0x0f) + 0x30;
     nas_runtime.curr_state.mnc[1] = ((nas_runtime.curr_plmn[2] & 0xf0) >> 4) + 0x30;
   }
-  
-  process_current_network_data(mcc, mnc, type_of_service, lac, phy_cell_id,
-                               cell_id, bsic, bcch, psc, arfcn, srx_lev,
-                               rx_lev);
+  if (mcc != 0 && mnc != 0)
+    process_current_network_data(mcc, mnc, type_of_service, lac, phy_cell_id,
+                                cell_id, bsic, bcch, psc, arfcn, srx_lev,
+                                rx_lev);
 
 }
 

@@ -617,8 +617,6 @@ struct basic_network_status {
   uint8_t operator_name[32];
   uint8_t mcc[4];
   uint8_t mnc[3];
-  uint16_t location_area_code_1;
-  uint16_t location_area_code_2;
   struct service_capability service_capability;
   uint8_t network_registration_status;
   uint8_t circuit_switch_attached;
