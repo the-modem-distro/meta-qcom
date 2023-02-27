@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: MIT */
 
-#include "../inc/command.h"
-#include "../inc/adspfw.h"
-#include "../inc/audio.h"
-#include "../inc/call.h"
-#include "../inc/cell_broadcast.h"
-#include "../inc/chat_helpers.h"
-#include "../inc/config.h"
-#include "../inc/dms.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/nas.h"
-#include "../inc/proxy.h"
-#include "../inc/scheduler.h"
-#include "../inc/sms.h"
-#include "../inc/tracking.h"
-#include "../inc/wds.h"
+#include "command.h"
+#include "adspfw.h"
+#include "audio.h"
+#include "call.h"
+#include "cell_broadcast.h"
+#include "chat_helpers.h"
+#include "config.h"
+#include "dms.h"
+#include "ipc.h"
+#include "logger.h"
+#include "nas.h"
+#include "proxy.h"
+#include "scheduler.h"
+#include "sms.h"
+#include "tracking.h"
+#include "wds.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -335,7 +335,6 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case CMD_ID_ACTION_RECORD_CALL_NEXT:
     send_default_response(cmd_id);
-
     record_next_call(true);
     break;
   case CMD_ID_ACTION_RECORD_CALL_CANCEL_TASK:
@@ -362,7 +361,6 @@ uint8_t parse_command(uint8_t *command) {
     set_do_not_disturb(false);
     remove_all_tasks_by_type(TASK_TYPE_DND_CLEAR);
     break;
-
   case CMD_ID_ACTION_DEBUG_DISABLE_SVC:
     send_default_response(cmd_id);
     disable_service_debugging();

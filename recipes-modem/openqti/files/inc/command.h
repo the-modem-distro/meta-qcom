@@ -106,7 +106,7 @@ static const struct {
     {CMD_ID_UTIL_LIST_ACTIVE_TASKS, 0, CMD_CATEGORY_UTILITY, "list tasks",
      "Show pending tasks", "Shows all the scheduled tasks"},
     {CMD_ID_GET_FW_TY, 0, CMD_CATEGORY_INFO, "thank you", "",
-     "Info about the firmware"},
+     "Thank you to all of you who help shape this firmware"},
     {CMD_ID_ACTION_ENABLE_CELL_BROADCAST, 0, CMD_CATEGORY_NETWORK,
      "enable cell broadcast", "Enabling Cell broadcasting for index 0-6000...",
      "Enables Cell broadcasting messages"},
