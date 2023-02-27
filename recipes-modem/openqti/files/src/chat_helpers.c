@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: MIT */
 
-#include "../inc/chat_helpers.h"
-#include "../inc/adspfw.h"
-#include "../inc/audio.h"
-#include "../inc/call.h"
-#include "../inc/cell_broadcast.h"
-#include "../inc/command.h"
-#include "../inc/config.h"
-#include "../inc/dms.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/nas.h"
-#include "../inc/proxy.h"
-#include "../inc/scheduler.h"
-#include "../inc/sms.h"
-#include "../inc/tracking.h"
-#include "../inc/wds.h"
+#include "chat_helpers.h"
+#include "adspfw.h"
+#include "audio.h"
+#include "call.h"
+#include "cell_broadcast.h"
+#include "command.h"
+#include "config.h"
+#include "dms.h"
+#include "ipc.h"
+#include "logger.h"
+#include "nas.h"
+#include "proxy.h"
+#include "scheduler.h"
+#include "sms.h"
+#include "tracking.h"
+#include "wds.h"
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -238,7 +238,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
     if (strlen((char *)command) > ofs) {
       service_id = atoi((char *)(command + ofs));
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                       "Enabling debugging of service id %u \n", service_id);
+                       "Enabling debugging of service id %u (%s) \n", service_id, get_qmi_service_name(service_id);
       enable_service_debugging(service_id);
     }
   }
@@ -252,6 +252,7 @@ void set_new_signal_tracking_mode(uint8_t *command) {
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t mode = 0;
+  const char *modes[] = {"0:Standalone learn", "1:Standalone enforce", "2:OpenCellID learn", "3:OpenCellID enforce"};
   offset = (uint8_t *)strstr((char *)command,
                              bot_commands[CMD_ID_ACTION_SET_ST_MODE].cmd);
   if (offset == NULL) {
@@ -265,14 +266,17 @@ void set_new_signal_tracking_mode(uint8_t *command) {
       if (mode < 4) {
         strsz =
             snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "Signal tracking mode: %u (%s)\n", mode, (command + ofs));
+                     "Signal Tracking mode changed: %s\n", modes[mode]);
         set_signal_tracking_mode(mode);
       } else {
         strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                         "Available modes for signal tracking:\n0:Standalone "
-                         "learn\n1:Standalone enforce\n2:OpenCellID "
-                         "learn\n3:OpenCellID enforce\nYour selection: %u\n",
-                         mode);
+                         "Available modes for signal tracking:\n"
+                         "%s\n"
+                         "%s\n"
+                         "%s\n"
+                         "%s\n"
+                         "Your choice: %u\n",
+                         modes[0], modes[1], modes[2], modes[3],  mode);
       }
     }
   }
