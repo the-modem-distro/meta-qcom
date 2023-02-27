@@ -23,7 +23,7 @@ const char *get_qmi_service_name(uint8_t service) {
       return qmi_services[i].name;
     }
   }
-  return "Unknown QMI Service\n";
+  return "Unknown QMI Service";
 }
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
