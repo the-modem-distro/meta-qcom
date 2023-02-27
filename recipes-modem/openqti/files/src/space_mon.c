@@ -66,6 +66,8 @@ int cleanup_storage(int storage_id, bool aggressive, char *exclude_file) {
           strcmp(ep->d_name, "openqti.conf") != 0 &&
           strcmp(ep->d_name, "openqti.lock") != 0 &&
           strstr(ep->d_name, ".bin") == NULL &&
+          strstr(ep->d_name, ".autostart") == NULL &&
+          strstr(ep->d_name, ".apps") == NULL &&
           strstr(ep->d_name, ".raw") == NULL ) {
         logger(MSG_DEBUG, "Found file: %s\n", tmpfile);
         if (aggressive) {
