@@ -238,7 +238,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
     if (strlen((char *)command) > ofs) {
       service_id = atoi((char *)(command + ofs));
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                       "Enabling debugging of service id %u (%s) \n", service_id, get_qmi_service_name(service_id);
+                       "Enabling debugging of service id %u (%s) \n", service_id, get_qmi_service_name(service_id));
       enable_service_debugging(service_id);
     }
   }

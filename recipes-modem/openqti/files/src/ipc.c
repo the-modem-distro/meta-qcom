@@ -19,8 +19,8 @@
 const char *get_qmi_service_name(uint8_t service) {
   for (uint8_t i = 0;
        i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
-    if (qmi_service[i].service == service) {
-      return qmi_service[i].name;
+    if (qmi_services[i].service == service) {
+      return qmi_services[i].name;
     }
   }
   return "Unknown QMI Service\n";
