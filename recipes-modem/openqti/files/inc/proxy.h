@@ -14,6 +14,10 @@ struct pkt_stats {
   uint32_t failed;
   uint32_t other;
 };
+void proxy_rt_reset();
+void enable_service_debugging(uint8_t service_id);
+void disable_service_debugging();
+
 struct pkt_stats get_rmnet_stats();
 struct pkt_stats get_gps_stats();
 int get_transceiver_suspend_state();

@@ -2,7 +2,7 @@
 
 #ifndef _CALL_H_
 #define _CALL_H_
-#include "../inc/qmi.h"
+#include "qmi.h"
 #include "sms.h"
 #include <stdbool.h>
 #include <stdint.h>

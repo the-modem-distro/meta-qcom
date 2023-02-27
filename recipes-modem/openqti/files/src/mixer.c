@@ -31,8 +31,8 @@
 #include <sound/tlv.h>
 #include <sys/ioctl.h>
 
-#include "../inc/audio.h"
-#include "../inc/logger.h"
+#include "audio.h"
+#include "logger.h"
 
 /* .5 for rounding before casting to non-decmal value */
 /* Should not be used if you need decmal values */

@@ -5,13 +5,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "../inc/audio.h"
-#include "../inc/call.h"
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
-#include "../inc/space_mon.h"
+#include "audio.h"
+#include "call.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "logger.h"
+#include "space_mon.h"
 
 struct mixer *mixer;
 struct pcm *pcm_tx;
@@ -44,6 +44,10 @@ void set_audio_runtime_default() {
   audio_runtime_state.is_recording = 0;
   audio_runtime_state.record_next_call = 0;
   audio_runtime_state.current_active_call_id = 0;
+}
+
+uint8_t get_current_call_id() {
+  return audio_runtime_state.current_active_call_id;
 }
 
 int use_external_codec() {
@@ -132,10 +136,14 @@ void set_multimedia_mixer() {
     set_mixer_ctl(mixer, SEC_AUXPCM_MODE, 1);
     set_mixer_ctl(mixer, AUX_PCM_SAMPLERATE, 0);
   }
-  set_mixer_ctl(mixer, MULTIMEDIA_MIXER, 1);
+  set_mixer_ctl(mixer, HIFI_RX_MULTIMEDIA_MIXER, 1);
+  set_mixer_ctl(mixer, HIFI_TX_MULTIMEDIA_MIXER, 1);
 }
 
-void stop_multimedia_mixer() { set_mixer_ctl(mixer, MULTIMEDIA_MIXER, 1); }
+void stop_multimedia_mixer() { 
+  set_mixer_ctl(mixer, HIFI_RX_MULTIMEDIA_MIXER, 0); 
+  set_mixer_ctl(mixer, HIFI_TX_MULTIMEDIA_MIXER, 0); 
+  }
 
 void *play_alerting_tone() {
   char *buffer;
@@ -225,7 +233,7 @@ void *play_alerting_tone() {
       logger(MSG_ERROR, "error opening mixer! %s:\n", strerror(errno));
       return NULL;
     }
-    set_mixer_ctl(mymixer, MULTIMEDIA_MIXER, 0);
+    set_mixer_ctl(mymixer, HIFI_RX_MULTIMEDIA_MIXER, 0);
   }
 
   return NULL;
@@ -261,9 +269,9 @@ uint8_t watch_storage(char *filename) {
          __func__, avail_space_persist, avail_space_tmpfs);
   /* AVAILABLE SPACE MONITORING! */
   if (use_persistent_logging()) {
-    if (avail_space_persist != -EINVAL && avail_space_persist < 1) {
+    if (avail_space_persist != -EINVAL && avail_space_persist < 2) {
       kill_recording = 1;
-    } else if (avail_space_persist != -EINVAL && avail_space_persist < 2) {
+    } else if (avail_space_persist != -EINVAL && avail_space_persist < 3) {
       // AGGRESSIVE
       cleanup_storage(1, true, filename);
     } else if (avail_space_persist != -EINVAL && avail_space_persist < 5) {
@@ -271,12 +279,12 @@ uint8_t watch_storage(char *filename) {
       cleanup_storage(1, false, filename);
     } else if (avail_space_persist != -EINVAL && avail_space_persist < 10) {
       // Only log errors from now on to avoid wasting more space
-      set_log_level(2);
+      set_log_level(MSG_ERROR);
     }
   } else {
-    if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
+    if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 2) {
       kill_recording = 1;
-    } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 2) {
+    } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 3) {
       // AGGRESSIVE
       cleanup_storage(0, true, filename);
     } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 5) {
@@ -284,14 +292,14 @@ uint8_t watch_storage(char *filename) {
       cleanup_storage(0, false, filename);
     } else if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 10) {
       // Only log errors from now on to avoid wasting more space
-      set_log_level(2);
+      set_log_level(MSG_ERROR);
     }
   }
   return kill_recording;
 }
 void *incall_recording_tread() {
   char *buffer;
-  uint32_t bufsize;
+  size_t bufsize;
   FILE *file_rx;
   struct pcm *incall_pcm_rx;
   char filename[256];
@@ -307,6 +315,7 @@ void *incall_recording_tread() {
   if (audio_runtime_state.is_recording) {
     logger(MSG_ERROR, "%s: Can't start recording thread, already recording!\n",
            __func__);
+    free(sms_message);
     return NULL;
   }
 
@@ -403,8 +412,9 @@ void *incall_recording_tread() {
                    pcm_bytes_to_frames(incall_pcm_rx,
                                        pcm_get_buffer_size(incall_pcm_rx))) ==
           0) {
-        if (fwrite(buffer, bufsize, 1, file_rx) != bufsize) {
-          logger(MSG_WARN, "%s: bufsize differs\n", __func__);
+        size_t fret = fwrite(buffer, bufsize, 1, file_rx);
+        if (fret != 1) {
+          logger(MSG_WARN, "%s: Error writing to file, fwrite returned %u\n", __func__, fret);
         }
         file_header->data_bytes += bufsize;
       } else {
@@ -539,8 +549,7 @@ void handle_call_pkt(uint8_t *pkt, int sz,
     audio_runtime_state.calls[meta->call_id].call_type = meta->call_mode;
     memcpy(audio_runtime_state.calls[meta->call_id].phone_number, phone_number,
            phone_num_len);
-    logger(MSG_INFO, "Call ID set: ID %i, number: %s\n", meta->call_id,
-           audio_runtime_state.calls[meta->call_id].phone_number);
+    logger(MSG_INFO, "Call ID set: ID %i\n", meta->call_id);
     switch (meta->call_direction) {
     case CALL_DIRECTION_OUTGOING:
       logger(MSG_WARN, "%s: Call %i of %i: Outgoing \n", __func__,

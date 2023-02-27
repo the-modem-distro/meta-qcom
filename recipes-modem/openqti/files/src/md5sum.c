@@ -21,8 +21,8 @@
 /* Hacked to work with BusyBox by Alfred M. Szmidt <ams@trillian.itslinux.org>
  */
 
-#include "../inc/md5sum.h"
-#include "../inc/logger.h"
+#include "md5sum.h"
+#include "logger.h"
 #include <ctype.h>
 #include <endian.h>
 #include <errno.h>

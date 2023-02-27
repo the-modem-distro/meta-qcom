@@ -6,18 +6,18 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "../inc/atfwd.h"
-#include "../inc/call.h"
-#include "../inc/cell_broadcast.h"
-#include "../inc/command.h"
-#include "../inc/config.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/proxy.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
-#include "../inc/timesync.h"
+#include "atfwd.h"
+#include "call.h"
+#include "cell_broadcast.h"
+#include "command.h"
+#include "config.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "proxy.h"
+#include "qmi.h"
+#include "sms.h"
+#include "timesync.h"
 
 /* Workaround while I debug pdu_decode()*/
 #define MSG_PDU_DECODE MSG_DEBUG
@@ -56,6 +56,7 @@ struct message {
 };
 
 struct message_queue {
+  bool lock_queue;
   bool needs_intercept;
   int queue_pos;
   // max QUEUE_SIZE message to keep, we use the array as MSGID
@@ -77,6 +78,7 @@ void reset_sms_runtime() {
   sms_runtime.notif_pending = false;
   sms_runtime.curr_transaction_id = 0;
   sms_runtime.source = -1;
+  sms_runtime.queue.lock_queue = false;
   sms_runtime.queue.queue_pos = -1;
   sms_runtime.current_message_id = 0;
   sms_runtime.pending_messages_from_adsp = 0;
@@ -85,6 +87,7 @@ void reset_sms_runtime() {
 }
 
 void set_notif_pending(bool pending) { sms_runtime.notif_pending = pending; }
+void set_queue_lock(bool lock) { sms_runtime.queue.lock_queue = lock; }
 
 void set_pending_notification_source(uint8_t source) {
   sms_runtime.source = source;
@@ -266,7 +269,7 @@ uint8_t sms_encoding_type(int dcs) {
   return scheme;
 }
 
-int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
+int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out, uint8_t *out_dcs) {
 
   struct incoming_message *msg;
   uint8_t offset = 0;
@@ -395,7 +398,6 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
     tp_pid_offset = offset++;
     /* ------ TP-DCS (1 byte) ------ */
     tp_dcs_offset = offset++;
-
     /* ----------- TP-Validity-Period (1 byte) ----------- */
     if (validity_format) {
       switch (validity_format) {
@@ -492,6 +494,7 @@ int pdu_decode(uint8_t *buffer, size_t size, struct message_data *msg_out) {
     }
     /* Encoding given in the 'alphabet' bits */
     user_data_encoding = sms_encoding_type(msg->msg.data[tp_dcs_offset]);
+    *out_dcs = msg->msg.data[tp_dcs_offset];
     msg_out->dcs = msg->msg.data[tp_dcs_offset]; // We'll keep the DCS value
     switch (user_data_encoding) {
     case MM_SMS_ENCODING_GSM7:
@@ -878,7 +881,10 @@ int build_and_send_message(int fd, uint32_t message_id) {
                       msgoutput);
 
   logger(MSG_DEBUG, "%s: Bytes to write %i\n", __func__, ret);
-
+  if (ret > MAX_MESSAGE_SIZE) {
+    logger(MSG_ERROR, "%s: Warning: resulting message size exceeds limit. Truncating\n");
+    ret = 160;
+  }
   /* QMUX */
   this_sms->qmuxpkt.version = 0x01;
   this_sms->qmuxpkt.packet_length = 0x00; // SIZE
@@ -997,7 +1003,6 @@ int build_and_send_message(int fd, uint32_t message_id) {
 
   ret = write(fd, (uint8_t *)this_sms, fullpktsz);
   dump_pkt_raw((uint8_t *)this_sms, fullpktsz);
-
   free(this_sms);
   this_sms = NULL;
   return ret;
@@ -1181,6 +1186,7 @@ int handle_message_state(int fd, uint32_t message_id) {
   switch (sms_runtime.queue.msg[message_id].state) {
   case 0: // Generate -> RECEIVE TID
     logger(MSG_DEBUG, "%s: Notify Message ID: %i\n", __func__, message_id);
+    pulse_ring_in();
     generate_message_notification(fd, message_id);
     clock_gettime(CLOCK_MONOTONIC,
                   &sms_runtime.queue.msg[message_id].timestamp);
@@ -1261,7 +1267,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
   struct encapsulated_qmi_packet *pkt;
   pkt = (struct encapsulated_qmi_packet *)bytes;
   sms_runtime.curr_transaction_id = pkt->qmi.transaction_id;
-  logger(MSG_INFO, "%s: Messages in queue: %i\n", __func__,
+  logger(MSG_DEBUG, "%s: Messages in queue: %i\n", __func__,
          sms_runtime.queue.queue_pos + 1);
   if (sms_runtime.queue.queue_pos < 0) {
     logger(MSG_DEBUG, "%s: Nothing to do \n", __func__);
@@ -1286,21 +1292,19 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
      * ModemManager got the indication and is requesting the message.
      * So let's clear it out
      */
-    logger(MSG_INFO, "%s: Requesting message contents for ID %i\n", __func__,
+    logger(MSG_INFO, "%s: Requested contents for Message ID %i\n", __func__,
            sms_runtime.current_message_id);
     offset = get_tlv_offset_by_id(bytes, len, 0x01);
     if (offset > 0) {
       struct sms_storage_type *storage;
       storage = (struct sms_storage_type *)(bytes + offset);
-      logger(MSG_WARN, "%s: Message ID: (offset) 0x%.2x\n", __func__,
-             storage->message_id);
+      logger(MSG_DEBUG, "%s: Message ID: 0x%.2x\n", __func__, storage->message_id);
       sms_runtime.current_message_id = storage->message_id;
       sms_runtime.queue.msg[sms_runtime.current_message_id].state = 2;
       handle_message_state(fd, sms_runtime.current_message_id);
       clock_gettime(
           CLOCK_MONOTONIC,
           &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
-
     } else {
       logger(MSG_ERROR, "%s: Can't find offset for raw_message!\n", __func__);
       dump_pkt_raw(bytes, len);
@@ -1310,7 +1314,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
     logger(MSG_DEBUG, "%s: WMS_DELETE for message %i. ID %.4x\n", __func__,
            sms_runtime.current_message_id, pkt->qmi.msgid);
     if (sms_runtime.queue.msg[sms_runtime.current_message_id].state != 3) {
-      logger(MSG_INFO, "%s: Requested to delete previous message \n", __func__);
+      logger(MSG_DEBUG, "%s: Requested to delete previous message \n", __func__);
       if (sms_runtime.current_message_id > 0) {
         sms_runtime.current_message_id--;
       }
@@ -1322,7 +1326,7 @@ void notify_wms_event(uint8_t *bytes, size_t len, int fd) {
         &sms_runtime.queue.msg[sms_runtime.current_message_id].timestamp);
     break;
   case WMS_LIST_ALL_MESSAGES:
-    logger(MSG_INFO, "Host requests to list ALL messages");
+    logger(MSG_DEBUG, "Host requests to list ALL messages");
     break;
   default:
     logger(MSG_DEBUG, "%s: Unknown event received: %.4x\n", __func__,
@@ -1345,7 +1349,10 @@ int process_message_queue(int fd) {
   double elapsed_time;
 
   clock_gettime(CLOCK_MONOTONIC, &cur_time);
-
+  if (sms_runtime.queue.lock_queue) {
+    logger(MSG_INFO, "%s: Queue is locked \n", __func__);
+    return 0;
+  }
   if (sms_runtime.queue.queue_pos < 0) {
     logger(MSG_INFO, "%s: Nothing yet \n", __func__);
     return 0;
@@ -1545,7 +1552,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
                __LINE__);
       }
     } else {
-      set_log_level(0);
+      set_log_level(MSG_DEBUG);
 
       logger(MSG_ERROR,
              "%s: Don't know how to handle this. Please contact biktorgj and "
@@ -1557,7 +1564,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
              "get him the following dump:\n",
              __func__);
     }
-    set_log_level(1);
+    set_log_level(MSG_INFO);
     send_outgoing_msg_ack(pkt->qmipkt.transaction_id, usbfd, 0x0000);
     parse_command(output);
   }
@@ -1571,6 +1578,7 @@ uint8_t intercept_and_parse(void *bytes, size_t len, int adspfd, int usbfd) {
 uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
   uint8_t *output;
   uint8_t ret;
+  uint8_t dcs;
   struct message_data *msg_out =
       malloc(sizeof(struct message_data)); // 2022-12-20
   char phone_numb[128];
@@ -1614,7 +1622,7 @@ uint8_t log_message_contents(uint8_t source, void *bytes, size_t len) {
     pkt = NULL;
     nodate_pkt = NULL;
   } else if (source == FROM_DSP) {
-    if (pdu_decode(bytes, len, msg_out) < 0) {
+    if (pdu_decode(bytes, len, msg_out, &dcs) < 0) {
         logger(MSG_ERROR, "%s: [dsp] Error decoding the PDU! is this an outgoing message from the host?\n", __func__);
     }
   }
@@ -1717,21 +1725,26 @@ int parse_and_forward_adsp_message(void *bytes, size_t len) {
   struct message_data *msg_out =
       malloc(sizeof(struct message_data)); // 2022-12-20
   uint8_t *message = malloc(160 * sizeof(uint8_t));
+  uint8_t dcs = 0;
   int sztmp;
   struct raw_sms *msg = (struct raw_sms *)bytes;
 
   if (len < sizeof(struct raw_sms)) {
     logger(MSG_ERROR, "%s: Response is too small!\n", __func__);
+    free(msg_out);
+    free(message);
     return -EINVAL;
   }
 
   if (msg->qmipkt.msgid != WMS_READ_MESSAGE) {
     logger(MSG_ERROR, "%s: Invalid message ID (0x%.4x)\n", __func__,
            msg->qmipkt.msgid);
+    free(msg_out);
+    free(message);
     return -EINVAL;
   }
 
-  if (pdu_decode(bytes, len, msg_out) < 0) {
+  if (pdu_decode(bytes, len, msg_out, &dcs) < 0) {
     logger(MSG_ERROR, "%s: Failed to decode the PDU!\n", __func__);
     free(msg_out);
     free(message);
@@ -1742,8 +1755,15 @@ int parse_and_forward_adsp_message(void *bytes, size_t len) {
                      msg_out->phone_number);
     add_sms_to_queue((uint8_t *)message, sztmp);
     memset(message, 0, 160);
-    sztmp = snprintf((char *)message, 160, "%s", msg_out->message);
-    add_sms_to_queue((uint8_t *)message, sztmp);
+    if (dcs != 0) {
+      logger(MSG_WARN, "%s: Sending message as a raw message, hope for the best\n", __func__);
+      add_raw_sms_to_queue(message, sztmp, dcs, true);
+    } else {
+      logger(MSG_WARN, "%s: Sending the message as a pre-parsed GSM7 message\n", __func__);
+      sztmp = snprintf((char *)message, 160, "%s", msg_out->message);
+      add_sms_to_queue((uint8_t *)message, sztmp);
+
+    }
   }
 
   free(msg_out);
@@ -1917,7 +1937,7 @@ int retrieve_and_delete(int adspfd, int usbfd) {
   logger(MSG_INFO, " *** %s start *** \n", __func__);
   logger(MSG_WARN,
          "This function is in testing stage. Enabling debug mode now\n");
-  set_log_level(0);
+  set_log_level(MSG_DEBUG);
   if (sms_runtime.stuck_message_data != NULL) {
     logger(MSG_WARN,
            "There are stale messages stored in the Modem's baseband\n");
@@ -1950,7 +1970,7 @@ int retrieve_and_delete(int adspfd, int usbfd) {
 
   sms_runtime.stuck_message_data_pending = false;
   logger(MSG_INFO, "%s finished, disabling debug mode\n", __func__);
-  set_log_level(1);
+  set_log_level(MSG_INFO);
   free(thismsg);
   return 0;
 }
@@ -2002,12 +2022,6 @@ int check_wms_list_all_messages(uint8_t source, void *bytes, size_t len,
       pkt = (struct sms_list_all_resp *)bytes;
       if (pkt->qmipkt.msgid == WMS_LIST_ALL_MESSAGES) {
         logger(MSG_INFO, "%s: Host requests all messages\n", __func__);
-        set_log_level(0);
-        logger(MSG_DEBUG, "%s: Packet Dump: List all messages\n", __func__);
-        dump_pkt_raw(bytes, len);
-        logger(MSG_DEBUG, "%s: Packet Dump: List all messages: END\n",
-               __func__);
-        set_log_level(1);
         logger(MSG_INFO, "Total messages in memory: %u\n",
                pkt->info.number_of_messages_listed);
         for (i = 0; i < pkt->info.number_of_messages_listed; i++) {
@@ -2044,10 +2058,10 @@ int check_wms_list_all_messages(uint8_t source, void *bytes, size_t len,
             logger(MSG_ERROR, "%s: Failed to write the simulated reply\n",
                    __func__);
           }
-          free(empty_answer);
         }
       }
     }
+          free(empty_answer);
   }
   return needs_bypass;
 }
@@ -2078,11 +2092,11 @@ uint8_t intercept_cb_message(void *bytes, size_t len) {
              pkt->message.pdu.message_id, pkt->message.pdu.encoding,
              pkt->message.pdu.page_param);
 
-      set_log_level(0);
+      set_log_level(MSG_DEBUG);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP\n", __func__);
       dump_pkt_raw(bytes, len);
       logger(MSG_DEBUG, "%s: CB MESSAGE DUMP END\n", __func__);
-      set_log_level(1);
+      set_log_level(MSG_INFO);
       if ((pkt->message.pdu.page_param >> 4) == 0x01)
         add_message_to_queue(
             (uint8_t
@@ -2172,3 +2186,13 @@ The Cell Broadcast message had a PDU ID of 0x07, while both MMS
 event reports had a 0x00 in that TLV ID. So, until I know more,
 and without trying to decode the entire PDU, we care about everything
 which is *not* a 0x00 */
+
+
+void send_hello_world() {
+  char message[160];
+  snprintf(message, 160,
+           "Hi!\nWelcome to your (nearly) free modem\nSend \"help\" in this "
+           "chat to get a list of commands you can run");
+  clear_ifrst_boot_flag();
+  add_message_to_queue((uint8_t *)message, strlen(message));
+}

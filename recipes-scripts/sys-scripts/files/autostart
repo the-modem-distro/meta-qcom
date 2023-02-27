@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# One shot autostart
+#
+if [[ -f "/persist/.autostart" ]]; then
+    echo "[Autostart] File exists! Launching it"
+    /persist/autostart
+else
+    echo "[Autostart] No autostart script found"
+fi

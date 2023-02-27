@@ -1,6 +1,6 @@
-#include "../inc/space_mon.h"
-#include "../inc/config.h"
-#include "../inc/logger.h"
+#include "space_mon.h"
+#include "config.h"
+#include "logger.h"
 #include <dirent.h>
 #include <errno.h>
 #include <stdio.h>
@@ -33,19 +33,19 @@ int get_available_space_persist_mb() {
 
 int cleanup_storage(int storage_id, bool aggressive, char *exclude_file) {
   char *path;
-  char tmpfile[256];
+  char tmpfile[512];
   DIR *dp;
   struct dirent *ep;
-  path = calloc(96, sizeof(char));
+  path = calloc(512, sizeof(char));
   logger(MSG_ERROR,
          "%s called, Storage ID %i, is_aggressive? %i, priority file: %s\n",
          __func__, storage_id, aggressive, exclude_file);
   switch (storage_id) {
   case 0: // RAM
-    strncpy(path, RAM_STORAGE_PATH_BASE, strlen(RAM_STORAGE_PATH_BASE));
+    memcpy(path, RAM_STORAGE_PATH_BASE, strlen(RAM_STORAGE_PATH_BASE));
     break;
   case 1: // Persistent storage
-    strncpy(path, PERSISTENT_STORAGE_PATH_BASE,
+    memcpy(path, PERSISTENT_STORAGE_PATH_BASE,
             strlen(PERSISTENT_STORAGE_PATH_BASE));
     break;
   default:
@@ -59,22 +59,25 @@ int cleanup_storage(int storage_id, bool aggressive, char *exclude_file) {
   if (dp != NULL) {
     logger(MSG_ERROR, "Files available for removal\n");
     while ((ep = readdir(dp))) {
-      memset(tmpfile, 0, 256);
-      snprintf(tmpfile, 256, "%s/%s", path, ep->d_name);
+      memset(tmpfile, 0, 512);
+      snprintf(tmpfile, 512, "%s/%s", path, ep->d_name);
       if (strcmp(ep->d_name, "..") != 0 && 
           strcmp(ep->d_name, ".") != 0 && 
           strcmp(ep->d_name, "openqti.conf") != 0 &&
-          strcmp(ep->d_name, "openqti.lock") != 0
-          ) {
-        logger(MSG_ERROR, "Base: %s\n", tmpfile);
+          strcmp(ep->d_name, "openqti.lock") != 0 &&
+          strstr(ep->d_name, ".bin") == NULL &&
+          strstr(ep->d_name, ".autostart") == NULL &&
+          strstr(ep->d_name, ".apps") == NULL &&
+          strstr(ep->d_name, ".raw") == NULL ) {
+        logger(MSG_DEBUG, "Found file: %s\n", tmpfile);
         if (aggressive) {
           if (strstr(ep->d_name, exclude_file) == NULL) { 
                     // The file name comes from the incall thread with the
                           // entire path
-            logger(MSG_ERROR, " [AGG] %s\n", ep->d_name);
+            logger(MSG_ERROR, "Deleting %s\n", ep->d_name);
             remove(tmpfile);
           }
-        } else if (strstr(ep->d_name, "log") != NULL) {
+        } else if (strstr(ep->d_name, "log") != NULL || strstr(ep->d_name, "csv") != NULL) {
           logger(MSG_ERROR, " DEL %s\n", ep->d_name);
           remove(tmpfile);
         }

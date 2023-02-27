@@ -13,17 +13,18 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "../inc/adspfw.h"
-#include "../inc/atfwd.h"
-#include "../inc/audio.h"
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/proxy.h"
-#include "../inc/sms.h"
+#include "adspfw.h"
+#include "atfwd.h"
+#include "audio.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+#include "openqti.h"
+#include "proxy.h"
+#include "sms.h"
+#include "nas.h"
 
 struct {
   bool adb_enabled;
@@ -457,11 +458,11 @@ int handle_atfwd_response(struct qmi_device *qmidev, uint8_t *buf,
     break;
   case 132: // Runtime set log level to debug
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_log_level(0);
+    set_log_level(MSG_DEBUG);
     break;
   case 133: // Runtime set log level to info
     sckret = send_pkt(qmidev, response, pkt_size);
-    set_log_level(1);
+    set_log_level(MSG_INFO);
     break;
   case 134: // Simulate SMS
     bytes_in_reply = sprintf(response->reply, "\r\n+CMTI: \"ME\",%i\r\n", get_internal_pending_messages() + get_pending_messages_in_adsp());
@@ -611,6 +612,45 @@ int at_send_cmti_urc(struct qmi_device *qmidev) {
   return 0;
 }
 
+/* Send URC asking for data */
+int at_send_missing_cellid_data(struct qmi_device *qmidev) {
+  int sckret;
+  struct at_command_respnse *response;
+  int pkt_size;
+  int bytes_in_reply = 0;
+
+  /* Build initial response data */
+  response = calloc(1, sizeof(struct at_command_respnse));
+  response->qmipkt.ctlid = 0x00;
+  response->qmipkt.transaction_id = htole16(qmidev->transaction_id);
+  qmidev->transaction_id++;
+  response->qmipkt.msgid = AT_CMD_RES;
+
+  response->meta.client_handle = 0x01; // 0x01000801;
+  response->handle = 0x0000000b;
+  response->result = 1;   // result OK
+  response->response = 3; // completed
+
+  /* Set default sizes for the response packet
+   *  If we don't write an extended response, the char array will be empty
+   */
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+
+  bytes_in_reply = sprintf(response->reply, "\r\n+MISSINGOCID: %s-%s\r\n", (char*)get_current_mcc(), (char*)get_current_mnc());
+  response->replysz = htole16(bytes_in_reply);
+  pkt_size =
+      sizeof(struct at_command_respnse) - (MAX_REPLY_SZ - bytes_in_reply);
+  sckret = send_pkt(qmidev, response, pkt_size);
+  if (sckret < 0) {
+    logger(MSG_ERROR, "%s: Send pkt failed!\n", __func__);
+  }
+
+//  qmidev->transaction_id++;
+  free(response);
+  response = NULL;
+  return 0;
+}
 /* Register AT commands into the DSP */
 int init_atfwd(struct qmi_device *qmidev) {
   int j, ret;
@@ -712,6 +752,13 @@ void *start_atfwd_thread() {
       logger(MSG_DEBUG, "%s: We just woke up, send CMTI\n", __func__);
       at_send_cmti_urc(at_qmi_dev);
       set_sms_notification_pending_state(false);
+    }
+
+    if (nas_is_network_in_service() && is_cellid_data_missing() == 0) {
+      logger(MSG_INFO, "%s: Fire the pending cell id notification!\n", __func__);
+      at_send_missing_cellid_data(at_qmi_dev);
+      get_opencellid_data();
+
     }
   }
   // Close AT socket

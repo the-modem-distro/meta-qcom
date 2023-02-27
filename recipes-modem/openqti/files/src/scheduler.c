@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
-#include "../inc/scheduler.h"
-#include "../inc/call.h"
-#include "../inc/cell.h"
-#include "../inc/config.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
-#include "../inc/qmi.h"
-#include "../inc/sms.h"
+#include "scheduler.h"
+#include "call.h"
+#include "config.h"
+#include "helpers.h"
+#include "logger.h"
+#include "nas.h"
+#include "openqti.h"
+#include "qmi.h"
+#include "sms.h"
+#include "space_mon.h"
+
 #include <endian.h>
 #include <errno.h>
 #include <stdio.h>
@@ -176,14 +178,18 @@ int update_task_status(int taskID, uint8_t status) {
 }
 
 void cleanup_tasks() {
+  bool needs_write = false;
   for (int i = 0; i < MAX_NUM_TASKS; i++) {
     if (sch_runtime.tasks[i].status == STATUS_DONE ||
         sch_runtime.tasks[i].status == STATUS_FAILED) {
       logger(MSG_INFO, "%s: Removing task %i with status %i\n", __func__, i,
              sch_runtime.tasks[i].status);
       remove_task(i);
+      needs_write = true;
     }
   }
+  if (needs_write)
+    save_tasks_to_storage();
 }
 
 int run_task(int taskID) {
@@ -221,24 +227,33 @@ int run_task(int taskID) {
   case TASK_TYPE_WAKE_HOST:
     logger(MSG_INFO, "%s: Try to wake up the host\n", __func__);
     pulse_ring_in();
+    sch_runtime.tasks[taskID].status = STATUS_DONE;
     break;
   case TASK_TYPE_DND_CLEAR:
     logger(MSG_INFO, "%s: Clear do not disturb mode\n", __func__);
     set_do_not_disturb(false);
+    sch_runtime.tasks[taskID].status = STATUS_DONE;
     break;
   }
+
   cleanup_tasks();
   return 0;
 }
 
 void *start_scheduler_thread() {
-  int i;
-  sleep(120); // Wait 60 seconds to give time to modemmanager to connect...
+  int tick = 0;
+  logger(MSG_INFO, "%s: Waiting for network...\n", __func__);
+  do {
+    sleep(5);
+  } while (!nas_is_network_in_service());
+  /*
+    We should check here if time is synced by now...
+  */
   logger(MSG_INFO, "%s: Starting scheduler thread\n", __func__);
   read_tasks_from_storage();
   while (1) {
     sch_runtime.cur_time = time(NULL);
-    for (i = 0; i < MAX_NUM_TASKS; i++) {
+    for (int i = 0; i < MAX_NUM_TASKS; i++) {
       if (sch_runtime.tasks[i].status == STATUS_PENDING) {
         logger(MSG_DEBUG,
                "%s: Checking time for task %i of type %i\n Exec time %ld, "
@@ -252,6 +267,31 @@ void *start_scheduler_thread() {
     }
     logger(MSG_DEBUG, "%s Tick!\n", __func__);
     sleep(1);
+    if (tick > 10) {
+      logger(MSG_DEBUG, "%s: Tock!\n", __func__);
+      tick = 0;
+      // Request network update
+      nas_request_signal_info();
+      nas_request_cell_location_info();
+      uint32_t avail_space_persist = get_available_space_persist_mb();
+      uint32_t avail_space_tmpfs = get_available_space_tmpfs_mb();
+      if (avail_space_persist != -EINVAL && avail_space_persist < 1) {
+        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+        size_t strsz =
+            snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "I'm running out of storage, cleaning /persist\n");
+        add_message_to_queue(reply, strsz);
+        cleanup_storage(1, true, "openqti.lock");
+      }
+      if (avail_space_tmpfs != -EINVAL && avail_space_tmpfs < 1) {
+        uint8_t reply[MAX_MESSAGE_SIZE] = {0};
+        size_t strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                                "I'm running out of memory, cleaning /tmp\n");
+        add_message_to_queue(reply, strsz);
+        cleanup_storage(0, true, "openqti.lock");
+      }
+    }
+    tick++;
   }
   return NULL;
 }

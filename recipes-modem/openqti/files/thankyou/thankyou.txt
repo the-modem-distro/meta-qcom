@@ -8,15 +8,15 @@ akrosi8
 alaraajavamma
 Alex
 alexandre.b
-alexmitter
 Alexmitter
 ali
 aljmvo
 alt_plex
+Andreas Heuer
 Andrejs
-Andrey Skvortsov
 Angus
-anjan (he/him)
+anjan
+Anonymous
 anthony1224
 archmaster
 Aren
@@ -25,43 +25,46 @@ Armen
 arne-b
 Asara
 atheatos
+Athozus
 az4521
 @b342
-baarkerlounger 
+baarkerlounger
 barba32
 Baroque_0bamo
+Benedikt
 bicep
 bicyKlette
-Bifrost Bot
+Bifrost
 bigd50384
-biktorgj
 billfleming
 biovoid
 bitcompact
+bobbythebuilder1
 boud
 Braiden
 bujiraso
-calbasi
 CalcProgrammer1
 Caleb Fontenot
-Carl Schwan
+Carl
 catworld76
 Chance Johnson
 chris
 citrahops
+COCORICO
 codephase
+coralin1
 Craig
 DaBao
 dabud
-DaKnig
 Darren Ng
 das oe
-DavidDrapeau
+David
 dcc
 DebianTux
 dekedro
 Delirious Error
 Demokrit
+DevHONK
 devrtz
 devuno
 dflag84
@@ -84,12 +87,14 @@ Eskuero
 eugen
 ex-bian
 f-c
-Ferenc Géczi
+Ferenc
 fervi
+Fiona
 fon
+Fon
 funter
 Fuzzy7k
-gamelaster
+gamelaster (gamiee)
 Gavin R
 Gergely
 gischpelino
@@ -100,7 +105,9 @@ gopro2718
 gorbehnare
 grallo666
 grossaffe
+gubarm113
 gyoung
+hafl
 hamblingreen
 hank
 hazardchem
@@ -109,11 +116,14 @@ Hercules
 heuristic_sloth
 hhttseee
 horizoninnovations
+Hunman
 idiochromatic
 increscent
+infinity
 insidetrip101
 ivanrancic
 jack_kekzoz
+Jan Jasper de Kroon
 jan379
 JayVii
 Jean
@@ -127,36 +137,38 @@ joergsch
 joesroom
 jones3echo
 joshua
-JulianGro 
+JulianGro
+justinestrada
 jwillikers
 kailueke
 karl
+karmanyaahm
 katastrophe
 kescher
-Kevin Keijzer
+kevek
 khimaros
 kmsgli
 knoppix
-kodas
 kop316
 Kurt Morgan
+kyeh
 laalsaas
 Laďa
 laurent_c_31
 letsgo532
-llt🐞
+llt
 lnxusr
 lolgzs
 loveisfoss
 luigi311
+Lukas
 lulatsch66
 madrox
 manjaroarmpinephone
 marcin
-Marco Mattiolo
 Marian Stramm
 MarkP
-Martijn Braam
+MartijnBraam
 maryjane
 massi
 MatMaul
@@ -164,12 +176,12 @@ MayeulC
 mdsmds
 Merlin
 mfor
-michaelskyf
 mick jagger
 milesalan
 milkysway
 minecrell[m]
 mirsal
+mlampert
 Mobot II
 mogolobogo
 momi
@@ -189,8 +201,7 @@ Nico Rikken
 nightstudent
 nivea
 nobodyinperson
-noneucat@noneucat:lolc.at
-noneucat@noneucat:matrix.org
+noneucat
 NotKamui
 nu99et
 nug
@@ -200,45 +211,47 @@ ollieparanoid
 osteoblast22
 Pataclop
 Peetz0r
-Pine64
 pentamassiv
 Peter Bronsveld
 petersen77
 pho
 Phoenix LandPirate
 piggz
+pigipi
 pinecone76
 pisar
+playback2396
+power46
 PReDiToR
 PublicLewdness
 QC8086
-Quinn Stambaugh
+qkall
 rAge
 ragreenburg
 raklan148
 randomcomputers
 RapidRotator
-Richard Nicholl
-robfreedev
+Richard
 rockScrambler
 rolodondo34
-rsglobal
+royills
 Runiq
 ryanam
 rza.pinephone
 saba
 sandals
 scorpion2185
-scotabroad
 sdr3
-Sebastian
+Sebastian Krzyszkowiak
 sensei1304
 Sensei1304
 seph
+Shatur
 shinkamui
 sl4ck
 snm
 somefoo
+spaetz
 spaetz
 ssinger
 stanislaw
@@ -256,7 +269,6 @@ theidiotyouyellat
 thejollyrodger69
 thenh813
 Thomas
-tigershark_1969
 tiggilyboo
 tim
 TimSmall
@@ -264,7 +276,6 @@ ubicuity
 umapo
 undeadleech
 Undef
-Undef_
 underpantsgnome
 Uniformbuffer
 username012
@@ -282,6 +293,7 @@ wmohanlon
 woo2
 WTF
 x3b881z4
+X3F200C
 xad6
 xavi92
 xethos

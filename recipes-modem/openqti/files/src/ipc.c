@@ -8,11 +8,23 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "../inc/config.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
+#include "config.h"
+#include "devices.h"
+#include "helpers.h"
+#include "ipc.h"
+#include "logger.h"
+
+
+
+const char *get_qmi_service_name(uint8_t service) {
+  for (uint8_t i = 0;
+       i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
+    if (qmi_services[i].service == service) {
+      return qmi_services[i].name;
+    }
+  }
+  return "Unknown QMI Service";
+}
 
 int open_ipc_socket(struct qmi_device *qmisock, uint32_t node, uint32_t port,
                     uint32_t service, uint32_t instance,
@@ -100,9 +112,9 @@ int find_services() {
           lookup->srv_info[i].port_id != 0x0b) {
         fprintf(stdout, "%i \t %i \t 0x%.2x \t 0x%.2x \t", k, instance,
                 lookup->srv_info[i].node_id, lookup->srv_info[i].port_id);
-        for (j = 0; j < (sizeof(common_names) / sizeof(common_names[0])); j++) {
-          if (common_names[j].service == k) {
-            fprintf(stdout, " %s\n", common_names[j].name);
+        for (j = 0; j < (sizeof(qmi_services) / sizeof(qmi_services[0])); j++) {
+          if (qmi_services[j].service == k) {
+            fprintf(stdout, " %s\n", qmi_services[j].name);
             name = true;
           }
         }
@@ -128,7 +140,7 @@ struct msm_ipc_server_info get_node_port(uint32_t service, uint32_t instance) {
   struct server_lookup_args *lookup;
 
   int sock;
-  struct msm_ipc_server_info port_combo;
+  struct msm_ipc_server_info port_combo = {0};
 
   port_combo.node_id = 0;
   port_combo.port_id = 0;
@@ -178,6 +190,7 @@ int setup_ipc_security() {
   fd = socket(IPC_ROUTER, SOCK_DGRAM, 0);
   if (!fd) {
     logger(MSG_ERROR, " Error opening socket \n");
+    free(cur_rule);
     return -1;
   }
   for (i = 0; i < ipc_categories; i++) {
@@ -218,6 +231,7 @@ int init_port_mapper_internal() {
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
     logger(MSG_ERROR, "%s: Error opening IPC Socket!\n", __func__);
+    free(dpmreq);
     return -EINVAL;
   }
 
@@ -228,6 +242,7 @@ int init_port_mapper_internal() {
   dpmfd = open(DPM_CTL, O_RDWR);
   if (dpmfd < 0) {
     logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    free(dpmreq);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
@@ -259,7 +274,7 @@ int init_port_mapper_internal() {
   dpmreq->sw.id = 0x11;
   dpmreq->sw.len = 0x0011;
   dpmreq->sw.valid_ctl_list = 1;
-  dpmreq->sw.ep_type = htole32(5);
+  dpmreq->sw.ep_type = htole32(DATA_EP_TYPE_BAM_DMUX);
   dpmreq->sw.peripheral_id = htole32(0);
   dpmreq->sw.consumer_pipe_num = htole32(0);
   dpmreq->sw.prod_pipe_num = htole32(0);
@@ -269,10 +284,6 @@ int init_port_mapper_internal() {
     logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
-    set_log_level(0);
-    dump_pkt_raw((uint8_t *)dpmreq,
-                 sizeof(struct portmapper_open_request_shared));
-    set_log_level(1);
   } while (sendto(qmidev->fd, dpmreq,
                   sizeof(struct portmapper_open_request_shared), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
@@ -303,6 +314,7 @@ int init_port_mapper() {
                         0x1, IPC_ROUTER_DPM_ADDRTYPE); // open DPM service
   if (ret < 0) {
     logger(MSG_ERROR, "%s: Error opening IPC Socket!\n", __func__);
+    free(dpmreq);
     return -EINVAL;
   }
 
@@ -313,6 +325,7 @@ int init_port_mapper() {
   dpmfd = open(DPM_CTL, O_RDWR);
   if (dpmfd < 0) {
     logger(MSG_ERROR, "Error opening %s \n", DPM_CTL);
+    free(dpmreq);
     return -EINVAL;
   }
   // Unknown IOCTL, just before line state to rmnet
@@ -353,7 +366,6 @@ int init_port_mapper() {
     logger(MSG_WARN,
            "%s: Waiting for the Dynamic port mapper to become ready... \n",
            __func__);
-    dump_pkt_raw((uint8_t *)dpmreq, sizeof(struct portmapper_open_request_new));
   } while (sendto(qmidev->fd, dpmreq,
                   sizeof(struct portmapper_open_request_new), MSG_DONTWAIT,
                   (void *)&qmidev->socket, sizeof(qmidev->socket)) < 0);
@@ -370,9 +382,9 @@ int init_port_mapper() {
 }
 
 const char *get_service_name(uint8_t service_id) {
-  for (int i = 0; i < (sizeof(common_names) / sizeof(common_names[0])); i++) {
-    if (common_names[i].service == service_id) {
-      return common_names[i].name;
+  for (int i = 0; i < (sizeof(qmi_services) / sizeof(qmi_services[0])); i++) {
+    if (qmi_services[i].service == service_id) {
+      return qmi_services[i].name;
     }
   }
   return (char *)"Unknown service";

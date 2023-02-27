@@ -27,10 +27,12 @@
 # Starts the USB Android Gadget.
 
 # Run adbcheck and store return value in adb_setting for use in shell script
-/usr/bin/adbcheck
+/usr/bin/oqticonf -a
 adb_setting=$(echo $?)
-/usr/bin/audiocheck
+/usr/bin/oqticonf -u
 aud_setting=$(echo $?)
+/usr/bin/oqticonf -n
+rndis_setting=$(echo $?)
 
 GADGET_FUNC="diag,serial,rmnet"
 if [ "$adb_setting" = "1" ];
@@ -41,6 +43,11 @@ fi
 if [ "$aud_setting" = "1" ];
 then 
     GADGET_FUNC="$GADGET_FUNC,audio"
+fi 
+
+if [ "$rndis_setting" = "1" ];
+then 
+    GADGET_FUNC="$GADGET_FUNC,rndis"
 fi 
 
 case "$1" in
@@ -94,6 +101,10 @@ case "$1" in
         echo "Quectel, Incorporated" > /sys/class/android_usb/android0/iManufacturer
         echo "LTE Module" > /sys/class/android_usb/android0/iProduct
         echo "community_fw" > /sys/class/android_usb/android0/iSerial
+        if [ "$rndis_setting" = "1" ];
+        then 
+            echo "fe:ed:00:c0:ff:ee" > /sys/devices/virtual/android_usb/android0/f_rndis/ethaddr
+        fi 
         echo 1 > /sys/class/android_usb/android0/enable
         if [ "$adb_setting" = "1" ];
         then 

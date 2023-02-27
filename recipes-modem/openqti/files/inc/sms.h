@@ -2,12 +2,13 @@
 
 #ifndef _SMS_H
 #define _SMS_H
-#include "../inc/qmi.h"
+#include "qmi.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
 
 #define MAX_MESSAGE_SIZE 160
+#define MSG_MAX_MULTIPART_SIZE 16384
 #define QUEUE_SIZE 100
 #define MAX_PHONE_NUMBER_SIZE 20
 
@@ -701,6 +702,7 @@ struct message_data {
 /* Functions */
 void reset_sms_runtime();
 void set_notif_pending(bool en);
+void set_queue_lock(bool lock);
 void set_pending_notification_source(uint8_t source);
 
 
@@ -732,4 +734,5 @@ int check_wms_indication_message(void *bytes, size_t len, int adspfd,
 int check_cb_message(void *bytes, size_t len, int adspfd, int usbfd);
 
 int retrieve_and_delete(int adspfd, int usbfd);
+void send_hello_world();
 #endif

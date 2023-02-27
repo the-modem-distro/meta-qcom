@@ -3,10 +3,13 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
-#include "../inc/call.h"
+#include "call.h"
 #include <sound/asound.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+// Enable to include speech to text
+// #define USE_POCKETSPHINX
 
 /* AFE Mixer */
 #define AFE_LOOPBACK "SEC_AUXPCM_RX Port Mixer SEC_AUX_PCM_UL_TX"
@@ -37,7 +40,8 @@
 #define AFERX_VOICE "AFE_PCM_RX_Voice Mixer CSVoice"
 #define AFETX_VOICE "Voice_Tx Mixer AFE_PCM_TX_Voice"
 
-#define MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
+#define HIFI_RX_MULTIMEDIA_MIXER "SEC_AUX_PCM_RX Audio Mixer MultiMedia1"
+#define HIFI_TX_MULTIMEDIA_MIXER "MultiMedia1 Mixer SEC_AUX_PCM_UL_TX"
 #define AUDIO_MODE_I2S 0 // SEC_AUX_PCM_RX Audio Mixer
 #define AUDIO_MODE_USB 1
 
@@ -204,6 +208,7 @@ struct wav_header {
 } __attribute__((packed));
 
 void set_audio_runtime_default();
+uint8_t get_current_call_id();
 int use_external_codec();
 void set_output_device(int device);
 uint8_t get_output_device();

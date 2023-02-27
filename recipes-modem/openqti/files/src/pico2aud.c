@@ -22,9 +22,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../inc/audio.h"
-#include "../inc/logger.h"
-#include "../inc/openqti.h"
+#include "audio.h"
+#include "logger.h"
+#include "openqti.h"
 #include <picoapi.h>
 #include <picoapid.h>
 #include <picoos.h>

@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Minimalistic network bring up script
+#
+INTERNAL="rndis0"
+EXTERNAL="rmnet0"
+
+/usr/bin/oqticonf -n
+rndis_setting=$(echo $?)
+if [ "$rndis_setting" = "1" ];
+then 
+    iptables -F
+    iptables -t nat -F
+    iptables -t nat -A POSTROUTING -o ${EXTERNAL} -j MASQUERADE
+    # Allow traffic from internal to external
+    iptables -A FORWARD -i ${INTERNAL} -o ${EXTERNAL} -j ACCEPT
+    # Allow returning traffic from external to internal
+    iptables -A FORWARD -i ${EXTERNAL} -o ${INTERNAL} -m state --state RELATED,ESTABLISHED -j ACCEPT
+    # Drop all other traffic that shouldn't be forwarded
+    iptables -A FORWARD -j DROP
+fi 

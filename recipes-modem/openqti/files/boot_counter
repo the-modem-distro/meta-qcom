@@ -1,0 +1,26 @@
+#! /bin/sh
+#
+#
+# Sets a file in persistent storage with the amount of failed boots
+# It clears that file on power down
+FILENAME=/persist/.openqti_boot_done
+set -e
+
+case "$1" in
+  start)
+        ;;
+  stop)
+      mount -o remount,rw /persist
+      rm $FILENAME
+        ;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  *)
+        echo "Usage $0 { start | stop | restart}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

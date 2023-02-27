@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/helpers.h"
-#include "../inc/adspfw.h"
-#include "../inc/atfwd.h"
-#include "../inc/audio.h"
-#include "../inc/devices.h"
-#include "../inc/ipc.h"
-#include "../inc/logger.h"
-#include "../inc/md5sum.h"
-#include "../inc/openqti.h"
-#include "../inc/sms.h"
-#include "../inc/tracking.h"
+#include "helpers.h"
+#include "adspfw.h"
+#include "atfwd.h"
+#include "audio.h"
+#include "devices.h"
+#include "ipc.h"
+#include "logger.h"
+#include "md5sum.h"
+#include "openqti.h"
+#include "sms.h"
+#include "tracking.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -463,4 +463,18 @@ int send_at_command(char *at_command, size_t cmdlen, char *response,
   logger(MSG_DEBUG, "%s: Received %s\n", __func__, response);
   close(fd);
   return 0;
+}
+
+void enable_cpufreq_performance_mode(bool enable) {
+  if (enable) {
+      if (write_to(CPUFREQ_PATH, CPUFREQ_PERF, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error setting up governor in performance mode\n",
+           __func__);
+  }
+  } else {
+      if (write_to(CPUFREQ_PATH, CPUFREQ_PS, O_WRONLY) < 0) {
+    logger(MSG_ERROR, "%s: Error setting up governor in powersave mode\n",
+           __func__);
+  }
+  }
 }

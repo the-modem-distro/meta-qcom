@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-#include "../inc/timesync.h"
-#include "../inc/cell.h"
-#include "../inc/devices.h"
-#include "../inc/helpers.h"
-#include "../inc/logger.h"
+#include "timesync.h"
+#include "nas.h"
+#include "devices.h"
+#include "helpers.h"
+#include "logger.h"
 #include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -48,10 +48,10 @@ void *time_sync() {
   int retries = 0;
   logger(MSG_INFO, "%s: Time Sync thread starting... \n", __func__);
   /* Lock the thread until we get a signal fix */
-  while (!get_network_type()) {
-    logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
-    sleep(30);
-  }
+  logger(MSG_INFO, "%s: Waiting for network...\n", __func__ );
+  do {
+    sleep(5);
+  } while(!nas_is_network_in_service());
 
   while (!sync_completed) {
     memset(response, 0, 128);
