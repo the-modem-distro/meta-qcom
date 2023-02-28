@@ -32,7 +32,7 @@
 #include <time.h>
 #include <unistd.h>
 
-void get_rmnet_stats_cmd() {
+void cmd_get_rmnet_stats() {
   size_t strsz = 0;
   uint8_t reply[MAX_MESSAGE_SIZE];
   struct pkt_stats packet_stats;
@@ -46,7 +46,7 @@ void get_rmnet_stats_cmd() {
                     packet_stats.allowed);
   add_message_to_queue(reply, strsz);
 }
-void get_gps_stats_cmd() {
+void cmd_get_gps_stats() {
   size_t strsz = 0;
   uint8_t reply[MAX_MESSAGE_SIZE];
   struct pkt_stats packet_stats;
@@ -112,7 +112,7 @@ void cmd_get_help() {
   //  set_queue_lock(false);
 }
 
-int get_uptime() {
+int cmd_get_uptime() {
   unsigned updays, uphours, upminutes;
   struct sysinfo info;
   struct tm *current_time;
@@ -196,7 +196,7 @@ int cmd_get_memory() {
   return 0;
 }
 
-void set_custom_modem_name(uint8_t *command) {
+void cmd_set_custom_modem_name(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
@@ -222,7 +222,7 @@ void set_custom_modem_name(uint8_t *command) {
   reply = NULL;
 }
 
-void enable_service_debugging_for_service_id(uint8_t *command) {
+void cmd_enable_service_debugging_for_service_id(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
@@ -247,7 +247,7 @@ void enable_service_debugging_for_service_id(uint8_t *command) {
   reply = NULL;
 }
 
-void set_new_signal_tracking_mode(uint8_t *command) {
+void cmd_set_new_signal_tracking_mode(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
@@ -285,7 +285,7 @@ void set_new_signal_tracking_mode(uint8_t *command) {
   reply = NULL;
 }
 
-void set_custom_user_name(uint8_t *command) {
+void cmd_set_custom_user_name(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
@@ -311,7 +311,7 @@ void set_custom_user_name(uint8_t *command) {
   reply = NULL;
 }
 
-void delete_task(uint8_t *command) {
+void cmd_delete_task(uint8_t *command) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
@@ -341,7 +341,7 @@ void delete_task(uint8_t *command) {
   reply = NULL;
 }
 
-void debug_gsm7_cb_message(uint8_t *command) {
+void cmd_debug_gsm7_cb_message(uint8_t *command) {
   int strsz = 0;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t example_pkt1[] = {
@@ -417,7 +417,7 @@ void debug_gsm7_cb_message(uint8_t *command) {
   reply = NULL;
 }
 
-void debug_ucs2_cb_message(uint8_t *command) {
+void cmd_debug_ucs2_cb_message(uint8_t *command) {
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t pkt1[] = {
       0x01, 0x73, 0x00, 0x80, 0x05, 0x01, 0x04, 0x03, 0x00, 0x01, 0x00, 0x67,
@@ -473,7 +473,7 @@ void debug_ucs2_cb_message(uint8_t *command) {
   reply = NULL;
 }
 
-void dump_signal_report() {
+void cmd_dump_signal_report() {
   int strsz = 0;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   struct nas_report report = get_current_cell_report();
@@ -529,19 +529,19 @@ void dump_signal_report() {
   add_message_to_queue(reply, strsz);
 }
 
-void *delayed_shutdown() {
+void *cmd_delayed_shutdown() {
   sleep(5);
   reboot(0x4321fedc);
   return NULL;
 }
 
-void *delayed_reboot() {
+void *cmd_delayed_reboot() {
   sleep(5);
   reboot(0x01234567);
   return NULL;
 }
 
-void *schedule_call(void *cmd) {
+void *cmd_schedule_call(void *cmd) {
   int strsz = 0;
   uint8_t *offset;
   uint8_t *command = (uint8_t *)cmd;
@@ -583,7 +583,7 @@ void *schedule_call(void *cmd) {
   return NULL;
 }
 
-void render_gsm_signal_data() {
+void cmd_render_gsm_signal_data() {
   int strsz = 0;
   char *network_types[] = {"Unknown", "CDMA",  "EVDO",  "AMPS", "GSM",
                            "UMTS",    "Error", "Error", "LTE"};
@@ -616,7 +616,7 @@ void render_gsm_signal_data() {
  *  remind me in 99 do some stuff
  *
  */
-void schedule_reminder(uint8_t *command) {
+void cmd_schedule_reminder(uint8_t *command) {
   uint8_t *offset_command;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
@@ -821,7 +821,7 @@ void schedule_reminder(uint8_t *command) {
  *  wake me up in 99
  *
  */
-void schedule_wakeup(uint8_t *command) {
+void cmd_schedule_wakeup(uint8_t *command) {
   uint8_t *offset_command;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
@@ -1055,7 +1055,7 @@ void schedule_wakeup(uint8_t *command) {
   reply = NULL;
 }
 
-void suspend_call_notifications(uint8_t *command) {
+void cmd_suspend_call_notifications(uint8_t *command) {
   uint8_t *offset_command;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   int strsz = 0;
@@ -1209,7 +1209,7 @@ void suspend_call_notifications(uint8_t *command) {
   reply = NULL;
 }
 
-int find_dictionary_entry(char *word) {
+int cmd_find_dictionary_entry(char *word) {
   char *line = malloc(32768); /* initialize all to 0 ('\0') */
   bool found = false;
   static const char *wtypes[] = {"noun",         "preposition", "adjective",
@@ -1287,7 +1287,7 @@ int find_dictionary_entry(char *word) {
   return 0;
 }
 
-void search_dictionary_entry(uint8_t *command) {
+void cmd_search_dictionary_entry(uint8_t *command) {
   uint8_t *offset;
   char word[128];
   offset = (uint8_t *)strstr((char *)command, bot_commands[CMD_ID_DEFINE].cmd);
@@ -1295,12 +1295,12 @@ void search_dictionary_entry(uint8_t *command) {
     int ofs = (int)(offset - command) + strlen(bot_commands[CMD_ID_DEFINE].cmd);
     if (strlen((char *)command) > ofs) {
       snprintf(word, 128, "%s", (char *)command + ofs);
-      find_dictionary_entry(word);
+      cmd_find_dictionary_entry(word);
     }
   }
 }
 
-void configure_new_apn(uint8_t *command) {
+void cmd_configure_new_apn(uint8_t *command) {
   uint8_t *offset;
   char apn[128];
   size_t strsz;
@@ -1326,7 +1326,7 @@ void configure_new_apn(uint8_t *command) {
   }
 }
 
-void configure_apn_username(uint8_t *command) {
+void cmd_configure_apn_username(uint8_t *command) {
   uint8_t *offset;
   char user[128];
   size_t strsz;
@@ -1352,7 +1352,7 @@ void configure_apn_username(uint8_t *command) {
   }
 }
 
-void configure_apn_password(uint8_t *command) {
+void cmd_configure_apn_password(uint8_t *command) {
   uint8_t *offset;
   char pass[128];
   size_t strsz;
@@ -1378,7 +1378,7 @@ void configure_apn_password(uint8_t *command) {
   }
 }
 
-void configure_internal_network_auth_method(uint8_t *command) {
+void cmd_configure_internal_network_auth_method(uint8_t *command) {
   uint8_t *offset;
   uint8_t changed = 0;
   size_t strsz;
@@ -1418,7 +1418,7 @@ void configure_internal_network_auth_method(uint8_t *command) {
   add_message_to_queue(reply, strsz);
 }
 
-void configure_signal_tracking_cell_notification(uint8_t *command) {
+void cmd_configure_signal_tracking_cell_notification(uint8_t *command) {
   uint8_t *offset;
   uint8_t changed = 0;
   size_t strsz;
@@ -1454,7 +1454,7 @@ void configure_signal_tracking_cell_notification(uint8_t *command) {
   add_message_to_queue(reply, strsz);
 }
 
-void clear_internal_networking_auth() {
+void cmd_clear_internal_networking_auth() {
   size_t strsz;
   uint8_t reply[MAX_MESSAGE_SIZE];
   set_internal_network_auth_method(0);
@@ -1465,7 +1465,7 @@ void clear_internal_networking_auth() {
   add_message_to_queue(reply, strsz);
 }
 
-void set_cb_broadcast(bool en) {
+void cmd_set_cb_broadcast(bool en) {
   char *response = malloc(128 * sizeof(char));
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(unsigned char));
   int strsz;
