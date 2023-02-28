@@ -25,7 +25,7 @@
 #include "wds.h"
 #include <net/if.h>
 
-#define DEBUG_WDS 1
+// #define DEBUG_WDS 1
 
 struct {
   uint8_t in_progress;
