@@ -65,51 +65,54 @@ void cmd_get_gps_stats() {
 void cmd_get_help() {
   /* Help */
   size_t strsz = 0;
-  uint8_t reply[MAX_MESSAGE_SIZE];
-
-  char *full_help_msg[MSG_MAX_MULTIPART_SIZE] = { 0 };
   size_t full_msg_size = 0;
+
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  char *full_help_msg = calloc(MSG_MAX_MULTIPART_SIZE, sizeof(char));
+
   full_msg_size =
-      snprintf((char *)full_help_msg, MSG_MAX_MULTIPART_SIZE,
+      snprintf(full_help_msg, MSG_MAX_MULTIPART_SIZE,
                "Welcome to the modem distro!\n"
                "You can use the chat to view and change a lot of settings\n"
                "Here's a list of what you can do:\n");
   for (uint8_t j = 0; j < (sizeof(cmd_categories) / sizeof(cmd_categories[0]));
        j++) {
-    full_msg_size += snprintf((char *)full_help_msg + full_msg_size,
-                              MSG_MAX_MULTIPART_SIZE - full_msg_size,
+    full_msg_size += snprintf((full_help_msg + full_msg_size),
+                              (MSG_MAX_MULTIPART_SIZE - full_msg_size),
                               "Category: %s\n", cmd_categories[j].name);
     for (uint8_t i = 0; i < (sizeof(bot_commands) / sizeof(bot_commands[0]));
          i++) {
       if (cmd_categories[j].category == bot_commands[i].category) {
         if (bot_commands[i].is_partial) {
           full_msg_size +=
-              snprintf((char *)full_help_msg + full_msg_size,
-                       MSG_MAX_MULTIPART_SIZE - full_msg_size, "%s x: %s\n",
+              snprintf((full_help_msg + full_msg_size),
+                       (MSG_MAX_MULTIPART_SIZE - full_msg_size), "%s x: %s\n",
                        bot_commands[i].cmd, bot_commands[i].help);
         } else {
           full_msg_size +=
-              snprintf((char *)full_help_msg + full_msg_size,
-                       MSG_MAX_MULTIPART_SIZE - full_msg_size, "%s: %s\n",
+              snprintf((full_help_msg + full_msg_size),
+                       (MSG_MAX_MULTIPART_SIZE - full_msg_size), "%s: %s\n",
                        bot_commands[i].cmd, bot_commands[i].help);
         }
       }
     }
   }
-  //  set_queue_lock(true);
+
+  set_queue_lock(true);
   while (strsz < full_msg_size) {
     memset(reply, 0, MAX_MESSAGE_SIZE);
-    if ((full_msg_size - strsz) > MAX_MESSAGE_SIZE) {
-      memcpy((char *)reply, (full_help_msg + strsz), (MAX_MESSAGE_SIZE - 10));
-      add_message_to_queue(reply, (MAX_MESSAGE_SIZE - 10));
-      strsz += (MAX_MESSAGE_SIZE - 10);
+    if ((full_msg_size - strsz) > MAX_MESSAGE_SIZE_HEADROOM_GSM7) {
+      memcpy(reply, (full_help_msg + strsz), MAX_MESSAGE_SIZE_HEADROOM_GSM7);
+      add_message_to_queue(reply, MAX_MESSAGE_SIZE_HEADROOM_GSM7);
+      strsz += MAX_MESSAGE_SIZE_HEADROOM_GSM7;
     } else if ((full_msg_size - strsz) > 0) {
-      memcpy((char *)reply, (full_help_msg + strsz), (full_msg_size - strsz));
+      memcpy(reply, (full_help_msg + strsz), (full_msg_size - strsz));
       add_message_to_queue(reply, (full_msg_size - strsz));
       strsz += (full_msg_size - strsz);
     }
   }
-  //  set_queue_lock(false);
+  set_queue_lock(false);
+  free(full_help_msg);
 }
 
 int cmd_get_uptime() {
@@ -238,7 +241,8 @@ void cmd_enable_service_debugging_for_service_id(uint8_t *command) {
     if (strlen((char *)command) > ofs) {
       service_id = atoi((char *)(command + ofs));
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                       "Enabling debugging of service id %u (%s) \n", service_id, get_qmi_service_name(service_id));
+                       "Enabling debugging of service id %u (%s) \n",
+                       service_id, get_qmi_service_name(service_id));
       enable_service_debugging(service_id);
     }
   }
@@ -252,7 +256,8 @@ void cmd_set_new_signal_tracking_mode(uint8_t *command) {
   uint8_t *offset;
   uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
   uint8_t mode = 0;
-  const char *modes[] = {"0:Standalone learn", "1:Standalone enforce", "2:OpenCellID learn", "3:OpenCellID enforce"};
+  const char *modes[] = {"0:Standalone learn", "1:Standalone enforce",
+                         "2:OpenCellID learn", "3:OpenCellID enforce"};
   offset = (uint8_t *)strstr((char *)command,
                              bot_commands[CMD_ID_ACTION_SET_ST_MODE].cmd);
   if (offset == NULL) {
@@ -264,9 +269,8 @@ void cmd_set_new_signal_tracking_mode(uint8_t *command) {
     if (strlen((char *)command) > ofs) {
       mode = atoi((char *)(command + ofs));
       if (mode < 4) {
-        strsz =
-            snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "Signal Tracking mode changed: %s\n", modes[mode]);
+        strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                         "Signal Tracking mode changed: %s\n", modes[mode]);
         set_signal_tracking_mode(mode);
       } else {
         strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
@@ -276,7 +280,7 @@ void cmd_set_new_signal_tracking_mode(uint8_t *command) {
                          "%s\n"
                          "%s\n"
                          "Your choice: %u\n",
-                         modes[0], modes[1], modes[2], modes[3],  mode);
+                         modes[0], modes[1], modes[2], modes[3], mode);
       }
     }
   }

@@ -880,7 +880,7 @@ int build_and_send_message(int fd, uint32_t message_id) {
   ret = ascii_to_gsm7((uint8_t *)sms_runtime.queue.msg[message_id].pkt,
                       msgoutput);
 
-  logger(MSG_DEBUG, "%s: Bytes to write %i\n", __func__, ret);
+  logger(MSG_DEBUG, "%s: Message ID: %u | Str: %s | %i bytes\n", __func__, message_id, sms_runtime.queue.msg[message_id].pkt, ret);
   if (ret > MAX_MESSAGE_SIZE) {
     logger(MSG_ERROR, "%s: Warning: resulting message size exceeds limit. Truncating\n");
     ret = 160;
@@ -1423,7 +1423,7 @@ void add_sms_to_queue(uint8_t *message, size_t len) {
   if (len > 0) {
     set_notif_pending(true);
     set_pending_notification_source(MSG_INTERNAL);
-    logger(MSG_INFO, "%s: Adding message to queue (%i)\n", __func__,
+    logger(MSG_DEBUG, "%s: Adding SMS: Text: %s\n Position %u\n", __func__, message,
            sms_runtime.queue.queue_pos + 1);
     sms_runtime.queue.queue_pos++;
     memcpy(sms_runtime.queue.msg[sms_runtime.queue.queue_pos].pkt, message,
