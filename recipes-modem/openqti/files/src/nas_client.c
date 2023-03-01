@@ -866,7 +866,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
   mcc = atoi((char *)nas_runtime.curr_state.mcc);
   mnc = atoi((char *)nas_runtime.curr_state.mnc);
   if (!is_signal_tracking_enabled()) {
-    logger(MSG_INFO, "%s: Tracking is disabled\n", __func__);
+    logger(MSG_DEBUG, "%s: Tracking is disabled\n", __func__);
     return;
   }
 
@@ -876,7 +876,7 @@ void update_cell_location_information(uint8_t *buf, size_t buf_len) {
     return;
   }
 
-  if (get_signal_tracking_mode() > 1 && mcc != 0 && mnc != 0) {
+  if (is_signal_tracking_enabled() && get_signal_tracking_mode() > 1 && mcc != 0 && mnc != 0) {
     if (memcmp(nas_runtime.curr_state.mcc, nas_runtime.open_cellid_mcc, 4) !=
             0 ||
         memcmp(nas_runtime.curr_state.mnc, nas_runtime.open_cellid_mnc, 3) !=

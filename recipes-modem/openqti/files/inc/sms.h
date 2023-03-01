@@ -8,8 +8,9 @@
 #include <sys/types.h>
 
 #define MAX_MESSAGE_SIZE 160
+#define MAX_MESSAGE_SIZE_HEADROOM_GSM7 140
 #define MSG_MAX_MULTIPART_SIZE 16384
-#define QUEUE_SIZE 100
+#define QUEUE_SIZE 256
 #define MAX_PHONE_NUMBER_SIZE 20
 
 /* OpenQTI's way of knowing if it

@@ -135,7 +135,7 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     break;
   case CMD_ID_GET_UPTIME:
-    get_uptime();
+    cmd_get_uptime();
     break;
   case CMD_ID_GET_LOADAVG:
     cmd_get_load_avg();
@@ -152,10 +152,10 @@ uint8_t parse_command(uint8_t *command) {
     cmd_get_memory();
     break;
   case CMD_ID_GET_NET_STATS:
-    get_rmnet_stats_cmd();
+    cmd_get_rmnet_stats();
     break;
   case CMD_ID_GET_GPS_STATS:
-    get_gps_stats_cmd();
+    cmd_get_gps_stats();
     break;
   case CMD_ID_GET_HELP:
     cmd_get_help();
@@ -213,20 +213,20 @@ uint8_t parse_command(uint8_t *command) {
     add_message_to_queue(reply, strsz);
     break;
   case CMD_ID_ACTION_POWEROFF:
-    pthread_create(&disposable_thread, NULL, &delayed_shutdown, NULL);
+    pthread_create(&disposable_thread, NULL, &cmd_delayed_shutdown, NULL);
     send_default_response(cmd_id);
 
     break;
   case CMD_ID_GET_GSM_SIGNAL:
-    render_gsm_signal_data();
+    cmd_render_gsm_signal_data();
     break;
   case CMD_ID_ACTION_REBOOT:
-    pthread_create(&disposable_thread, NULL, &delayed_reboot, NULL);
+    pthread_create(&disposable_thread, NULL, &cmd_delayed_reboot, NULL);
     send_default_response(cmd_id);
 
     break;
   case CMD_ID_GET_NET_REPORT:
-    dump_signal_report();
+    cmd_dump_signal_report();
     break;
   case CMD_ID_ACTION_ENABLE_SIGNAL_TRACKING:
     send_default_response(cmd_id);
@@ -260,10 +260,10 @@ uint8_t parse_command(uint8_t *command) {
     cmd_thank_you();
     break;
   case CMD_ID_ACTION_ENABLE_CELL_BROADCAST:
-    set_cb_broadcast(true);
+    cmd_set_cb_broadcast(true);
     break;
   case CMD_ID_ACTION_DISABLE_CELL_BROADCAST:
-    set_cb_broadcast(false);
+    cmd_set_cb_broadcast(false);
     break;
   case CMD_ID_ACTION_CALLWAIT_AUTO_HANGUP:
     send_default_response(cmd_id);
@@ -342,10 +342,10 @@ uint8_t parse_command(uint8_t *command) {
     record_next_call(false);
     break;
   case CMD_ID_DEBUG_GET_MM_SAMPLE_GSM7_CB_MSG:
-    debug_gsm7_cb_message(command);
+    cmd_debug_gsm7_cb_message(command);
     break;
   case CMD_ID_DEBUG_GET_MM_SAMPLE_UCS2_CB_MSG:
-    debug_ucs2_cb_message(command);
+    cmd_debug_ucs2_cb_message(command);
     break;
   case CMD_ID_ACTION_ENABLE_INTERNAL_NETWORKING:
     send_default_response(cmd_id);
@@ -402,7 +402,7 @@ uint8_t parse_command(uint8_t *command) {
     enable_dump_network_tables(false);
     break;
   case CMD_ID_ACTION_INTERNAL_NETWORK_CLEAR_AUTH_DATA:
-    clear_internal_networking_auth();
+    cmd_clear_internal_networking_auth();
     break;
   case CMD_ID_ACTION_MESSAGE_RECOVERY_ENABLE:
     send_default_response(cmd_id);
@@ -423,50 +423,50 @@ uint8_t parse_command(uint8_t *command) {
 
     /* Partials */
   case CMD_ID_SET_MODEM_NAME:
-    set_custom_modem_name(command);
+    cmd_set_custom_modem_name(command);
     break;
   case CMD_ID_SET_OWNER_NAME:
-    set_custom_user_name(command);
+    cmd_set_custom_user_name(command);
     break;
   case CMD_ID_ACTION_CALL_OWNER_COUNTDOWN:
-    pthread_create(&disposable_thread, NULL, &schedule_call, command);
+    pthread_create(&disposable_thread, NULL, &cmd_schedule_call, command);
     sleep(2); // our string gets wiped out before we have a chance
     break;
   case CMD_ID_ACTION_SET_REMINDER:
-    schedule_reminder(command);
+    cmd_schedule_reminder(command);
     break;
   case CMD_ID_ACTION_WAKE_OWNER:
-    schedule_wakeup(command);
+    cmd_schedule_wakeup(command);
     break;
   case CMD_ID_ACTION_DELETE_TASK: /* Delete task %i */
-    delete_task(command);
+    cmd_delete_task(command);
     break;
   case CMD_ID_ACTION_ENABLE_DND: /* Leave me alone [not implemented yet] */
-    suspend_call_notifications(command);
+    cmd_suspend_call_notifications(command);
     break;
   case CMD_ID_DEBUG_ENABLE_SERVICE_LOGGING:
-    enable_service_debugging_for_service_id(command);
+    cmd_enable_service_debugging_for_service_id(command);
     break;
   case CMD_ID_ACTION_SET_ST_MODE:
-    set_new_signal_tracking_mode(command);
+    cmd_set_new_signal_tracking_mode(command);
     break;
   case CMD_ID_ACTION_SET_ST_NOTIFICATION_LEVEL:
-    configure_signal_tracking_cell_notification(command);
+    cmd_configure_signal_tracking_cell_notification(command);
     break;
   case CMD_ID_DEFINE:
-    search_dictionary_entry(command);
+    cmd_search_dictionary_entry(command);
     break;
   case CMD_ID_ACTION_INTERNAL_NETWORK_SET_APN:
-    configure_new_apn(command);
+    cmd_configure_new_apn(command);
     break;
   case CMD_ID_ACTION_INTERNAL_NETWORK_SET_USER:
-    configure_apn_username(command);
+    cmd_configure_apn_username(command);
     break;
   case CMD_ID_ACTION_INTERNAL_NETWORK_SET_PASS:
-    configure_apn_password(command);
+    cmd_configure_apn_password(command);
     break;
   case CMD_ID_ACTION_INTERNAL_NETWORK_SET_AUTH_METHOD:
-    configure_internal_network_auth_method(command);
+    cmd_configure_internal_network_auth_method(command);
     break;
   case CMD_UNKNOWN:
   default:

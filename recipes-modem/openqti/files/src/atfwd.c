@@ -733,7 +733,6 @@ void *start_atfwd_thread() {
 
   read_adsp_version();
   while (1) {
-
     FD_ZERO(&readfds);
     memset(buf, 0, sizeof(buf));
     FD_SET(at_qmi_dev->fd, &readfds);
@@ -754,7 +753,9 @@ void *start_atfwd_thread() {
       set_sms_notification_pending_state(false);
     }
 
-    if (nas_is_network_in_service() && is_cellid_data_missing() == 0) {
+    if (nas_is_network_in_service() && 
+        is_signal_tracking_enabled() &&
+        is_cellid_data_missing() == 0) {
       logger(MSG_INFO, "%s: Fire the pending cell id notification!\n", __func__);
       at_send_missing_cellid_data(at_qmi_dev);
       get_opencellid_data();
