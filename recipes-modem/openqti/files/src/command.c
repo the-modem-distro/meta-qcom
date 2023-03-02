@@ -38,13 +38,9 @@ struct {
   uint8_t cmd_history[1024];
   uint16_t cmd_position;
   uint32_t last_cmd_timestamp;
-  char user_name[MAX_NAME_SZ];
-  char bot_name[MAX_NAME_SZ];
 } cmd_runtime;
 
-char *get_rt_modem_name() { return cmd_runtime.bot_name; }
 
-char *get_rt_user_name() { return cmd_runtime.user_name; }
 
 size_t set_message_response(uint8_t command_id, uint8_t *buff) {
   size_t strsz = 0;
@@ -82,19 +78,10 @@ uint16_t find_cmd_history_match(uint8_t command_id) {
   return match;
 }
 
-void get_names() {
-  get_modem_name(cmd_runtime.bot_name);
-  get_user_name(cmd_runtime.user_name);
-}
 
 void set_cmd_runtime_defaults() {
   cmd_runtime.is_unlocked = false;
   cmd_runtime.unlock_time = 0;
-  strncpy(cmd_runtime.user_name, "User",
-          32); // FIXME: Allow user to set a custom name
-  strncpy(cmd_runtime.bot_name, "Modem",
-          32); // FIXME: Allow to change modem name
-  get_names();
 }
 
 uint8_t parse_command(uint8_t *command) {
@@ -131,7 +118,7 @@ uint8_t parse_command(uint8_t *command) {
   case CMD_ID_GET_NAME:
     strsz +=
         snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s %s\n",
-                 bot_commands[cmd_id].cmd_text, cmd_runtime.bot_name);
+                 bot_commands[cmd_id].cmd_text, get_rt_modem_name());
     add_message_to_queue(reply, strsz);
     break;
   case CMD_ID_GET_UPTIME:
@@ -209,7 +196,7 @@ uint8_t parse_command(uint8_t *command) {
   case CMD_ID_GET_OWNER_NAME:
     strsz +=
         snprintf((char *)reply + strsz, MAX_MESSAGE_SIZE - strsz, "%s %s\n",
-                 bot_commands[cmd_id].cmd_text, cmd_runtime.user_name);
+                 bot_commands[cmd_id].cmd_text, get_rt_user_name());
     add_message_to_queue(reply, strsz);
     break;
   case CMD_ID_ACTION_POWEROFF:
@@ -258,6 +245,9 @@ uint8_t parse_command(uint8_t *command) {
     break;
   case CMD_ID_GET_FW_TY:
     cmd_thank_you();
+    break;
+  case CMD_ID_GET_RUNNING_CONFIG:
+    cmd_get_running_config();
     break;
   case CMD_ID_ACTION_ENABLE_CELL_BROADCAST:
     cmd_set_cb_broadcast(true);
@@ -420,7 +410,6 @@ uint8_t parse_command(uint8_t *command) {
     send_default_response(cmd_id);
     wds_chat_ifup_down(false);
     break;
-
     /* Partials */
   case CMD_ID_SET_MODEM_NAME:
     cmd_set_custom_modem_name(command);
@@ -471,7 +460,8 @@ uint8_t parse_command(uint8_t *command) {
   case CMD_UNKNOWN:
   default:
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                      "Invalid command id %i\n", cmd_id);
+                      "Sorry %s, I don't understand the command '%s'\n", get_rt_user_name(), command);
+    add_message_to_queue(reply,strsz);                     
     logger(MSG_INFO, "%s: Unknown command %i\n", __func__, cmd_id);
     break;
   }

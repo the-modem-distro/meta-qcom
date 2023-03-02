@@ -73,6 +73,7 @@ enum {
   CMD_ID_ACTION_MESSAGE_RECOVERY_DISABLE,
   CMD_ID_ACTION_INTERNAL_NETWORK_START,
   CMD_ID_ACTION_INTERNAL_NETWORK_STOP,
+  CMD_ID_GET_RUNNING_CONFIG,
   /* Previously called "partial commands" */
   CMD_ID_SET_MODEM_NAME,
   CMD_ID_SET_OWNER_NAME,
@@ -91,6 +92,7 @@ enum {
   CMD_ID_ACTION_INTERNAL_NETWORK_SET_AUTH_METHOD,
 };
 
+void cmd_get_running_config();
 void cmd_get_rmnet_stats();
 void cmd_get_gps_stats();
 void cmd_get_help();

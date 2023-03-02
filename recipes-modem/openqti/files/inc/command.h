@@ -84,7 +84,9 @@ static const struct {
     {CMD_ID_ACTION_REBOOT, 0, CMD_CATEGORY_SYSTEM, "reboot", "See you soon",
      "Reboot the modem"},
     {CMD_ID_GET_NET_REPORT, 0, CMD_CATEGORY_NETWORK, "net report",
-     "Network report", "Get network report "},
+     "Network report", "Get network report"},
+    {CMD_ID_GET_RUNNING_CONFIG, 0, CMD_CATEGORY_INFO, "get config",
+     "Running config", "Show current configuration"},
     {CMD_ID_ACTION_ENABLE_SIGNAL_TRACKING, 0, CMD_CATEGORY_NETWORK,
      "enable tracking", "Signal tracking: enabled",
      "Switch on network monitoring"},
@@ -244,9 +246,7 @@ static const struct {
      "chap, auto)"},
 };
 
-char *get_rt_modem_name();
-char *get_rt_user_name();
-void get_names();
+
 void set_cmd_runtime_defaults();
 uint8_t parse_command(uint8_t *command);
 

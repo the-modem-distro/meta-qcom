@@ -7,6 +7,7 @@
 #include "cell_broadcast.h"
 #include "command.h"
 #include "config.h"
+#include "helpers.h"
 #include "dms.h"
 #include "ipc.h"
 #include "logger.h"
@@ -31,6 +32,75 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+
+void cmd_get_running_config() {
+  size_t strsz = 0;
+  uint8_t reply[MAX_MESSAGE_SIZE];
+  struct pkt_stats packet_stats;
+  /* System: */
+  memset(reply, 0, MAX_MESSAGE_SIZE);
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "System\n"
+                   "- Name: %s\n"
+                   "- Owner: %s\n"
+                   "- Persistent storage: %s\n"
+                   "- ADB: %s\n"
+                   "- Audio mode: %s\n",
+                   get_rt_modem_name(), 
+                   get_rt_user_name(),
+                   use_persistent_logging() == 1 ? "On" : "Off",
+                   is_adb_enabled() == 1 ? "On" : "Off",
+                   get_audio_mode() == 1 ? "USB" : "Internal"  );
+  add_message_to_queue(reply, strsz);
+
+  /* Personal info */
+  memset(reply, 0, MAX_MESSAGE_SIZE);
+  strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "User Data:\n"
+                   "- Auto call recording: %s\n"
+                   "- Call Wait behaviour: %s\n"
+                   "- Custom Alert tones: %s\n"
+                   "- SMS Logging: %s\n"
+                   "- Boot time message recovery: %s\n",
+                   is_automatic_call_recording_enabled() == 1 ? "Yes" : "No",
+                   callwait_auto_hangup_operation_mode() == 1 ? "Ignore" : "Reject", //<-- print modes
+                   use_custom_alert_tone() == 1 ? "Yes" : "No",
+                   is_sms_logging_enabled() == 1 ? "Yes" : "No",
+                   is_sms_list_all_bypass_enabled() == 1 ? "Yes" : "No");
+  add_message_to_queue(reply, strsz);
+
+  /* Signal */
+  memset(reply, 0, MAX_MESSAGE_SIZE);
+  strsz = snprintf(
+      (char *)reply, MAX_MESSAGE_SIZE,
+      "Signal tracking:\n"
+      "- Status: %s\n"
+      "- Mode: %s\n"
+      "- Notify net. downgrade: %s\n"
+      "- Notify cell changes: %s\n"
+      "- Save csv files with network data: %s\n",
+      is_signal_tracking_enabled() == 1 ? "On" : "Off",
+      get_signal_tracking_mode_text(), // <-- Mode
+      is_signal_tracking_downgrade_notification_enabled() == 1 ? "Yes" : "No",
+      get_signal_tracking_cell_change_notification_mode_text(),
+      get_dump_network_tables_config() == 1 ? "Yes" : "No");
+  add_message_to_queue(reply, strsz);
+
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                   "Internal Networking\n"
+                   "- Status: %s\n"
+                   "- APN: %s\n"
+                   "- User: %s\n"
+                   "- Pass: %s\n"
+                   "- Auth: %s\n",
+                   is_internal_connect_enabled() == 1 ? "On" : "Off",
+                   get_internal_network_apn_name(),
+                   get_internal_network_username(),
+                   get_internal_network_pass(),
+                   get_internal_network_pass());
+  add_message_to_queue(reply, strsz);
+
+}
 
 void cmd_get_rmnet_stats() {
   size_t strsz = 0;
@@ -217,7 +287,6 @@ void cmd_set_custom_modem_name(uint8_t *command) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE, "My name is now %s\n",
                        name);
       set_modem_name(name);
-      get_names();
     }
   }
   add_message_to_queue(reply, strsz);
@@ -307,7 +376,6 @@ void cmd_set_custom_user_name(uint8_t *command) {
       strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                        "I will call you %s from now on\n", name);
       set_user_name(name);
-      get_names();
     }
   }
   add_message_to_queue(reply, strsz);
