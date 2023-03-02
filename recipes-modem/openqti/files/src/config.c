@@ -347,11 +347,10 @@ uint8_t is_signal_tracking_enabled() { return settings->signal_tracking; }
 
 uint8_t get_signal_tracking_mode() { return settings->signal_tracking_mode; }
 
-uint8_t get_dump_network_tables_config() {
-  return settings->dump_network_tables;
-}
+uint8_t get_dump_network_tables_config() { return settings->dump_network_tables; }
 
 uint8_t is_sms_logging_enabled() { return settings->sms_logging; }
+
 uint8_t is_sms_list_all_bypass_enabled() { return settings->list_all_bypass; }
 
 uint8_t is_internal_connect_enabled() {
@@ -375,6 +374,10 @@ uint8_t get_user_name(char *buff) {
   snprintf(buff, MAX_NAME_SZ, "%s", settings->user_name);
   return 1;
 }
+
+char *get_rt_modem_name() { return settings->modem_name; }
+
+char *get_rt_user_name() { return settings->user_name; }
 
 void set_custom_alert_tone(bool en) {
   if (en) {
@@ -577,6 +580,29 @@ void enable_call_waiting_autohangup(uint8_t en) {
   write_settings_to_storage();
 }
 
+char *get_signal_tracking_mode_text() {
+  if (settings->signal_tracking_mode == 0) {
+    return "Standalone/Learn";
+  } else if (settings->signal_tracking_mode == 1) {
+    return "Standalone/Strict";
+  } else if (settings->signal_tracking_notify_cell_change == 2) {
+    return "OpenCellid/Learn";
+  } else if (settings->signal_tracking_notify_cell_change == 2) {
+    return "OpenCellid/Strict";
+  }
+  return "unknown";
+}
+
+char *get_signal_tracking_cell_change_notification_mode_text() {
+  if (settings->signal_tracking_notify_cell_change == 0) {
+    return "none";
+  } else if (settings->signal_tracking_notify_cell_change == 1) {
+    return "new cells";
+  } else if (settings->signal_tracking_notify_cell_change == 2) {
+    return "any";
+  }
+  return "unknown";
+}
 
 char *get_internal_network_apn_name() {
   return settings->apn_addr;
@@ -588,6 +614,18 @@ char *get_internal_network_username() {
 
 char *get_internal_network_pass() {
   return settings->apn_password;
+}
+char *get_internal_network_auth_method_text() {
+  if (settings->apn_auth_method == 0) {
+    return "none";
+  } else if (settings->apn_auth_method == 1) {
+    return "pap";
+  } else if (settings->apn_auth_method == 2) {
+    return "chap";
+  } else if (settings->apn_auth_method == 3) {
+    return "auto";
+  }
+  return "unknown";
 }
 
 uint8_t get_internal_network_auth_method() {

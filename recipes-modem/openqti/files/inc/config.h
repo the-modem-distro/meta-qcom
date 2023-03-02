@@ -13,6 +13,7 @@
 #define VOLATILE_PATH "/tmp/"
 #define MAX_NAME_SZ 128
 #define MAX_APN_FIELD_SZ 128
+
 struct config_prototype {
   uint8_t custom_alert_tone;
   uint8_t persistent_logging;
@@ -35,7 +36,6 @@ struct config_prototype {
   char apn_username[MAX_APN_FIELD_SZ];
   char apn_password[MAX_APN_FIELD_SZ];
   // IPv6 is not currently supported, but I'll have to look into it
-
 }; 
 
 /* 
@@ -103,9 +103,12 @@ void set_automatic_call_recording(uint8_t mode);
 /* Internal Networking */
 /* Getters */
 uint8_t is_internal_connect_enabled();
+char *get_signal_tracking_mode_text();
+char *get_signal_tracking_cell_change_notification_mode_text();
 char *get_internal_network_apn_name();
 char *get_internal_network_username();
 char *get_internal_network_pass();
+char *get_internal_network_auth_method_text();
 uint8_t get_internal_network_auth_method();
 /* Setters */
 void set_internal_connectivity(bool en);
@@ -117,4 +120,6 @@ void set_internal_network_auth_method(uint8_t method);
 /* Automatically export cell location data as CSV */
 uint8_t get_dump_network_tables_config();
 void enable_dump_network_tables(bool en);
+char *get_rt_modem_name();
+char *get_rt_user_name();
 #endif
