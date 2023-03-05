@@ -40,6 +40,7 @@
 #define MODEM_ONLINE _IO(QTI_IOCTL_MAGIC, 5)
 
 #define MAX_PACKET_SIZE 6144 // rmnet max packet size
+
 // IPC Port security rules
 #define IOCTL_RULES _IOR(0xC3, 5, struct irsc_rule)
 #define IRSC_INSTANCE_ALL 4294967295
@@ -49,8 +50,13 @@
 #define CLIENT_RELEASE_REQ 0x0023
 #define CLIENT_REG_TIMEOUT 2400000
 
+/* ModemManager will connect first  to the WDA service, while
+  oFono's first connection attempt is to the DMS service.
+  We use that to identify our host app  
+*/
 #define HOST_USES_MODEMMANAGER 0x1a
 #define HOST_USES_OFONO 0x02
+
 struct irsc_rule {
   int rl_no;
   uint32_t service;
@@ -64,58 +70,78 @@ static const struct {
   uint8_t service;
   const char *name;
 } qmi_services[] = {
-    {0, "Control service"},
-    {1, "Wireless Data Service"},
-    {2, "Device Management Service"},
-    {3, "Network Access Service"},
-    {4, "Quality Of Service service"},
-    {5, "Wireless Messaging Service"},
-    {6, "Position Determination Service"},
-    {7, "Authentication service"},
-    {8, "AT service"},
-    {9, "Voice service"},
-    {10, "Card Application Toolkit service (v2)"},
-    {11, "User Identity Module service"},
-    {12, "Phonebook Management service"},
-    {13, "QCHAT service"},
-    {14, "Remote file system service"},
-    {15, "Test service"},
-    {16, "Location service (~ PDS v2)"},
-    {17, "Specific absorption rate service"},
-    {18, "IMS settings service"},
-    {19, "Analog to digital converter driver service"},
-    {20, "Core sound driver service"},
-    {21, "Modem embedded file system service"},
-    {22, "Time service"},
-    {23, "Thermal sensors service"},
-    {24, "Thermal mitigation device service"},
-    {25, "Service access proxy service"},
-    {26, "Wireless data administrative service"},
-    {27, "TSYNC control service"},
-    {28, "Remote file system access service"},
-    {29, "Circuit switched videotelephony service"},
-    {30, "Qualcomm mobile access point service"},
-    {31, "IMS presence service"},
-    {32, "IMS videotelephony service"},
-    {33, "IMS application service"},
-    {34, "Coexistence service"},
-    {36, "Persistent device configuration service"},
-    {38, "Simultaneous transmit service"},
-    {39, "Bearer independent transport service"},
-    {40, "IMS RTP service"},
-    {41, "RF radiated performance enhancement service"},
-    {42, "Data system determination service"},
-    {43, "Subsystem control service"},
-    {47, "Data Port Mapper service"},
-    {49, "IPA control service"},
-    {51, "CoreSight remote tracing service"},
-    {52, "Dynamic Heap Memory Sharing"},
-    {64, "Service registry locator service"},
-    {66, "Service registry notification service"},
-    {69, "ATH10k WLAN firmware service"},
-    {224, "Card Application Toolkit service (v1)"},
-    {225, "Remote Management Service"},
-    {226, "Open Mobile Alliance device management service"},
+    {0x00, "Control service"},
+    {0x01, "Wireless Data Service"},
+    {0x02, "Device Management Service"},
+    {0x03, "Network Access Service"},
+    {0x04, "Quality Of Service service"},
+    {0x05, "Wireless Messaging Service"},
+    {0x06, "Position Determination Service"},
+    {0x07, "Authentication service"},
+    {0x08, "AT service"},
+    {0x09, "Voice service"},
+    {0x0a, "Card Application Toolkit service (v2)"},
+    {0x0b, "User Identity Module service"},
+    {0x0c, "Phonebook Management service"},
+    {0x0d, "QCHAT service"},
+    {0x0e, "Remote file system service"},
+    {0x0f, "Test service"},
+    {0x10, "Location service (~ PDS v2)"},
+    {0x11, "Specific absorption rate service"},
+    {0x12, "IMS settings service"},
+    {0x13, "Analog to digital converter driver service"},
+    {0x14, "Core sound driver service"},
+    {0x15, "Modem embedded file system service"},
+    {0x16, "Time service"},
+    {0x17, "Thermal sensors service"},
+    {0x18, "Thermal mitigation device service"},
+    {0x19, "Service access proxy service"},
+    {0x1a, "Wireless data administrative service"},
+    {0x1b, "TSYNC control service"},
+    {0x1c, "Remote file system access service"},
+    {0x1d, "Circuit switched videotelephony service"},
+    {0x1e, "Qualcomm mobile access point service"},
+    {0x1f, "IMS presence service"},
+    {0x20, "IMS videotelephony service"},
+    {0x21, "IMS application service"},
+    {0x22, "Coexistence service"},
+    {0x23, "UNKNOWN SERVICE"},
+    {0x24, "Persistent device configuration service"},
+    {0x25, "UNKNOWN SERVICE"},
+    {0x26, "Simultaneous transmit service"},
+    {0x27, "Bearer independent transport service"},
+    {0x28, "IMS RTP service"},
+    {0x29, "RF radiated performance enhancement service"},
+    {0x2a, "Data system determination service"},
+    {0x2b, "Subsystem control service"},
+    {0x2c, "Modem external Filesystem service"},
+    {0x2d, "MDM Scrubber service"},
+    {0x2e, "UNKNOWN Service"},
+    {0x2f, "Data Port Mapper service"},
+    {0x30, "Data filter service"},
+    {0x31, "IPA control service"},
+    {0x32, "UIM remote service"},
+    {0x33, "CoreSight remote tracing service"},
+    {0x34, "Dynamic Heap Memory Sharing"},
+    {0x35, "Subsystem control...request?"},
+    {0x36, "Flow control management"},
+    {0x37, "Sensor location interface"},
+    {0x38, "lowi (location over wlan) service"},
+    {0x3c, "Health monitor"},
+    {0x3d, "Filesystem service"},
+    {0x40, "Service registry locator service"},
+    {0x42, "Service registry notification service"},
+    {0x43, "Bandwidth limit manager"},
+    {0x44, "OTT"},
+    {0x45, "ATH10k WLAN firmware service"},
+    {0x46, "LTE service"},
+    {0x47, "UIM http service"},
+    {0x48, "Non IP data service"},
+    {0x4a, "Antenna switch service"},
+    /* ... */
+    {0xe0, "Card Application Toolkit service (v1)"},
+    {0xe1, "Remote Management Service"},
+    {0xe2, "Open Mobile Alliance device management service"},
 };
 
 struct msm_ipc_port_addr {
