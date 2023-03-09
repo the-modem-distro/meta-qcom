@@ -9,7 +9,8 @@ LICENSE = "GPL-2.0-only"
 LIC_FILES_CHKSUM = "file://COPYING;md5=d7810fab7487fb0aad327b76f1be7cd7"
 
 # Set compatible machines for this kernel
-COMPATIBLE_MACHINE = "mdm9607"
+COMPATIBLE_MACHINE:mdm9607 = "mdm9607"
+COMPATIBLE_MACHINE:mdm9640 = "mdm9640"
 
 # Dependencies
 DEPENDS += "mkbootimg-native dtbtool-native libgcc dtc-native"
@@ -23,23 +24,13 @@ PR = "${DISTRO}"
 PVBASE := "${PV}"
 PV = "1.0+git${SRCPV}"
 KERNEL_IMAGETYPE ?= "zImage"
-KERNEL_DEFCONFIG:mdm9607 ?= "${S}/arch/arm/configs/mdm9607-perf_defconfig"
-KERNEL_DEVICETREE ?= "qcom/mdm9607-mtp.dtb"
+
 
 QCOM_BOOTIMG_ROOTFS ?= "undefined"
 SD_QCOM_BOOTIMG_ROOTFS ?= "undefined"
 # set output file names
 BOOT_IMAGE_BASE_NAME = "boot-${KERNEL_IMAGE_NAME}"
 BOOT_IMAGE_SYMLINK_NAME = "boot-${KERNEL_IMAGE_LINK_NAME}"
-QCOM_BOOTIMG_PAGE_SIZE = "2048"
-QCOM_BOOTIMG_KERNEL_BASE = "0x80000000"
-KERNEL_TAGS_ADDR = "0x81E00000"
-
-# CMDLine params
-# For debugging through serial console:
-# KERNEL_CMDLINE = "noinitrd ro console=ttyHSL0,115200,n8 androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
-# For Production use (faster)
-KERNEL_CMDLINE = "ro androidboot.hardware=qcom ehci-hcd.park=3 msm_rtb.filter=0x37 lpm_levels.sleep_disabled=1"
 
 # Uncomment this option if you want bitbake to force-rebuild the kernel
 # do_compile[nostamp] = "1"
@@ -80,7 +71,7 @@ do_configure:prepend() {
 
 # append DTB
 do_compile:append() {
-    ${STAGING_BINDIR_NATIVE}/dtbTool ${B}/arch/arm/boot/dts/qcom/ -s 2048 -o ${B}/arch/arm/boot/dts/qcom/dtb.img -p scripts/dtc/ -v
+    ${STAGING_BINDIR_NATIVE}/dtbTool ${B}/arch/arm/boot/dts/qcom/ -s ${QCOM_BOOTIMG_PAGE_SIZE} -o ${B}/arch/arm/boot/dts/qcom/dtb.img -p scripts/dtc/ -v
 }
 
 
