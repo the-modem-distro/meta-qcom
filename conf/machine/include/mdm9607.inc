@@ -1,6 +1,8 @@
 
 SOC_FAMILY = "mdm9607"
 MACHINE = "mdm9607"
+ABOOT_BOARD = "9607"
+
 require conf/machine/include/soc-family.inc
 require conf/machine/include/arm/armv7a/tune-cortexa8.inc
 

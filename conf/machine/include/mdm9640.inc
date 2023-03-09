@@ -1,6 +1,7 @@
 
 SOC_FAMILY = "mdm9640"
 MACHINE = "mdm9640"
+ABOOT_BOARD = "9640"
 require conf/machine/include/soc-family.inc
 require conf/machine/include/arm/armv7a/tune-cortexa8.inc
 
@@ -27,5 +28,5 @@ CACHE_VOLUME_SIZE ?= "55MiB"
 # Max supported inodes
 EXTRA_IMAGECMD ?= "-N 4096"
 
-MKUBIFS_ARGS="-m 2048 -e 126976 -c 4292 -F"
-UBINIZE_ARGS="-m 2048 -p 128KiB -s 4096"
+MKUBIFS_ARGS="-m 4096 -e 253952 -c 4292 -F"
+UBINIZE_ARGS="-m 4096 -p 256KiB -s 4096"
