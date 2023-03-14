@@ -35,7 +35,7 @@ else
     modem_partition_id=`cat /proc/mtd | grep -i modem | sed 's/^mtd//' | awk -F ':' '{print $1}'`
     if [[ $modem_partition_id -ge 1 ]]; then 
         echo "Attaching and mounting"
-        ubiattach -m $user_data_partition_id -d 1 /dev/ubi_ctrl 
+        ubiattach -m $modem_partition_id -d 1 /dev/ubi_ctrl 
         mount -t ubifs -o ro /dev/ubi1_0 /firmware
     else
         echo "Can't mount the baseband firmware partition!"
