@@ -1630,3 +1630,43 @@ void cmd_thank_you() {
                    "every day, I wouldn't have a purpose without you all!");
   add_message_to_queue(reply, strsz);
 }
+
+/* Syntax:
+ * Say X
+ * Examples:
+ *  say Hello
+ *  say I am a robot
+ *  say Look, I can make my modem say things!
+ *
+ */
+void cmd_say_text(uint8_t *command) {
+  uint8_t *offset_command;
+  uint8_t *reply = calloc(MAX_MESSAGE_SIZE, sizeof(uint8_t));
+  int strsz = 0;
+
+  /* Initial command check */
+  offset_command = (uint8_t *)strstr(
+      (char *)command, bot_commands[CMD_ID_ACTION_SAY_TEXT].cmd);
+  if (offset_command == NULL) {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE - strsz,
+                     "Command mismatch!\n");
+    add_message_to_queue(reply, strsz);
+    free(reply);
+    reply = NULL;
+    return;
+  }
+
+  if (strlen(command) < strlen( bot_commands[CMD_ID_ACTION_SAY_TEXT].cmd) + 1)
+  {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "Please enter text for me to say!\n");
+  }
+  else
+  {
+    strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
+                     "%s\n", (command + strlen(bot_commands[CMD_ID_ACTION_SAY_TEXT].cmd)));
+  }
+  add_message_to_queue(reply, strsz);
+  free(reply);
+  reply = NULL;
+}

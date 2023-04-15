@@ -89,6 +89,7 @@ enum {
   CMD_ID_ACTION_INTERNAL_NETWORK_SET_USER,
   CMD_ID_ACTION_INTERNAL_NETWORK_SET_PASS,
   CMD_ID_ACTION_INTERNAL_NETWORK_SET_AUTH_METHOD,
+  CMD_ID_ACTION_SAY_TEXT,
 };
 
 void cmd_get_rmnet_stats();
@@ -122,6 +123,7 @@ void cmd_configure_internal_network_auth_method(uint8_t *command);
 void cmd_configure_signal_tracking_cell_notification(uint8_t *command);
 void cmd_clear_internal_networking_auth();
 void cmd_set_cb_broadcast(bool en);
+void cmd_say_text(uint8_t *command);
 
 void cmd_get_openqti_log();
 void cmd_get_kernel_log();
