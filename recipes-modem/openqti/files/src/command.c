@@ -468,6 +468,9 @@ uint8_t parse_command(uint8_t *command) {
   case CMD_ID_ACTION_INTERNAL_NETWORK_SET_AUTH_METHOD:
     cmd_configure_internal_network_auth_method(command);
     break;
+  case CMD_ID_ACTION_SAY_TEXT: /* Say X */
+    cmd_say_text(command);
+    break;
   case CMD_UNKNOWN:
   default:
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,

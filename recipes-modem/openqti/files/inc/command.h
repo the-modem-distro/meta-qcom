@@ -242,6 +242,8 @@ static const struct {
      "set internal network auth method ", "Set internal apn auth method ",
      "Configure your carrier APN authentication method (options: none, pap, "
      "chap, auto)"},
+     {CMD_ID_ACTION_SAY_TEXT, 1, CMD_CATEGORY_UTILITY, "say ",
+     "Say X", "Responds with X. If calling the modem, responds via Text To Speech"},
 };
 
 char *get_rt_modem_name();
