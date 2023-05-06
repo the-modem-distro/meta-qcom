@@ -1,6 +1,4 @@
-# Recipe for building the MDM9607 Kernel tree
-# Biktorgj 2022
-# Released under the MIT license (see COPYING.MIT for the terms)
+# Recipe for building LK
 
 inherit deploy
 
@@ -13,9 +11,10 @@ RPROVIDES_${PN} = "aboot"
 # We tell yocto what does this provide
 PROVIDES = "virtual/bootloader"
 
-# Set the project name
+# Set the project name.. can't use ${MACHINE} ?
 ABOOT_PROJECT:mdm9607 = "mdm9607"
 ABOOT_PROJECT:mdm9640 = "mdm9640"
+ABOOT_PROJECT:msm8916 = "msm8916"
 
 # Dependencies
 DEPENDS += "libgcc" 
