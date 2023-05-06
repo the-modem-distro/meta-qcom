@@ -32,6 +32,9 @@ SRC_URI = "file://inc/openqti.h \
            file://inc/dms.h \
            file://inc/voice.h \
            file://inc/nas.h \
+           file://inc/pdc.h \
+           file://inc/ims.h \
+           file://inc/mdm_fs.h \
            file://inc/chat_helpers.h \
            file://src/qmi.c \
            file://src/tracking.c \
@@ -60,6 +63,9 @@ SRC_URI = "file://inc/openqti.h \
            file://src/dms_client.c \
            file://src/voice_client.c \
            file://src/nas_client.c \
+           file://src/pdc_client.c \
+           file://src/ims_client.c \
+           file://src/mdm_fs_client.c \
            file://src/audio2text.c \
            file://src/chat_helpers.c \
            file://src/oqticonf.c \
@@ -75,7 +81,7 @@ FILES:${PN} += "/usr/share/thank_you/*"
 FILES:${PN} += "/opt/openqti/*"
 # Add -lpocketsphinx next to lpicotts to add speech to text to openqti
 do_compile() {
-    ${CC} ${LDFLAGS} -O2 -I inc/ src/chat_helpers.c src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
+    ${CC} ${LDFLAGS} -O2 -I inc/ src/ims_client.c src/mdm_fs_client.c src/pdc_client.c src/chat_helpers.c src/audio2text.c src/nas_client.c src/voice_client.c src/dms_client.c src/wds_client.c src/space_mon.c src/thermal.c src/config.c src/scheduler.c src/pico2aud.c src/qmi.c src/timesync.c src/call.c src/command.c src/proxy.c src/sms.c src/tracking.c src/helpers.c src/atfwd.c src/logger.c src/md5sum.c src/ipc.c src/audio.c src/mixer.c src/pcm.c src/openqti.c -o openqti -lpthread -lttspico
     ${CC} ${LDFLAGS} -O2 -I inc/ src/config.c src/oqticonf.c -o oqticonf
 }
 
@@ -112,5 +118,5 @@ do_install() {
 pkg_postinst:${PN}() {
    #!/bin/sh
    # echo "OQ:12345:respawn:/usr/bin/openqti -l" >> $D/etc/inittab
-   echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab
+  echo "OQ:12345:respawn:/usr/bin/openqti" >> $D/etc/inittab
 }
