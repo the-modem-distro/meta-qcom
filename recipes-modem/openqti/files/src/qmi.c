@@ -10,6 +10,9 @@
 #include "wds.h"
 #include "voice.h"
 #include "nas.h"
+#include "pdc.h"
+#include "mdm_fs.h"
+#include "ims.h"
 #include <endian.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -351,6 +354,65 @@ size_t write_to_qmi_port(void *buff, size_t bufsz) {
   return bytes_written;
 }
 
+/*** TEEEEESSTTIIIIIINNNNNGGGGGG   */
+int qmi_ctl_get_svc_availability() {
+  uint8_t *buff = malloc(sizeof(struct qmi_ctl_service_availability_request));
+  struct qmi_ctl_service_availability_request *request = NULL;
+
+  request = (struct client_alloc_request *)buff;
+  request->qmux.version = 0x01;
+  request->qmux.packet_length = sizeof(struct qmi_ctl_service_availability_request) -1;
+  request->qmux.service = 0x00;
+  request->qmux.instance_id = 0x00;
+
+  request->qmi.id = 0x06;
+  request->qmi.msgid = CONTROL_SERVICE_GET_SVC_AVAIL_LIST;
+  request->qmi.size = sizeof (struct svc_avail_list);
+
+  if (write_to_qmi_port((void *)request, sizeof(struct qmi_ctl_service_availability_request)) <
+      sizeof(struct qmi_ctl_service_availability_request)) {
+    logger(MSG_ERROR, "%s: Request failed\n", __func__);
+    free(buff);
+    return -ENOMEM;
+  }
+  logger(MSG_INFO, "%s: Message sent!\n", __func__);
+  memset(buff, 0, 1024);
+  free(buff);
+  return 0;
+}
+
+
+int qmi_ctl_set_svc_availability_for_req() {
+  uint8_t *buff = malloc(sizeof(struct qmi_ctl_set_service_availability));
+  struct qmi_ctl_set_service_availability *request = NULL;
+
+  request = (struct client_alloc_request *)buff;
+  request->qmux.version = 0x01;
+  request->qmux.packet_length = sizeof(struct qmi_ctl_set_service_availability) -1;
+  request->qmux.service = 0x00;
+  request->qmux.instance_id = 0x00;
+
+  request->qmi.id = 0x06;
+  request->qmi.msgid = CONTROL_SERVICE_SET_SVC_AVAIL_LIST;
+  request->qmi.size = sizeof (struct svc_avail_list);
+
+  request->service.id = 0x01;
+  request->service.len = 32;
+  for (uint8_t i = 0; i < 32; i++) {
+    request->service.svc[i] = i;
+  }
+  if (write_to_qmi_port((void *)request, sizeof(struct qmi_ctl_set_service_availability)) <
+      sizeof(struct qmi_ctl_set_service_availability)) {
+    logger(MSG_ERROR, "%s: Request failed\n", __func__);
+    free(buff);
+    return -ENOMEM;
+  }
+  logger(MSG_INFO, "%s: Message sent!\n", __func__);
+  memset(buff, 0, 1024);
+  free(buff);
+  return 0;
+}
+
 int allocate_qmi_client(uint8_t service) {
   uint8_t *buff = malloc(1024 * sizeof(uint8_t));
   struct client_alloc_request *request = NULL;
@@ -367,17 +429,17 @@ int allocate_qmi_client(uint8_t service) {
 
   request->service.id = 0x01;
   request->service.len = 0x01;
-  request->service.service_id = service; // 0x02 -> dms
+  request->service.service_id = service;
   if (write_to_qmi_port((void *)request, sizeof(struct client_alloc_request)) <
       sizeof(struct client_alloc_request)) {
     logger(MSG_ERROR, "%s: Allocation failed\n", __func__);
+    free(buff);
     return -ENOMEM;
   }
   memset(buff, 0, 1024);
   free(buff);
   return 0;
 }
-
 /*
  * Returns either 1 or 0 if there's a pending message to deliver
  * to the baseband
@@ -512,6 +574,32 @@ int send_pending_internal_qmi_messages() {
           clear_message_for_service(i);
           break;
 
+        case QMI_SERVICE_PDC: // Persistent Device Configuration Service
+          logger(MSG_INFO, "%s: Pending message for PDC\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message,
+                               internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message,
+                            internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+
+        case QMI_SERVICE_MDMFS: // Persistent Device Configuration Service
+          logger(MSG_INFO, "%s: Pending message for MDM Filesystem\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message,
+                               internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message,
+                            internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
+        
+        case QMI_SERVICE_IMS_SETTINGS: // Persistent Device Configuration Service
+          logger(MSG_INFO, "%s: Pending message for IMS Settings service\n", __func__);
+          prepare_internal_pkt(internal_qmi_client.services[i].message,
+                               internal_qmi_client.services[i].message_len);
+          write_to_qmi_port(internal_qmi_client.services[i].message,
+                            internal_qmi_client.services[i].message_len);
+          clear_message_for_service(i);
+          break;
         default:
           logger(MSG_ERROR, "%s: Unknown service %.2x, discarding the flag\n",
                  __func__, i);
@@ -582,8 +670,8 @@ int handle_incoming_qmi_control_message(uint8_t *buf, size_t buf_len) {
       if (response->result.response == 0x00 &&
           response->result.result == 0x00) {
         logger(MSG_INFO,
-               "%s: Yesss we allocated or client, instance ID: %.2x\n",
-               __func__, response->instance.instance_id);
+               "%s: Client allocation succeeded: Service %.2x, instance %.2x\n",
+               __func__, response->instance.service_id, response->instance.instance_id);
         internal_qmi_client.services[response->instance.service_id].service =
             response->instance.service_id;
         internal_qmi_client.services[response->instance.service_id].instance =
@@ -594,8 +682,13 @@ int handle_incoming_qmi_control_message(uint8_t *buf, size_t buf_len) {
             .is_initialized = 1;
       }
     } else {
-      logger(MSG_ERROR, "%s: Invalid allocation response: %u bytes\n", __func__,
+      logger(MSG_ERROR, "%s: Client allocation failed: %u bytes\n", __func__,
              buf_len);
+      pretty_print_qmi_pkt("ALLOC: Baseband --> Host", buf, buf_len);
+        internal_qmi_client.services[QMI_SERVICE_MDMFS].is_initialized = 1;
+      //    qmi_ctl_set_svc_availability_for_req();
+      //    qmi_ctl_get_svc_availability();
+
     }
     break;
   case CLIENT_RELEASE_REQ:
@@ -604,6 +697,7 @@ int handle_incoming_qmi_control_message(uint8_t *buf, size_t buf_len) {
   default:
     logger(MSG_INFO, "%s: Unhandled message for CTL Service: %.4x\n", __func__,
            get_control_message_id(buf, buf_len));
+     pretty_print_qmi_pkt("CTL: Baseband --> Host", buf, buf_len);
     break;
   }
   return 0;
@@ -629,6 +723,15 @@ void dispatch_incoming_qmi_message(uint8_t *buf, size_t buf_len) {
     break;
   case QMI_SERVICE_NAS:
     handle_incoming_nas_message(buf, buf_len);
+    break;  
+  case QMI_SERVICE_PDC:
+    handle_incoming_pdc_message(buf, buf_len);
+    break;  
+  case QMI_SERVICE_IMS_SETTINGS:
+    handle_incoming_ims_message(buf, buf_len);
+    break;
+    case QMI_SERVICE_MDMFS:
+    handle_incoming_mdmfs_message(buf, buf_len);
     break;
   default:
     logger(MSG_WARN, "%s: Unhandled target service: %.2x\n", __func__, service);
@@ -734,8 +837,11 @@ void *start_service_initialization_thread() {
   register_to_nas_service();
   register_to_voice_service();
   dms_retrieve_modem_info();
-
+  register_to_pdc_service();
+  register_to_ims_service();
+//  register_to_mdmfs_service();
   /* oneshot */
   init_internal_networking();
+
   return NULL;
 }
