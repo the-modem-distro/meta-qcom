@@ -288,15 +288,38 @@ typedef enum {
   QMI_SERVICE_IMS_SETTINGS = 0x12,
   QMI_SERVICE_ADCD = 0x13,
   QMI_SERVICE_SOUND = 0x14,
-  QMI_SERVICE_EFS = 0x15,
+  QMI_SERVICE_MDMFS = 0x15,
   QMI_SERVICE_TIME = 0x16,
   QMI_SERVICE_THERMAL_SENSORS = 0x17,
   QMI_SERVICE_THERMAL_MITIGATION = 0x18,
   QMI_SERVICE_SAP = 0x19, // Service Access Proxy  
-
+  QMI_SERVICE_PDC = 0x24, // dec36, ipch
   QMI_SERVICES_LAST = 0xff,
 } QMI_Service;
 
+enum {
+	 CONTROL_SERVICE_SET_INSTANCE_ID = 0x0020, 
+	 CONTROL_SERVICE_GET_VERSION_INFO = 0x0021, 
+	 CONTROL_SERVICE_GET_CLIENT_ID = 0x0022, 
+	 CONTROL_SERVICE_RELEASE_CLIENT_ID = 0x0023, 
+	 CONTROL_SERVICE_REVOKE_CLIENT_ID_IND = 0x0024, 
+	 CONTROL_SERVICE_INVALID_CLIENT_ID_IND = 0x0025, 
+	 CONTROL_SERVICE_SET_DATA_FORMAT = 0x0026, 
+	 CONTROL_SERVICE_SYNC = 0x0027, 
+	 CONTROL_SERVICE_SYNC_IND = 0x0027, 
+	 CONTROL_SERVICE_REG_PWR_SAVE_MODE = 0x0028, 
+	 CONTROL_SERVICE_PWR_SAVE_MODE_IND = 0x0028, 
+	 CONTROL_SERVICE_CONFIG_PWR_SAVE_SETTINGS = 0x0029, 
+	 CONTROL_SERVICE_SET_PWR_SAVE_MODE = 0x002A, 
+	 CONTROL_SERVICE_GET_PWR_SAVE_MODE = 0x002B, 
+	 CONTROL_SERVICE_CONFIGURE_RESPONSE_FILTERING_IN_PWR_SAVE = 0x002C, 
+	 CONTROL_SERVICE_GET_RESPONSE_FILTERING_SETTING_IN_PWR_SAVE = 0x002D, 
+	 CONTROL_SERVICE_SET_SVC_AVAIL_LIST = 0x002E, 
+	 CONTROL_SERVICE_GET_SVC_AVAIL_LIST = 0x002F, 
+	 CONTROL_SERVICE_SET_EVENT_REPORT = 0x0030, 
+	 CONTROL_SERVICE_SVC_AVAIL_IND = 0x0031, 
+	 CONTROL_SERVICE_CONFIG_PWR_SAVE_SETTINGS_EXT = 0x0032, 
+};
 
 struct qmi_service_bindings {
   uint8_t service;
@@ -449,6 +472,24 @@ struct client_alloc_response {
   struct ctl_qmi_packet qmi;
   struct qmi_generic_result_ind result;
   struct qmi_service_instance_pair instance;
+} __attribute__((packed));
+
+/* Service availability */
+struct svc_avail_list {
+  uint8_t id; // 0x01
+  uint16_t len; // 255
+  uint8_t svc[32]; // We're going to request all of them
+} __attribute__((packed));
+
+struct qmi_ctl_set_service_availability {
+  struct qmux_alloc_pkt qmux;
+  struct qmi_ctl_alloc_request qmi;
+  struct svc_avail_list service;
+} __attribute__((packed));
+
+struct qmi_ctl_service_availability_request {
+  struct qmux_alloc_pkt qmux;
+  struct qmi_ctl_alloc_request qmi;
 } __attribute__((packed));
 
 uint8_t get_qmux_service_id(void *bytes, size_t len);
