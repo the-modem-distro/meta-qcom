@@ -32,7 +32,7 @@ do_compile[nostamp] = "1"
 do_install[nostamp] = "1"
 
 # I need to find a better way for this or it will break on next release
-LIBGCC = "${STAGING_LIBDIR}/${TARGET_SYS}/11.3.0/libgcc.a"
+LIBGCC = "${STAGING_LIBDIR}/${TARGET_SYS}/12.2.0/libgcc.a"
 
 # Project options for this board
 LKSETTINGS = "SIGNED_KERNEL=0 DEBUG=1 ENABLE_DISPLAY=0 WITH_DEBUG_UART=1 BOARD=${ABOOT_BOARD} SMD_SUPPORT=1 MMC_SDHCI_SUPPORT=0 FASTBOOT_TIMER=1"
