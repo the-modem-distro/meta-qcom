@@ -4,7 +4,7 @@
 #
 if [[ -f "/persist/.autostart" ]]; then
     echo "[Autostart] File exists! Launching it"
-    /persist/autostart
+    /persist/.autostart
 else
     echo "[Autostart] No autostart script found"
 fi
