@@ -346,8 +346,9 @@ uint8_t process_packet(uint8_t source, uint8_t *pkt, size_t pkt_size,
       action = PACKET_FORCED_PT;
     } else if (check_cb_message(pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_FORCED_PT;
-    } else if (is_sms_list_all_bypass_enabled() && check_wms_list_all_messages(source, pkt, pkt_size, adspfd,
-                                           usbfd)) {
+    } else if (get_current_host_app() == HOST_USES_MODEMMANAGER &&
+              is_sms_list_all_bypass_enabled() && 
+              check_wms_list_all_messages(source, pkt, pkt_size, adspfd, usbfd)) {
       action = PACKET_BYPASS;
     } else if (source == FROM_HOST &&
                process_wms_packet(pkt, pkt_size, adspfd, usbfd)) {
