@@ -298,7 +298,6 @@ enum  {
     IMS_GET_SETTINGS_SIP_KEEPALIVE_ENABLED = 0x1a, //U8
     IMS_GET_SETTINGS_SIP_NAT_RTO_TIMER = 0x1b, // u32
     IMS_GET_SETTINGS_SIP_TIMER_OPERATOR_MODE = 0x1c, // U32
-
 };
 
 const char *get_ims_command(uint16_t msgid);

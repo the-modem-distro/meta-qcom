@@ -945,14 +945,14 @@ int build_and_send_message(int fd, uint32_t message_id) {
    * tm_year should return number of years from 1900
    * If time hasn't synced yet it will say we're in
    * the 70s, so we don't know the correct date yet
-   * In this case, we fall back to 2022, otherwise
+   * In this case, we fall back to 2024, otherwise
    * the message would be end up being shown as
    * received in 2070.
    */
   if (tm.tm_year > 100) {
     tmpyear = tm.tm_year - 100;
   } else {
-    tmpyear = 22;
+    tmpyear = 24;
   }
   /* DATE TIME */
   this_sms->data.date.year = swap_byte(tmpyear);

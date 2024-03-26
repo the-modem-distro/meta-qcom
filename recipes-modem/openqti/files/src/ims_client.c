@@ -29,15 +29,15 @@ const char *get_ims_command(uint16_t msgid) {
       return ims_svc_commands[i].cmd;
     }
   }
-  return "MDM_FS: Unknown command\n";
+  return "IMSD: Unknown command\n";
 }
 /*
-int mdmfs_request_read_file(uint8_t *path) {
+int imsd_request_read_file(uint8_t *path) {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
                    sizeof(struct modemfs_path) + strlen((char*)path);
   uint8_t *pkt = malloc(pkt_len);
   memset(pkt, 0, pkt_len);
-  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_MDMFS, 0) < 0) {
+  if (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_IMS, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
     return -EINVAL;
@@ -54,24 +54,24 @@ int mdmfs_request_read_file(uint8_t *path) {
   memcpy(filepath->path, path, filepath->len);
 
 
-  add_pending_message(QMI_SERVICE_MDMFS, (uint8_t *)pkt, pkt_len);
+  add_pending_message(QMI_SERVICE_IMS, (uint8_t *)pkt, pkt_len);
 
   free(pkt);
     return 0;
 }
 */
 /*
-int mdmfs_demo_read() {
+int imsd_demo_read() {
     char demopath[]= "/nv/item_files/modem/mmode/sms_domain_pref";
-    mdmfs_request_read_file((uint8_t *)demopath);
+    imsd_request_read_file((uint8_t *)demopath);
   return 0;
 }
 */
 /*
-int mdmfs_request_config_list() {
+int imsd_request_config_list() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
-                   sizeof(struct mdmfs_indication_key) + sizeof(struct
-mdmfs_setting_type); uint8_t *pkt = malloc(pkt_len); memset(pkt, 0, pkt_len); if
+                   sizeof(struct imsd_indication_key) + sizeof(struct
+imsd_setting_type); uint8_t *pkt = malloc(pkt_len); memset(pkt, 0, pkt_len); if
 (build_qmux_header(pkt, pkt_len, 0x00, QMI_SERVICE_PDC, 0) < 0) {
     logger(MSG_ERROR, "%s: Error adding the qmux header\n", __func__);
     free(pkt);
@@ -84,12 +84,12 @@ mdmfs_setting_type); uint8_t *pkt = malloc(pkt_len); memset(pkt, 0, pkt_len); if
     return -EINVAL;
   }
   size_t curr_offset = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
-  struct mdmfs_indication_key *key = (struct mdmfs_indication_key *)(pkt +
+  struct imsd_indication_key *key = (struct imsd_indication_key *)(pkt +
 curr_offset); key->id = 0x10; key->len = sizeof(uint32_t); key->key =
 0xdeadbeef;
 
-  curr_offset += sizeof(struct mdmfs_indication_key);
-  struct mdmfs_setting_type *config_type = (struct mdmfs_setting_type *)(pkt +
+  curr_offset += sizeof(struct imsd_indication_key);
+  struct imsd_setting_type *config_type = (struct imsd_setting_type *)(pkt +
 curr_offset); config_type->id = 0x11; config_type->len = sizeof(uint32_t);
   config_type->data = PDC_CONFIG_SW;
 
@@ -207,6 +207,13 @@ int ims_process_config_response(uint8_t *buf, size_t buf_len) {
 
   return 0;
 }
+ /*
+  * Before we can use (or step over) hexagon's IMS service
+  * We need a data session. So we're going to build it like
+  * the WDS service
+  *
+  *
+  */
 
 /*
  * Reroutes messages from the internal QMI client to the service

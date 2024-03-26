@@ -60,6 +60,10 @@ int set_initial_config() {
   settings->first_boot = false;
   snprintf(settings->user_name, MAX_NAME_SZ, "Admin");
   snprintf(settings->modem_name, MAX_NAME_SZ, "Modem");
+  settings->ims_attempt_enable = 0;
+  settings->ims_vt_support = 0;
+  settings->ims_rtp_support = 0;
+  settings->ims_sms_support = 0;
   return 0;
 }
 
@@ -186,6 +190,49 @@ int parse_line(char *buf) {
     settings->apn_auth_method = atoi(value);
     return 1;
   }
+
+
+  if (strcmp(setting, "ims_apn_addr") == 0) {
+    snprintf(settings->ims_apn_addr, MAX_APN_FIELD_SZ, "%s", value);
+    settings->ims_apn_addr[strlen(settings->ims_apn_addr)] = 0;
+    return 1;
+  }
+
+
+  if (strcmp(setting, "ims_apn_username") == 0) {
+    snprintf(settings->ims_apn_username, MAX_APN_FIELD_SZ, "%s", value);
+    settings->ims_apn_username[strlen(settings->ims_apn_username)] = 0;
+    return 1;
+  }
+
+
+  if (strcmp(setting, "ims_apn_password") == 0) {
+    snprintf(settings->ims_apn_password, MAX_APN_FIELD_SZ, "%s", value);
+    settings->ims_apn_password[strlen(settings->ims_apn_password)] = 0;
+    return 1;
+  }
+
+  if (strcmp(setting, "ims_attempt_enable") == 0) {
+    settings->ims_attempt_enable = atoi(value);
+    return 1;
+  }
+
+  if (strcmp(setting, "ims_vt_support") == 0) {
+    settings->ims_vt_support = atoi(value);
+    return 1;
+  }
+
+  if (strcmp(setting, "ims_rtp_support") == 0) {
+    settings->ims_rtp_support = atoi(value);
+    return 1;
+  }
+
+  if (strcmp(setting, "ims_sms_support") == 0) {
+    settings->ims_sms_support = atoi(value);
+    return 1;
+  }
+
+
   return 0;
 }
 
@@ -227,11 +274,6 @@ int write_settings_to_storage() {
   fprintf(fp, "apn_username=%s\n", settings->apn_username);
   fprintf(fp, "apn_password=%s\n", settings->apn_password);
 
-
-
-
-
-
   logger(MSG_DEBUG, "%s: Close\n", __func__);
   fclose(fp);
   do_sync_fs();
@@ -244,6 +286,7 @@ int write_settings_to_storage() {
   }
   return 0;
 }
+
 int write_boot_counter_file(int failed_boots) {
   FILE *fp;
   set_persistent_partition_rw();
@@ -659,3 +702,21 @@ void set_internal_network_auth_method(uint8_t method) {
   }
   write_settings_to_storage();
 }
+
+/* IMSG Getters */
+char *get_ims_network_apn_name() {
+  return settings->ims_apn_addr;
+}
+
+char *get_ims_network_username() {
+  return settings->ims_apn_username;
+}
+
+char *get_ims_network_pass() {
+  return settings->ims_apn_password;
+}
+
+uint8_t is_ims_enabled() { return settings->ims_attempt_enable; }
+uint8_t is_ims_vt_support_enabled() { return settings->ims_vt_support; }
+uint8_t is_ims_rtp_support_enabled() { return settings->ims_rtp_support; }
+uint8_t is_ims_sms_support_enabled() { return settings->ims_sms_support; }

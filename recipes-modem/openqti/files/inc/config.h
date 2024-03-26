@@ -36,6 +36,15 @@ struct config_prototype {
   char apn_username[MAX_APN_FIELD_SZ];
   char apn_password[MAX_APN_FIELD_SZ];
   // IPv6 is not currently supported, but I'll have to look into it
+  // IMS Testing
+  char ims_apn_addr[MAX_APN_FIELD_SZ];
+  char ims_apn_username[MAX_APN_FIELD_SZ];
+  char ims_apn_password[MAX_APN_FIELD_SZ];
+  uint8_t ims_attempt_enable;
+  uint8_t ims_vt_support;
+  uint8_t ims_rtp_support;
+  uint8_t ims_sms_support;
+
 }; 
 
 /* 
@@ -122,4 +131,16 @@ uint8_t get_dump_network_tables_config();
 void enable_dump_network_tables(bool en);
 char *get_rt_modem_name();
 char *get_rt_user_name();
+
+
+/* Internal IMS client */
+/* We don't want setters right now */
+char *get_ims_network_apn_name();
+char *get_ims_network_username();
+char *get_ims_network_pass();
+uint8_t is_ims_enabled();
+uint8_t is_ims_vt_support_enabled();
+uint8_t is_ims_rtp_support_enabled();
+uint8_t is_ims_sms_support_enabled();
+
 #endif

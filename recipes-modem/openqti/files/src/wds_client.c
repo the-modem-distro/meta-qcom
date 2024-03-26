@@ -25,14 +25,11 @@
 #include "wds.h"
 #include <net/if.h>
 
-// #define DEBUG_WDS 1
-
 struct {
   uint8_t in_progress;
   uint8_t mux_state;
   uint8_t user_ordered_stop;
   uint32_t pkt_data_handle;
-
 } wds_runtime;
 
 void reset_wds_runtime() {
@@ -76,6 +73,7 @@ void notify_network_up() {
       snprintf((char *)reply, MAX_MESSAGE_SIZE, "Network connection is ready!");
   add_message_to_queue(reply, strsz);
 }
+
 /*
 int wds_sample_req_func() {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet);
@@ -109,6 +107,7 @@ void wds_sample_handle_func(uint8_t *buf, size_t buf_len) {
 }
 
 */
+
 int wds_set_autoconnect(uint8_t enable) {
   size_t pkt_len = sizeof(struct qmux_packet) + sizeof(struct qmi_packet) +
                    sizeof(struct qmi_generic_uint8_t_tlv);

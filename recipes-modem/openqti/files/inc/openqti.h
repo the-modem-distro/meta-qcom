@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: MIT */
 
-#ifndef _MODEMHANDLER_H_
-#define _MODEMHANDLER_H_
+#ifndef __OPENQTI_H__
+#define __OPENQTI_H__
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#define RELEASE_VER "0.7.5"
+#define RELEASE_VER "0.8.0"
 
 #define MSG_DEBUG 0
 #define MSG_INFO 1
