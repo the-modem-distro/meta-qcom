@@ -1518,7 +1518,7 @@ void cmd_configure_signal_tracking_cell_notification(uint8_t *command) {
   }
   if (changed) {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
-                     "Cell ID change notificaitons: %s \n", word);
+                     "Cell ID change notifications: %s \n", word);
   } else {
     strsz = snprintf((char *)reply, MAX_MESSAGE_SIZE,
                      "Unknown Cell ID change notification mode!\n");
